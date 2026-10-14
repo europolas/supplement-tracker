@@ -94,3 +94,5 @@ html .bottom-sheet { position:fixed;inset:auto 0 auto;top:var(--app-height, 100d
 .bottom-sheet::-webkit-scrollbar { display:none; }
 .bottom-sheet [data-sheet-handle] { height:24px;display:grid;place-items:center;touch-action:none;cursor:grab; }
 .bottom-sheet [data-sheet-handle]::before { content:'';width:36px;height:4px;border-radius:4px;background:currentColor;opacity:.2; }
+
+.bottom-sheet [data-sheet-drag] { touch-action:pan-x; }

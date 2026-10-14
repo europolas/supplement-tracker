@@ -39,7 +39,7 @@
   <footer><span>supplement.</span><span id="app-version"></span></footer>
  </main>
  <dialog id="route-dialog" class="app-dialog route-dialog" aria-labelledby="route-title">
-  <div data-sheet-handle aria-hidden="true"></div><div class="sheet-toolbar"><h2 id="route-title" tabindex="-1" autofocus data-sheet-focus></h2><button type="button" class="icon-button" data-sheet-close aria-label="Close" data-i18n-aria-label="appClose"><span data-icon="close" aria-hidden="true"></span></button></div>
+  <div data-sheet-handle aria-hidden="true"></div><div class="sheet-toolbar" data-sheet-drag><h2 id="route-title" tabindex="-1" autofocus data-sheet-focus></h2><button type="button" class="icon-button" data-sheet-close aria-label="Close" data-i18n-aria-label="appClose"><span data-icon="close" aria-hidden="true"></span></button></div>
   <section data-screen="/detail" hidden>
 <div id="supplement-detail"></div>
   </section>
@@ -57,11 +57,11 @@ every day.</h1></div>
   <div id="preferences" class="surface preferences" hidden><h2 data-i18n="settings">Settings</h2><form id="settings-form"><div class="preferences-grid"><label><span data-i18n="language">Language</span><select name="language"><option value="en">English</option><option value="lt">Lietuvių</option></select></label><label><span data-i18n="theme">Theme</span><select name="theme"><option value="light" data-i18n="light">Light</option><option value="dark" data-i18n="dark">Dark</option><option value="system" data-i18n="system">System</option></select></label></div><button class="secondary" type="submit" data-i18n="save">Save</button></form></div>
  </dialog>
  <dialog id="group-dialog" class="app-dialog" aria-labelledby="group-form-title"><div data-sheet-handle aria-hidden="true"></div><button class="icon-button group-close" type="button" data-sheet-close aria-label="Close" data-i18n-aria-label="appClose"><span data-icon="close" aria-hidden="true"></span></button>
-   <div class="group-editor"><h2 tabindex="-1" autofocus data-sheet-focus id="group-form-title" data-i18n="appNewGroup">New group</h2>
+   <div class="group-editor"><h2 data-sheet-drag tabindex="-1" autofocus data-sheet-focus id="group-form-title" data-i18n="appNewGroup">New group</h2>
     <form id="group-form"><input name="id" type="hidden"><label><span data-i18n="appGroupName">Group name</span><input name="name" maxlength="120" required></label><label><span data-i18n="appGroupDescription">Description (optional)</span><textarea name="description" maxlength="500" rows="2"></textarea></label><div class="button-row"><button class="primary" type="submit" data-i18n="save">Save</button><button type="button" id="cancel-group" class="secondary" data-i18n="Cancel" hidden>Cancel</button></div></form>
    </div> </dialog>
  <dialog id="add-dialog" class="app-dialog add-dialog" aria-labelledby="add-title">
-  <div data-sheet-handle aria-hidden="true"></div><div class="dialog-heading"><div><h2 tabindex="-1" autofocus data-sheet-focus id="add-title" data-i18n="appAdd">Add supplement</h2></div><button type="button" id="close-add" class="icon-button" aria-label="Close" data-i18n-aria-label="appClose"><span data-icon="close" aria-hidden="true"></span></button></div>
+  <div data-sheet-handle aria-hidden="true"></div><div class="dialog-heading" data-sheet-drag><div><h2 tabindex="-1" autofocus data-sheet-focus id="add-title" data-i18n="appAdd">Add supplement</h2></div><button type="button" id="close-add" class="icon-button" aria-label="Close" data-i18n-aria-label="appClose"><span data-icon="close" aria-hidden="true"></span></button></div>
   <form id="analyze-form"><fieldset>
    <label><span data-i18n="appFullName">Full supplement name</span><input name="name" maxlength="250" autocomplete="off"></label>
    <div class="or-line" data-i18n="appOrPhoto">or add a photo of the label</div>

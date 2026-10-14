@@ -114,3 +114,20 @@ details,summary { color:var(--ink);border-color:var(--line); }
 .upload-job progress { width:100%;height:6px;accent-color:var(--green); }.upload-job-result { margin-bottom:12px; }.upload-job-result h3 { font-size:12px; }.upload-job-result ul { padding-left:18px;font-size:12px;line-height:1.7; }.upload-job-result button { font-size:12px; }
 
 .home-report { border:0;padding:0;margin:0 0 16px;font-size:12px; }.home-report>summary { padding:10px 0;color:var(--muted); }.home-report .analysis-results { margin-bottom:0; }
+/* Compact product hierarchy: keep brand/benefit separate from the actual name. */
+.supplement-table td:first-child { width:48px; }
+.supplement-table { border-top:1px solid var(--line); }
+.group-heading h2 { margin-bottom:0; }
+.supplement-open .product-manufacturer { display:inline;font-size:inherit;font-weight:650;color:var(--muted); }
+.detail-section .product-subtitle { margin:0 0 18px;font-size:12px;line-height:1.6; }
+.product-subtitle b { font-weight:600; }
+.detail-name { margin-top:0;margin-bottom:8px; }
+.group-badge { margin-bottom:18px; }
+.product-sheet .sheet-toolbar { min-height:44px;margin-bottom:4px;padding:0;justify-content:flex-end; }
+.product-sheet #route-title { display:none; }
+/* Give the grip a generous hit area; titles also accept downward touch gestures. */
+.bottom-sheet [data-sheet-handle] { height:32px; }
+[data-sheet-drag] { touch-action:pan-x; }
+[data-sheet-focus]:focus:not(:focus-visible),.product-sheet #route-title:focus { outline:none; }
+
+[data-sheet-focus]:focus { outline:none; }

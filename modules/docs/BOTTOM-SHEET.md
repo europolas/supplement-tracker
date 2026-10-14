@@ -4,7 +4,7 @@
 with the opt-in `.bottom-sheet` styles in base.css. Supply an accessible name through
 aria-labelledby and a visible close button marked data-sheet-close. A non-input
 heading with tabindex=-1, autofocus and data-sheet-focus avoids opening the keyboard
-on presentation. An optional data-sheet-handle element supports downward swipes.
+on presentation. An optional data-sheet-handle or data-sheet-drag header supports downward swipes.
 
 ```js
 import { createBottomSheet } from './modules/index.js';
@@ -17,8 +17,10 @@ sheet.destroy();
 ```
 
 Native modal focus containment makes the background inert and returns focus on
-close. Escape, close buttons and handle swipes request dismissal. Content scrolling
-never triggers it; backdrop taps do not discard work. Reduced-motion preference
+close. Escape, close buttons and handle swipes request dismissal. A downward swipe on noninteractive content at scrollTop=0 also dismisses;
+upward movement and scrolled content retain normal scrolling. Mark a larger header
+with data-sheet-drag to allow dismissal even when scrolled. iOS touchmove is
+non-passive only to intercept eligible downward pulls before Safari cancels pointer events; backdrop taps do not discard work. Reduced-motion preference
 skips animations. Rapid reopen cancels a pending close. No window observers/timers,
 private persistence or document-wide event handlers are introduced.
 

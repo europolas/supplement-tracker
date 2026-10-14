@@ -38,10 +38,10 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker 0.8.0
+## Supplement Tracker 0.8.1
 
 Read README.md and server/ANALYSIS.md for research/schema 1.4, provenance, serving
-units and EU adult label NRV policy. modules/ is 1.9.0. App state is now account-scoped through the isolated
+units and EU adult label NRV policy. modules/ is 1.10.0. App state is now account-scoped through the isolated
 Node API/MariaDB in server/. Never use the production DB for regression tests:
 server/scripts/test-isolated.sh provisions a disposable database instance. Initial
 admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
@@ -120,9 +120,9 @@ Detail initially shows dose, benefits, compatibility and timing only. Secondary
 metadata/evidence and management actions live in native details/summary. Preserve
 expansion for the same product during redraws, never across products/accounts.
 Dose fallback qualification and stale compatibility stay in the relevant primary
-section; do not expose draft dosage as verified. No backend or AI changes in 0.8.0.
+section; do not expose draft dosage as verified. No backend or AI changes in 0.8.1.
 
-0.8.0 uses canonical bottom-sheet (library 1.9.0). Keep main as the underlying tab
+0.8.1 uses canonical bottom-sheet (library 1.10.0). Keep main as the underlying tab
 scroller; native route-dialog hosts account/details and returns to baseRoute. Do not
 hide/clear the outgoing sheet contents before the close animation completes. All
 new sheet actions preserve existing in-memory drafts until explicit save/logout.
@@ -130,3 +130,10 @@ Group creation/edit uses group-dialog. The upload queue stays in add-dialog and
 Home's latest report is a collapsed disclosure. Never synthesize dose quantities;
 unknown/draft primary dose is a localized small italic label. Use native modal focus
 isolation, opt-in sheet confirmations, reduced motion and shared --app-height.
+
+0.8.1 uses productLabel to split display-only titles, manufacturer and explicit
+trailing label variant. Do not mutate stored identities or infer strength from
+nutrient/serving data. Home has no group-benefit or table-heading row. Keep each
+product's manufacturer bold and benefit regular in the same muted metadata line.
+Touch dismissal is handled through non-passive touchmove in bottom-sheet; do not
+regress to handle-only pointerup (Safari cancels pointers during native scrolling).

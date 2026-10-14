@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.8.0
+# Supplement Tracker · 0.8.1
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.9.0.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.10.0.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -160,7 +160,7 @@ trial regimens, upper limits and EU label NRVs must never become default doses.
 Fallback amounts do not fill label servings, ingredient amounts or NRV daily math.
 Old analyses remain readable; explicit detail refresh obtains the new dose lookup.
 
-## Compact supplement detail (0.8.0)
+## Compact supplement detail (0.8.1)
 
 The initial detail view contains dose (with qualified fallback when available),
 benefits, full compatibility and timing. A native, keyboard-accessible More/Less
@@ -171,7 +171,7 @@ redraws for the same product but resets for another product or sign-out; it is n
 persisted. A stale compatibility notice remains with compatibility so its meaning
 is clear. Draft doses stay pending until detailed research is ready.
 
-## Design A and sheets (0.8.0)
+## Design A and sheets (0.8.1)
 
 The Sage mockup now drives the complete UI: warm paper, sage buttons and completion
 rows, a serif wordmark/titles, a real daily progress ring and integrated group cards.
@@ -192,3 +192,17 @@ manufacturer directions and qualified adult fallback amounts retain their meanin
 No model prompts, accounts, production API or database data changed in this release.
 Browser checks cover EN/LT, themes, drafts, navigation, focus, disclosures and unknown
 dose. Desktop/WebKit checks cannot replace a final installed-iPhone hardware review.
+
+0.8.1 tightens the product hierarchy: Home group descriptions/column-heading rows
+are removed. Each product has a title, then a bold manufacturer and regular short
+benefit on one muted line. Details start with that same clean title and separate
+manufacturer/explicit label strength/form. productLabel is presentation only:
+source names and research records stay unchanged; no strength is derived from doses.
+The previous extra supplement wordmark is removed from the product sheet.
+
+Downward dismissal accepts the full sheet header and noninteractive content at its
+scroll top. iOS uses a non-passive touchmove path, because Safari can cancel native
+pointer scrolling. Downward pulls within an already scrolled document scroll as
+normal; inputs/buttons and upward movement never dismiss. The grabber still works
+with a mouse. Both synthetic gesture isolation and real Chromium touch input are
+covered; final installed-iPhone behavior requires the actual device.

@@ -4,7 +4,7 @@
  */
 import {createConfig,createStorage,createSettings,createTheme,createI18n,createRouter,createToast,
  bindForm,trackDirty,setupViewport,setupGestures,setupPwa,watchNetwork,createAuth,setupAccount,
- element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet} from './modules/index.js';
+ element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet,productLabel} from './modules/index.js';
 // Local presentation icons use fixed SVG paths, never server/model markup.
 const iconPaths={
  user:'M20 21v-2a7 7 0 0 0-14 0v2 M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
@@ -96,17 +96,17 @@ function renderHome(){
   const rows=state.supplements.filter(item=>item.group_id===group.id);
   const section=element('section',{className:'group-block'}),head=element('div',{className:'group-heading'}),labels=element('div');
   const groupIcon=element('span',{className:'group-symbol'});groupIcon.append(icon(groupSymbol(group.name)));head.append(groupIcon);labels.append(heading(group.name));
-  const benefit=compactText(group.description||[...new Set(rows.map(item=>item.analysis.benefitSummary||item.analysis.benefits?.[0]||''))].filter(Boolean).slice(0,3).join(' · ')||i18n.t('appNoGroupBenefits'),{maxWords:10,maxLength:120});
-  labels.append(element('p',{text:benefit,className:'group-benefit'}));head.append(labels);if(group.id){const edit=button('',()=>openGroup(group),'group-edit');edit.setAttribute('aria-label',i18n.t('appEdit')+': '+group.name);edit.append(icon('chevron'));head.append(edit);}section.append(head);
-  const list=element('table',{className:'supplement-table'}),thead=element('thead'),headRow=element('tr');
-  headRow.append(element('th',{text:'✓',attributes:{scope:'col','aria-label':i18n.t('appTaken')}}),element('th',{text:i18n.t('appSupplement'),attributes:{scope:'col'}}));thead.append(headRow);list.append(thead);const body=element('tbody');list.append(body);
+  head.append(labels);if(group.id){const edit=button('',()=>openGroup(group),'group-edit');edit.setAttribute('aria-label',i18n.t('appEdit')+': '+group.name);edit.append(icon('chevron'));head.append(edit);}section.append(head);
+  const list=element('table',{className:'supplement-table',attributes:{'aria-label':group.name}}),body=element('tbody');list.append(body);
   if(!rows.length){const emptyRow=element('tr');emptyRow.append(element('td',{text:i18n.t('appGroupEmpty'),className:'group-empty',attributes:{colspan:'2'}}));body.append(emptyRow);}
   for(const item of rows){
    const row=element('tr',{className:'supplement-row'+(item.completed?' is-done':'')});row.dataset.id=item.id;
    const open=button('',()=>router.navigate('/detail?id='+encodeURIComponent(item.id)),'supplement-open');
-   open.append(element('strong',{text:item.name}));if(item.analysis.enrichment&&item.analysis.enrichment.status!=='complete')open.append(element('span',{text:i18n.t('appInfo_'+item.analysis.enrichment.status),className:'research-badge'}));
+   const label=productLabel({name:item.name,manufacturer:item.analysis.manufacturer,variant:item.analysis.variant});
+   open.append(element('strong',{text:label.name,className:'product-title'}));
    const summary=compactText(item.analysis.benefitSummary||item.analysis.benefits?.[0]||item.analysis.whenToUse);
-   if(summary)open.append(element('span',{text:summary,className:'summary'}));
+   const meta=element('span',{className:'summary'});if(label.manufacturer)meta.append(element('b',{text:label.manufacturer,className:'product-manufacturer'}));if(summary)meta.append(document.createTextNode((label.manufacturer?' · ':'')+summary));if(meta.textContent)open.append(meta);
+   if(item.analysis.enrichment&&item.analysis.enrichment.status!=='complete')open.append(element('span',{text:i18n.t('appInfo_'+item.analysis.enrichment.status),className:'research-badge'}));
 
    const check=button('',async()=>{if(check.disabled)return;check.disabled=true;await mutate(()=>api.request('/v1/supplements/'+item.id+'/completion',{method:'PUT',body:{completed:!(state.day===localDay()&&item.completed),timezone:zone()}}));check.disabled=false;},'check-button');
    check.setAttribute('aria-label',i18n.t(item.completed?'appUntake':'appTake',{name:item.name}));check.setAttribute('aria-pressed',String(item.completed));
@@ -152,7 +152,10 @@ function renderDetail(){
  const section=(key,name)=>{const node=element('section',{className:'detail-tile',attributes:{'data-detail-section':name}});node.append(icon({dose:'dose',benefits:'leaf',compatibility:'shield',timing:'clock'}[name]),heading(i18n.t(key),'h3'));primary.append(node);return node;};
  const prose=(target,value)=>{if(Array.isArray(value)){const list=element('ul');for(const text of value)list.append(element('li',{text}));target.append(list);}else target.append(element('p',{text:value}));};
  const assigned=state.groups.find(group=>group.id===item.group_id),badge=element('div',{className:'group-badge'});badge.append(icon(assigned?groupSymbol(assigned.name):'info'),element('span',{text:assigned?.name||i18n.t('appUnassigned')}));
- card.append(badge,element('h1',{text:item.name,className:'detail-name'}),primary);
+ const productInfo=productLabel({name:item.name,manufacturer:analysis.manufacturer,variant:analysis.variant});
+ card.append(element('h1',{text:productInfo.name,className:'detail-name',attributes:{id:'product-detail-title',tabindex:'-1','data-sheet-focus':'',autofocus:''}}));
+ const subtitle=element('p',{className:'product-subtitle'});if(productInfo.manufacturer)subtitle.append(element('b',{text:productInfo.manufacturer}));if(productInfo.variant)subtitle.append(document.createTextNode((productInfo.manufacturer?' · ':'')+productInfo.variant));if(subtitle.textContent)card.append(subtitle);
+ card.append(badge,primary);
  const dose=section('appDose','dose');
  const unknownDose=()=>dose.append(element('p',{className:'dose-unknown',children:[element('em',{text:i18n.t('appDoseUnknown')})]}));
  if(draft)unknownDose();
@@ -230,7 +233,7 @@ function renderAi(){
 function render(){
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
- get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'supplement.':i18n.t('appAccount');renderHome();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
+ get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t('appAccount');renderHome();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');
  renderReport('home-analysis-results',latestReport);renderUploadQueue();
 }
@@ -367,7 +370,7 @@ function showRoute(path){
  for(const section of document.querySelectorAll('main [data-screen]'))section.hidden=section.dataset.screen!==baseRoute;
  if(sheet)for(const section of get('route-dialog').querySelectorAll('[data-screen]'))section.hidden=section.dataset.screen!==path;
  for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===baseRoute)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
- if(sheet){get('preferences').hidden=path!=='/account';get('route-title').textContent=path==='/account'?i18n.t('appAccount'):'supplement.';}
+ if(sheet){get('preferences').hidden=path!=='/account';get('route-title').textContent=path==='/account'?i18n.t('appAccount'):'';get('route-dialog').classList.toggle('product-sheet',path==='/detail');get('route-dialog').setAttribute('aria-labelledby',path==='/detail'?'product-detail-title':'route-title');}
  get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();
  if(path==='/detail')renderDetail();
  if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open)get('supplement-detail').replaceChildren();});if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}

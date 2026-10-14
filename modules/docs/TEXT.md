@@ -16,3 +16,9 @@ stored, validated short summary; use this only to constrain display or support o
 records. Untrusted strings must still use textContent, never innerHTML. No resources,
 subscriptions, persistence or cleanup. Defaults are locale-independent; English and
 Lithuanian text are treated identically, without changing the saved language.
+
+`productLabel({name, manufacturer, variant})` returns presentation fields `name`,
+`manufacturer`, `variant`. It strips an explicit brand prefix (also NOW for NOW Foods)
+and moves a trailing strength/form or numeric packaging parentheses below the title.
+No serving math, AI calls, source mutation or medical inference occurs. Brand aliases
+are conservative; unknown qualifiers remain intact. Render each field with textContent.

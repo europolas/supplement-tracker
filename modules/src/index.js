@@ -42,3 +42,4 @@ export * from './daily-log.js';
 export * from './image-input.js';
 export * from './text.js';
 export * from './bottom-sheet.js';
+export * from './product-label.js';
