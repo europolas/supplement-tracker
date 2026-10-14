@@ -46,6 +46,9 @@ additional feature modules. Browser index exports do not include server/worker c
 | [server/auth](../server/AuthApi.mjs) | `AuthApi` | [BACKEND.md](BACKEND.md) |
 | [server/security](../server/security.mjs) | `` | [BACKEND.md](BACKEND.md) |
 | [server/migrations](../server/migrations.mjs) | `applyMigrations` | [BACKEND.md](BACKEND.md) |
+| [image-input](../src/image-input.js) | `prepareImage` | [AI.md](AI.md) |
+| [server/credential-vault](../server/credential-vault.mjs) | `createCredentialVault` | [AI.md](AI.md) |
+| [server/structured-chat](../server/structured-chat.mjs) | `createStructuredChat / ProviderError` | [AI.md](AI.md) |
 
 ## Lifecycle rule
 

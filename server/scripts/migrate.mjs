@@ -1,0 +1,19 @@
+/**
+ * Privileged provisioning CLI only. Validate identifiers, apply schema migrations and grant the application user DML only. Never expose this root-credential command as an HTTP route.
+ * See AGENTS.md and the reusable library docs/ARCHITECTURE.md.
+ */
+import mysql from 'mysql2/promise';
+import { readFileSync } from 'node:fs';
+import { applyMigrations } from '../src/migrations.mjs';
+const database = process.env.DB_NAME;
+const user = process.env.DB_USER;
+if (!/^[a-z][a-z0-9_]{2,31}$/.test(database) || !/^[a-z][a-z0-9_]{2,31}$/.test(user)) throw new Error('Invalid database identifiers');
+const connection = await mysql.createConnection({ host: 'db', user: 'root', password: readFileSync('/run/secrets/db_root', 'utf8').trim(), database, multipleStatements: true });
+try {
+  await applyMigrations(connection, [{ id: '001_accounts', sql: readFileSync('/app/schema.sql', 'utf8') }, { id: '002_tracker', sql: readFileSync('/app/migrations/002_tracker.sql', 'utf8') }], { database });
+  const password = readFileSync('/run/secrets/db_app', 'utf8').trim();
+  await connection.query("CREATE USER IF NOT EXISTS ?@'%' IDENTIFIED BY ?", [user, password]);
+  await connection.query("ALTER USER ?@'%' IDENTIFIED BY ?", [user, password]);
+  await connection.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON \`${database}\`.* TO ?@'%'`, [user]);
+  console.log('Created tables and restricted application account.');
+} finally { await connection.end(); }

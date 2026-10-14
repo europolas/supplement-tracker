@@ -5,7 +5,7 @@
  */
 import { createApi } from './api.js';
 import { createStore } from './store.js';
-export function createAuth({ id, baseUrl, storage, fetch }) {
+export function createAuth({ id, baseUrl, storage, fetch, timeout = 20000 }) {
   if (!/^[a-z][a-z0-9-]{2,23}$/.test(id)) throw new TypeError('Invalid app id');
   if (!storage) { try { storage = globalThis.sessionStorage; } catch {} }
   const key = id + ':auth';
@@ -16,7 +16,7 @@ export function createAuth({ id, baseUrl, storage, fetch }) {
   try { const saved = JSON.parse(storage?.getItem(key) || 'null'); if (valid(saved)) session = saved; else storage?.removeItem(key); } catch {}
   function remember(value, user = null) { generation++; session = value; try { if (value) storage?.setItem(key, JSON.stringify(value)); else storage?.removeItem(key); } catch {} state.set({ user, authenticated: Boolean(value && user) }); }
   function getToken() { if (session && !valid(session)) remember(null); return session?.token || null; }
-  const api = createApi({ baseUrl, getToken, fetch, onUnauthorized: () => remember(null) });
+  const api = createApi({ baseUrl, getToken, fetch, timeout, onUnauthorized: () => remember(null) });
   return {
     state, api, getToken,
     async restore() { if (!getToken()) return null; const current = generation; const result = await api.get('/v1/me'); if (current === generation) state.set({ user: result.user, authenticated: true }); return result.user; },

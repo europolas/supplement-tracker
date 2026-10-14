@@ -29,7 +29,7 @@ export class AuthApi {
     if (rows[0].hits > maximum) throw new ApiError(429, "Too many attempts. Wait and try again.");
   }
   async authenticate(authorization) {
-    if (typeof authorization !== 'string' || !/^Bearer [a-f0-9]{64}$/.test(authorization)) throw new ApiError(401, 'Prisijunk prie paskyros.');
+    if (typeof authorization !== 'string' || !/^Bearer [a-f0-9]{64}$/.test(authorization)) throw new ApiError(401, "Sign in to your account.");
     const sessionHash = digest(authorization.slice(7));
     const [rows] = await this.pool.execute('SELECT u.* FROM auth_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > UTC_TIMESTAMP(3) AND u.disabled = FALSE', [sessionHash]);
     if (!rows.length) throw new ApiError(401, "Your session has expired. Sign in again.");

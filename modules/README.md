@@ -1,4 +1,4 @@
-# @europolas/app-modules 1.2.0
+# @europolas/app-modules 1.3.0
 
 40 funkcinių modulių failai: 36 naršyklės moduliai, service worker ir 3 serverio moduliai.
 Be frontend framework ir be naršyklės runtime priklausomybių. Node serverio
@@ -150,3 +150,5 @@ svarbių duomenų pagrindinis šaltinis turi būti jūsų serveris arba atsargin
 `setupViewport`, `setupGestures`, `setupPwa`, `watchNetwork`, router ir kamerų
 objektai pateikia valymo funkcijas; išmontuodami ekranus ar programėlę jas kvieskite.
 `auth-screen` UI kalba šiuo metu lietuvių; kitų kalbų žodynus jam reikia pridėti.
+
+Optional AI examples: [photo preparation, encrypted credentials and structured provider requests](docs/AI.md).

@@ -1,64 +1,85 @@
-# Supplement Tracker · 0.1.1
+# Supplement Tracker · 0.2.0
 
-An independent PWA foundation generated from europolas/pwa-toolkit starter and
-app-modules. English is default; Lithuanian and light/dark/system themes persist.
-The shared iPhone viewport, keyboard, hidden scrollbar and gradual blur fixes remain.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.3.0.
+Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
+Design A uses sage/off-white with persisted light, dark and system/auto themes.
+English is the first-use default; Lithuanian remains an explicit saved choice.
+The toolkit's full-height iPhone scroller, keyboard behavior, hidden scrollbar and
+smoothly masked blur remain in place.
 
-## Initial functions
+## Running functions
 
-- Add a supplement with a name, your own amount/label and optional preferred time.
-- View today's active routine and mark/undo taken entries.
-- Persist supplements and daily completion records in device-local IndexedDB.
-- Archive items with confirmation. Archived items and past completion records stay
-  stored for future history/archive screens; this action is not permanent deletion.
-- Install as a Home Screen PWA; public assets and existing local records work offline.
-- Activate updates with protection for unsaved forms, active writes and open dialogs.
+- Account registration/sign-in/profile/password change/logout/deletion and admin
+  user blocking. Recovery forms exist, but email remains unavailable until SMTP
+  configuration and real delivery verification are complete.
+- Account-owned xAI key save/replace/delete. AES-256-GCM encrypted server storage;
+  plaintext keys are never returned or saved in browser persistence.
+- Day groups with their own name and benefit/description. Home shows each group's
+  title, benefit on another line, then a supplement table with the check control
+  first, clickable name and benefit. Taken rows turn green.
+- Product name/manufacturer or an explicitly selected photo can be sent to xAI.
+  All groups and all existing supplements are included for compatibility review.
+  JSON Schema is checked again on the server; incompatible/duplicate products are
+  left unassigned for review. Analysis has sending/completed/error states.
+- Supplement detail, manual group reassignment and deletion. Daily completion is
+  derived using device timezone on the server; new local dates start unmarked while
+  old completion records remain. No background midnight job is necessary.
+- Public PWA shell can install/cache offline. Account data and changes require
+  internet. API data, photos and keys never enter the public worker cache.
 
-No cloud account, API/database server, notifications, history viewer, edit screen,
-export/backup or dosage recommendations have been activated. The optional time field
-is descriptive and does not schedule reminders. No supplement records are sent to
-an external service. Records are browser-local and unencrypted; clearing site data
-or OS storage removal loses them. This foundation does not claim clinical behavior.
+The current structured AI adapter does **not** perform live web research. Exact
+manufacturer-source verification, source-linked dosage extraction and EU nutrient
+reference-intake calculations requested for the next analysis revision remain
+pending. Product names alone never establish a dose. Current AI results explicitly
+request readable label directions or null and general cautious information.
+Do not describe this release as having those research/dosage features.
 
-## Development
+Previous 0.1.x device-local records are preserved but not automatically imported into
+an account: importing private local records requires an explicit user decision.
+Photos are resized/re-encoded in memory and sent only with an explicit Send action;
+raw images are not stored. Requests can incur xAI charges. Maximums: 30 groups,
+40 supplements, 3 analyses/minute and 30/day per user in this initial release.
+An explicit retry after an interrupted provider request can incur another charge;
+completed saved requests reuse the request ID and do not call AI again.
+
+## Development and checks
 
 ```bash
 npm ci
-npm run build
-npm start
 npm test
 npx playwright install chromium
 npm run test:browser
+npm run build
+npm start -- --port 4175
 ```
 
-Source is src/, versioned shared code is modules/, generated public output is docs/.
-Run npm run build after source changes. app.css is explicitly copied and hashed by
-scripts/build.mjs. Do not edit generated docs/ manually. Browser checks run on port
-4175 and cover persistence, plain-text rendering, en/lt, theme, archive and offline.
-Module tests include local-calendar logging and namespace separation.
+```bash
+docker build -t supplement-tracker-api server
+server/scripts/test-isolated.sh
+```
 
-## Modules reused and contributed
+The DB workflow starts an ephemeral, separate MariaDB instance, generates temporary
+credentials and removes it afterwards. It never reads deployment DB configuration.
+CI runs both browser and isolated server workflows. Provider regression checks use
+mocks. A manual paid provider smoke check reads only a mounted private key and never
+uses account records or emits raw provider responses.
 
-Used directly: config, storage, settings, theme, i18n, viewport, gestures, router,
-forms, ui, network, database, pwa/worker, and the newly contributed daily-log.
-Other copied toolkit modules remain available for later features but are not active.
-The reusable daily-log example and guide have been contributed to canonical
-pwa-toolkit/packages/app-modules/. It is generic for routines and checklists and
-contains no application records, private data or dosage logic.
+## Reused and contributed modules
 
-The generated app carries @europolas/app-modules 1.2.0. Keep modules/ and its
-package metadata aligned; upgrade deliberately. No automatic pull from the library
-runs during app startup. Read AGENTS.md and modules/docs/ARCHITECTURE.md first.
+config, storage, settings, theme, i18n, viewport, gestures, router, forms, ui, network,
+auth, auth-screen, pwa/worker, daily-log (calendar key) and generic server AuthApi,
+security/migrations. New image-input, server/credential-vault and
+server/structured-chat examples are contributed to canonical pwa-toolkit, with
+contracts/tests in modules/docs/AI.md. App schema and supplement policy stay here.
 
-## Optional publication
+## Publication
 
-GitHub CI tests every main push. Configure Pages with GitHub Actions and set Actions
-repository variable PAGES_ENABLED=true for automatic deployment; alternatively run
-Deploy application manually after configuring Pages. SSH deploy keys upload code
-but cannot change those settings. Until then, no hosted app URL is claimed live.
-The intended Pages URL is https://europolas.github.io/supplement-tracker/.
-No backend is deployed by this workflow. Each future backend must have its own
-secrets, DB/user and configuration; never reuse iphoneTest's production API/data.
+See server/DEPLOYMENT.md. Target URL: https://perimove.com/supplement-tracker/.
+Public HTTPS, manifest, worker and real browser administrator login were verified
+on 2026-10-14. No browser JavaScript errors were observed.
+The server uses separate DB, credentials and loopback API/static ports. This deploy
+never synchronizes the original iphoneTest API or DB. Private bootstrap/key files
+live outside Git; .runtime/ contains deployment secrets and must never be published.
+GitHub Pages is optional; this deployment uses the existing perimove.com HTTPS host.
 
-Keep .npmrc (install-links=true) with package-lock.json so file: module packaging
-uses the same mode with npm ci on local machines and GitHub runners.
+Keep .npmrc (install-links=true) and package-lock.json aligned for npm ci.

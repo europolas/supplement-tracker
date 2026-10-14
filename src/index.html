@@ -1,76 +1,73 @@
 <!doctype html>
-<html lang="en" data-lock-selection="true">
+<html lang="en" data-lock-selection="true" data-theme="light">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#10182b">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self' __API_ORIGIN__; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>Supplement Tracker</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="app.css">
-  <script type="module" src="app.js"></script>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+ <meta name="theme-color" content="#f6f7f2">
+ <meta name="apple-mobile-web-app-capable" content="yes">
+ <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+ <meta name="referrer" content="no-referrer">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self';script-src 'self';style-src 'self';img-src 'self' blob: data:;media-src 'self' blob:;connect-src 'self' __API_ORIGIN__;worker-src 'self';manifest-src 'self';base-uri 'none';form-action 'none';object-src 'none'">
+ <title>Supplement Tracker</title>
+ <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png">
+ <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="app.css"><script type="module" src="app.js"></script>
 </head>
 <body>
-  <!-- Keep this scroller and the shared blur/safe-area CSS intact. -->
-  <main>
-    <div class="badge">SUPPLEMENT TRACKER · 0.1.1</div>
-    <h1>Supplement<br>Tracker</h1>
-    <p class="intro" data-i18n="trackerIntro">Your supplements, one day at a time.</p>
-    <nav class="app-nav" aria-label="Main screens" data-i18n-aria-label="navLabel">
-      <a href="#/" data-route="/" data-i18n="trackerToday">Today</a>
-      <a href="#/supplements" data-route="/supplements" data-i18n="trackerSupplements">Supplements</a>
-      <a href="#/settings" data-route="/settings" data-i18n="settings">Settings</a>
-    </nav>
-    <p id="network-status" role="status"></p>
-    <p id="database-error" role="alert" hidden></p>
-    <section data-screen="/" class="account-card">
-      <p id="today-date" class="tracker-date"></p>
-      <h2 data-i18n="trackerTodayTitle">Your daily routine</h2>
-      <p id="today-progress" role="status"></p>
-      <ul id="today-list" class="tracker-list"></ul>
-      <p id="today-empty" data-i18n="trackerTodayEmpty" hidden>Your routine is empty. Add a supplement to get started.</p>
-      <a class="add-link" href="#/supplements" data-i18n="trackerAdd">Add supplement</a>
-    </section>
-    <section data-screen="/supplements" hidden>
-      <div class="account-card">
-        <h2 data-i18n="trackerSupplements">Supplements</h2>
-        <ul id="supplement-list" class="tracker-list"></ul>
-        <p id="supplement-empty" data-i18n="trackerEmpty" hidden>No supplements yet. Add your first one below.</p>
-      </div>
-      <div class="account-card">
-        <h2 data-i18n="trackerAdd">Add supplement</h2>
-        <form id="supplement-form">
-          <!-- Translate spans; translating the parent label would erase its input. -->
-          <label><span data-i18n="trackerName">Supplement name</span><input name="name" maxlength="80" required autocomplete="off"></label>
-          <label><span data-i18n="trackerAmount">Amount / label (optional)</span><input name="amount" maxlength="80" autocomplete="off"></label>
-          <label><span data-i18n="trackerTime">Preferred time (optional)</span><input name="time" type="time"></label>
-          <p class="form-help" data-i18n="trackerAmountHelp">Record the amount you already use. No dosage recommendations are generated.</p>
-          <button type="submit" class="primary" data-i18n="trackerAdd">Add supplement</button>
-        </form>
-      </div>
-    </section>
-    <section data-screen="/settings" class="account-card" hidden>
-      <h2 data-i18n="settings">Settings</h2>
-      <form id="settings-form">
-        <label><span data-i18n="theme">Theme</span><select name="theme"><option value="dark" data-i18n="dark">Dark</option><option value="light" data-i18n="light">Light</option><option value="system" data-i18n="system">System</option></select></label>
-        <label><span data-i18n="language">Language</span><select name="language"><option value="en">English</option><option value="lt">Lietuvių</option></select></label>
-        <button type="submit" class="primary" data-i18n="save">Save</button>
-      </form>
-      <p id="app-version" class="note"></p>
-      <p class="form-help" data-i18n="install">In Safari, choose Share → Add to Home Screen.</p>
-    </section>
-    <section id="update-card" class="account-card" hidden>
-      <p data-i18n="update">An update is available. Save your changes before updating.</p>
-      <button id="update-button" class="primary" type="button" data-i18n="updateButton">Update</button>
-    </section>
-    <p class="note" data-i18n="trackerStorageNotice">Entries are stored on this device. Preferred times do not send reminders yet.</p>
-    <footer>Supplement Tracker · 0.1.1</footer>
-  </main>
-  <div id="toast" class="app-toast" hidden></div>
+ <main>
+  <header class="brand"><a href="#/" class="wordmark"><span class="brand-mark" aria-hidden="true">✳</span> supplement<span class="wordmark-dot">.</span></a><a href="#/account" class="account-link" data-i18n="appAccount">Account</a></header>
+  <nav class="app-nav" id="app-nav" aria-label="Main screens" hidden>
+   <a href="#/" data-route="/" data-i18n="appHome">Home</a><a href="#/groups" data-route="/groups" data-i18n="appGroups">Day groups</a>
+  </nav>
+  <p id="app-error" role="alert" hidden></p><p id="network-status" role="status"></p>
+  <section data-screen="/" hidden>
+   <div class="eyebrow" id="today-date"></div>
+   <h1 class="hero-title" data-i18n="appHeadline">One day,
+one small step.</h1>
+   <p class="hero-caption" data-i18n="appSubtitle">Your routine, thoughtfully organised.</p>
+   <div class="daily-summary"><div><span class="eyebrow" data-i18n="appToday">TODAY</span><p id="today-progress" role="status"></p></div><div class="progress-bloom" aria-hidden="true">✳</div></div>
+   <button id="add-supplement" class="primary add-primary" type="button"><span aria-hidden="true">＋</span> <span data-i18n="appAdd">Add supplement</span></button>
+   <p id="home-status" role="status"></p>
+   <div id="routine-groups"></div>
+   <div id="home-empty" class="empty-card" hidden><span class="empty-symbol" aria-hidden="true">＋</span><h2 data-i18n="appEmptyTitle">A fresh start.</h2><p data-i18n="appEmptyText">Add your first supplement. We'll find its place in your day.</p></div>
+  </section>
+  <section data-screen="/groups" hidden>
+   <div class="eyebrow" data-i18n="appYourRhythm">YOUR DAILY RHYTHM</div><h1 data-i18n="appGroups">Day groups</h1>
+   <p class="hero-caption" data-i18n="appGroupsHelp">Make room for the moments that suit your routine.</p>
+   <div id="group-list"></div>
+   <div class="surface"><h2 id="group-form-title" data-i18n="appNewGroup">New group</h2>
+    <form id="group-form"><input name="id" type="hidden"><label><span data-i18n="appGroupName">Group name</span><input name="name" maxlength="120" required></label><label><span data-i18n="appGroupDescription">Description (optional)</span><textarea name="description" maxlength="500" rows="2"></textarea></label><div class="button-row"><button class="primary" type="submit" data-i18n="save">Save</button><button type="button" id="cancel-group" class="secondary" data-i18n="Cancel" hidden>Cancel</button></div></form>
+   </div>
+  </section>
+  <section data-screen="/detail" hidden>
+   <a href="#/" class="back-link" data-i18n="appBack">← Back to routine</a><div id="supplement-detail"></div>
+  </section>
+  <section data-screen="/account" id="account-screen" hidden>
+   <div id="account-heading"><div class="eyebrow" data-i18n="appWelcome">A ROUTINE THAT'S YOURS</div><h1 data-i18n="appAccountTitle">A little care,
+every day.</h1></div>
+   <div class="surface" id="ai-settings" hidden>
+    <h2 data-i18n="appAiTitle">Your AI connection</h2><p class="muted" data-i18n="appAiHelp">Use your own xAI key to recognise supplements. It stays encrypted on the server.</p>
+    <p id="ai-key-status" role="status"></p>
+    <form id="ai-form"><label><span data-i18n="appApiKey">xAI API key</span><input name="key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="500"></label><label><span data-i18n="appModel">Model</span><select name="model"></select></label><button class="primary" type="submit" data-i18n="appSaveKey">Save connection</button></form>
+    <button id="remove-key" class="danger-link" type="button" data-i18n="appRemoveKey">Remove saved key</button>
+   </div>
+   <div id="account-forms"></div>
+  </section>
+  <div id="preferences" class="surface preferences" hidden><h2 data-i18n="settings">Settings</h2><form id="settings-form"><div class="preferences-grid"><label><span data-i18n="language">Language</span><select name="language"><option value="en">English</option><option value="lt">Lietuvių</option></select></label><label><span data-i18n="theme">Theme</span><select name="theme"><option value="light" data-i18n="light">Light</option><option value="dark" data-i18n="dark">Dark</option><option value="system" data-i18n="system">System</option></select></label></div><button class="secondary" type="submit" data-i18n="save">Save</button></form></div>
+  <section id="update-card" class="surface" hidden><p data-i18n="update">An update is available. Save your changes before updating.</p><button id="update-button" class="primary" type="button" data-i18n="updateButton">Update</button></section>
+  <footer><span>supplement.</span><span id="app-version"></span></footer>
+ </main>
+ <dialog id="add-dialog" class="app-dialog add-dialog" aria-labelledby="add-title">
+  <div class="dialog-heading"><div><div class="eyebrow" data-i18n="appMakeSpace">MAKE A LITTLE SPACE</div><h2 id="add-title" data-i18n="appAdd">Add supplement</h2></div><button type="button" id="close-add" class="icon-button" aria-label="Close" data-i18n-aria-label="appClose">×</button></div>
+  <form id="analyze-form"><fieldset>
+   <label><span data-i18n="appFullName">Full supplement name</span><input name="name" maxlength="250" autocomplete="off"></label>
+   <div class="or-line" data-i18n="appOrPhoto">or add a photo of the label</div>
+   <label class="photo-picker"><span aria-hidden="true">⊕</span><span data-i18n="appTakePhoto">Take or choose a photo</span><input name="photo" type="file" accept="image/*" capture="environment"></label>
+   <img id="photo-preview" alt="Selected supplement label" hidden><button id="remove-photo" class="text-button" type="button" data-i18n="appRemovePhoto" hidden>Remove photo</button>
+   <p class="form-help" data-i18n="appAiConsent">The product name, selected photo, all groups and all existing supplements are sent to xAI using your key. API usage may incur charges.</p>
+   <button class="primary send-button" type="submit" data-i18n="appSend">Send</button>
+  </fieldset></form>
+  <p id="analysis-status" role="status"></p><button id="view-added" class="secondary" type="button" data-i18n="appView" hidden>View supplement</button>
+ </dialog>
+ <div id="toast" class="app-toast" hidden></div>
 </body>
 </html>

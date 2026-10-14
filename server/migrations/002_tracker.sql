@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS tracker_preferences (
+ user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ timezone VARCHAR(80) NOT NULL DEFAULT 'UTC',
+ model VARCHAR(100) NOT NULL DEFAULT 'grok-4.7',
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS provider_credentials (
+ user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ encrypted_key TEXT CHARACTER SET ascii NOT NULL,
+ updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS day_groups (
+ id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ name VARCHAR(120) NOT NULL,
+ description VARCHAR(500) NOT NULL DEFAULT '',
+ position INT NOT NULL DEFAULT 0,
+ INDEX(user_id), UNIQUE KEY(id,user_id),
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS supplements (
+ id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ group_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,
+ name VARCHAR(250) NOT NULL,
+ analysis JSON NOT NULL,
+ model VARCHAR(120) NOT NULL,
+ request_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ INDEX(user_id), UNIQUE KEY(user_id,request_id), UNIQUE KEY(id,user_id),
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+ FOREIGN KEY(group_id,user_id) REFERENCES day_groups(id,user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS supplement_completions (
+ user_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ supplement_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ local_day DATE NOT NULL,
+ completed_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ PRIMARY KEY(supplement_id,local_day),
+ FOREIGN KEY(supplement_id,user_id) REFERENCES supplements(id,user_id) ON DELETE CASCADE,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

@@ -6,8 +6,8 @@
 import { createI18n } from './i18n.js';
 import { createAuth } from './auth.js';
 import { bindForm } from './forms.js';
-export function setupAccount(config, { document: doc = globalThis.document, window: win = globalThis.window, i18n = createI18n(undefined, config.language || 'en') } = {}) {
-  const auth = createAuth({ id: config.id, baseUrl: config.apiUrl });
+export function setupAccount(config, { document: doc = globalThis.document, window: win = globalThis.window, i18n = createI18n(undefined, config.language || 'en'), auth: existingAuth } = {}) {
+  const auth = existingAuth || createAuth({ id: config.id, baseUrl: config.apiUrl });
   const get = id => doc.getElementById(id);
   const cleanup = [];
   let resetToken;

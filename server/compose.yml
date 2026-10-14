@@ -1,0 +1,110 @@
+# Optional per-project API/DB. Secrets live outside Git in .runtime; ports stay on loopback.
+# migrate/admin are privileged CLI tools, not public services. See library docs/BACKEND.md.
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root
+      MARIADB_DATABASE: ${DB_NAME:?Run setup first}
+    secrets: [db_root]
+    volumes: [database:/var/lib/mysql]
+    networks: [database]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 512m
+    logging:
+      options: {max-size: 10m, max-file: "3"}
+  api:
+    build: .
+    user: "${LOCAL_UID:?Run setup first}:${LOCAL_GID:?Run setup first}"
+    restart: unless-stopped
+    depends_on:
+      db: {condition: service_healthy}
+    ports: ["127.0.0.1:${API_PORT:-8092}:3000"]
+    env_file: ../.runtime/api.env
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD_FILE: /run/secrets/db_app
+      API_SECRET_FILE: /run/secrets/api_secret
+      MAIL_KEY_FILE: /run/secrets/mail_key
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
+      VAULT_KEY_FILE: /run/secrets/vault_key
+      TRUST_PROXY: "true"
+    secrets: [db_app, api_secret, mail_key, smtp_password, vault_key]
+    networks: [database, outbound]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      options: {max-size: 10m, max-file: "3"}
+  web:
+    build: .
+    user: "${LOCAL_UID}:${LOCAL_GID}"
+    command: [node, scripts/serve-static.mjs]
+    restart: unless-stopped
+    ports: ["127.0.0.1:8095:3000"]
+    volumes: ["../docs:/public:ro"]
+    networks: [outbound]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      options: {max-size: 10m, max-file: "3"}
+  migrate:
+    profiles: [tools]
+    build: .
+    user: "${LOCAL_UID}:${LOCAL_GID}"
+    command: [node, scripts/migrate.mjs]
+    environment:
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+    secrets: [db_root, db_app]
+    networks: [database]
+    depends_on:
+      db: {condition: service_healthy}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  admin:
+    profiles: [tools]
+    build: .
+    user: "${LOCAL_UID}:${LOCAL_GID}"
+    entrypoint: [node, scripts/set-admin.mjs]
+    environment:
+      DB_NAME: ${DB_NAME}
+    secrets: [db_root]
+    networks: [database]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+networks:
+  database: {internal: true}
+  outbound: {}
+volumes:
+  database: {}
+secrets:
+  db_root: {file: ../.runtime/db_root}
+  db_app: {file: ../.runtime/db_app}
+  api_secret: {file: ../.runtime/api_secret}
+  mail_key: {file: ../.runtime/mail_key}
+  smtp_password: {file: ../.runtime/smtp_password}
+  vault_key: {file: ../.runtime/vault_key}

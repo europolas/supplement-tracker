@@ -38,24 +38,28 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker foundation
+## Supplement Tracker 0.2.0
 
-App ID: supplement-tracker. Current version: 0.1.1. Sources live in src/ and shared
-library copy in modules/ (1.2.0). src/app.js owns the supplement schema and screens;
-modules/src/daily-log.js owns generic completion records. Read README for the reused
-module list and current feature boundaries. All UI translations currently live in
-the copied modules/src/translations/en.js and lt.js, matching the canonical toolkit.
+Read README.md for implemented features and pending manufacturer research/dosage
+features. modules/ is 1.3.0. App state is now account-scoped through the isolated
+Node API/MariaDB in server/. Never use the production DB for regression tests:
+server/scripts/test-isolated.sh provisions a disposable database instance. Initial
+admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
+never read their contents into logs or commit them. Current SMTP readiness is false.
 
-Records in IndexedDB records store have kind supplement or daily-completion; the
-log uses supplement-log namespace. Archive retains the item and old completions.
-Daily keys use the device calendar; focus/visibility/minute checks refresh the day.
-No account API, reminders or server exists yet. Do not imply those work based only
-on the presence of generic unused modules. Do not add medical dosage rules implicitly.
+Preserve design A and persisted light/dark/system preferences, en/lt defaults and
+all iPhone fixes. Home is a sequence of group blocks: name, benefit/description,
+then a table with check control first, clickable name and benefit. Completion day
+comes from the server's current date in a validated device timezone; history remains.
 
-scripts/build.mjs is the generated builder with explicit app.css copying, so CSS
-participates in the worker content hash. Preserve this when upgrading the builder.
-Run npm test and npm run test:browser after behavior changes. Use textContent through
-the toolkit element helper for all user data. Keep dirty forms/write/dialog guards
-when adding update flows. Close database/watch/listener resources if the app shell
-is later converted into a dynamically mounted component. Pages is optional and gated
-by PAGES_ENABLED until repository settings are configured.
+scripts/build.mjs copies app.css and hashes all public assets. Docker web binds
+that generated docs/ folder: recreate the web container after rebuilding docs/,
+otherwise the bind mount references an old directory inode. Follow
+server/DEPLOYMENT.md. The public URL was verified working after the user reloaded Nginx on 2026-10-14.
+Future proxy edits still require root validation/reload and a new HTTPS check. Backend/DB remain separate from
+iphoneTest. No automatic production/API synchronization from the canonical toolkit.
+
+Account forms share the same createAuth instance with app screens. Never cache keys,
+photos or private API responses; only opaque session tokens live in sessionStorage.
+Preserve dirty-form, in-flight write and open-dialog protections for worker updates.
+New shared features belong in pwa-toolkit first, with tests and usage documentation.
