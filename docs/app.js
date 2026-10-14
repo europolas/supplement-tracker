@@ -4,7 +4,7 @@
  */
 import {createConfig,createStorage,createSettings,createTheme,createI18n,createRouter,createToast,
  bindForm,trackDirty,setupViewport,setupGestures,setupPwa,watchNetwork,createAuth,setupAccount,
- element,confirmDialog,prepareImage,localDay} from './modules/index.js';
+ element,confirmDialog,prepareImage,localDay,compactText} from './modules/index.js';
 const config=createConfig(await(await fetch('./app.config.json')).json());
 const get=id=>document.getElementById(id),storage=createStorage(config.id);
 const settings=createSettings(storage,{language:config.language,theme:config.theme},{language:v=>['en','lt'].includes(v),theme:v=>['light','dark','system'].includes(v)});
@@ -65,20 +65,21 @@ function renderHome(){
   const rows=state.supplements.filter(item=>item.group_id===group.id);
   const section=element('section',{className:'group-block'}),head=element('div',{className:'group-heading'}),labels=element('div');
   head.append(element('span',{text:String(index+1).padStart(2,'0'),className:'group-number'}));labels.append(heading(group.name));
-  const benefit=group.description||[...new Set(rows.flatMap(item=>item.analysis.benefits))].slice(0,3).join(' · ')||i18n.t('appNoGroupBenefits');
+  const benefit=compactText(group.description||[...new Set(rows.map(item=>item.analysis.benefitSummary||item.analysis.benefits?.[0]||''))].filter(Boolean).slice(0,3).join(' · ')||i18n.t('appNoGroupBenefits'),{maxWords:10,maxLength:120});
   labels.append(element('p',{text:benefit,className:'group-benefit'}));head.append(labels);section.append(head);
   const list=element('table',{className:'supplement-table'}),thead=element('thead'),headRow=element('tr');
-  headRow.append(element('th',{text:'✓',attributes:{scope:'col','aria-label':i18n.t('appTaken')}}),element('th',{text:i18n.t('appSupplement'),attributes:{scope:'col'}}),element('th',{text:i18n.t('appBenefit'),attributes:{scope:'col'}}));thead.append(headRow);list.append(thead);const body=element('tbody');list.append(body);
-  if(!rows.length){const emptyRow=element('tr');emptyRow.append(element('td',{text:i18n.t('appGroupEmpty'),className:'group-empty',attributes:{colspan:'3'}}));body.append(emptyRow);}
+  headRow.append(element('th',{text:'✓',attributes:{scope:'col','aria-label':i18n.t('appTaken')}}),element('th',{text:i18n.t('appSupplement'),attributes:{scope:'col'}}));thead.append(headRow);list.append(thead);const body=element('tbody');list.append(body);
+  if(!rows.length){const emptyRow=element('tr');emptyRow.append(element('td',{text:i18n.t('appGroupEmpty'),className:'group-empty',attributes:{colspan:'2'}}));body.append(emptyRow);}
   for(const item of rows){
    const row=element('tr',{className:'supplement-row'+(item.completed?' is-done':'')});row.dataset.id=item.id;
    const open=button('',()=>router.navigate('/detail?id='+encodeURIComponent(item.id)),'supplement-open');
    open.append(element('strong',{text:item.name}));if(item.analysis.enrichment&&item.analysis.enrichment.status!=='complete')open.append(element('span',{text:i18n.t('appInfo_'+item.analysis.enrichment.status),className:'research-badge'}));
-   const summary=item.analysis.benefits[0]||item.analysis.whenToUse;
+   const summary=compactText(item.analysis.benefitSummary||item.analysis.benefits?.[0]||item.analysis.whenToUse);
+   if(summary)open.append(element('span',{text:summary,className:'summary'}));
 
    const check=button('',async()=>{if(check.disabled)return;check.disabled=true;await mutate(()=>api.request('/v1/supplements/'+item.id+'/completion',{method:'PUT',body:{completed:!(state.day===localDay()&&item.completed),timezone:zone()}}));check.disabled=false;},'check-button');
    check.setAttribute('aria-label',i18n.t(item.completed?'appUntake':'appTake',{name:item.name}));check.setAttribute('aria-pressed',String(item.completed));
-   check.append(element('span',{text:'✓',className:'check-ring',attributes:{'aria-hidden':'true'}}));const checkCell=element('td'),nameCell=element('td'),benefitCell=element('td',{text:summary,className:'benefit-cell'});checkCell.append(check);nameCell.append(open);row.append(checkCell,nameCell,benefitCell);body.append(row);
+   check.append(element('span',{text:'✓',className:'check-ring',attributes:{'aria-hidden':'true'}}));const checkCell=element('td'),nameCell=element('td');checkCell.append(check);nameCell.append(open);row.append(checkCell,nameCell);body.append(row);
   }section.append(list);container.append(section);
  });
 }
@@ -114,6 +115,19 @@ function renderDetail(){
  if(analysis.dosage){
   const d=analysis.dosage;card.append(heading(i18n.t('appManufacturerDose'),'h3'),element('p',{text:d.directions||i18n.t('appNoLabel')}));
   if(d.servingSize)card.append(element('p',{text:i18n.t('appServingSize')+': '+d.servingSize,className:'detail-meta'}));
+ }
+ const fallback=analysis.doseFallback;
+ if(fallback&&fallback.basis!=='not_needed'&&(!analysis.dosage?.directions||analysis.dosage?.dailyServingsMin==null)){
+  card.append(heading(i18n.t('appDoseFallback'),'h3'));
+  if(['established_adult_intake','usual_adult_supplement_range'].includes(fallback.basis)){
+   const number=value=>new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value),unit=fallback.unit==='ug'?'µg':fallback.unit;
+   const range=fallback.dailyAmountMin===fallback.dailyAmountMax?number(fallback.dailyAmountMin):number(fallback.dailyAmountMin)+'–'+number(fallback.dailyAmountMax);
+   card.append(element('p',{text:fallback.ingredient+': '+range+' '+unit}),element('p',{text:i18n.t(fallback.basis==='established_adult_intake'?'appDoseIntakeReference':'appDoseSupplementRange'),className:'detail-meta'}));
+   card.append(element('p',{text:i18n.t('appDoseFallbackHelp'),className:'review-note'}));
+  }else card.append(element('p',{text:i18n.t('appDoseFallbackUnavailable')}));
+  if(fallback.explanation)card.append(element('p',{text:fallback.explanation}));
+  // The URL was independently matched to provider citations on the server.
+  if(fallback.sourceUrl)card.append(element('a',{text:i18n.t('appSources'),attributes:{href:fallback.sourceUrl,target:'_blank',rel:'noopener noreferrer'},className:'detail-meta'}));
  }
  if(analysis.nutrients?.length){
   card.append(heading(i18n.t('appNutrients'),'h3'));

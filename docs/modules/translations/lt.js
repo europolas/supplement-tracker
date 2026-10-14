@@ -317,5 +317,11 @@ export default Object.freeze({
   "appUploadDetailsProgress": "Apdorota papildų informacija: {done} iš {total}",
   "appUploadAccepted": "Pridėta į eilę. Gali pridėti kitą papildą ar nuotrauką.",
   "appUploading": "Siunčiama į eilę…",
-  "AI_QUEUE_FULL": "Įkėlimų eilė pilna. Palauk, kol baigsis viena užduotis, ir bandyk dar kartą."
+  "AI_QUEUE_FULL": "Įkėlimų eilė pilna. Palauk, kol baigsis viena užduotis, ir bandyk dar kartą.",
+  "appDoseFallback": "Orientacinis kiekis suaugusiesiems",
+  "appDoseFallbackHelp": "Bendras orientyras suaugusiesiems, nepatvirtintas kaip gamintojo dozė ir nepritaikytas tau asmeniškai. Pagal jį nenustatyk kapsulių skaičiaus.",
+  "appDoseFallbackUnavailable": "Patikimos standartinės normos suaugusiesiems nustatyti nepavyko.",
+  "appDoseIntakeReference": "Bendro paros suvartojimo orientyras",
+  "appDoseSupplementRange": "Įprasto papildymo kiekio intervalas suaugusiesiems",
+  "source_regulatory": "Reguliavimo institucija"
 });

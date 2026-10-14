@@ -51,6 +51,7 @@ additional feature modules. Browser index exports do not include server/worker c
 | [server/structured-chat](../server/structured-chat.mjs) | `createStructuredChat / ProviderError` | [AI.md](AI.md) |
 | [server/structured-research](../server/structured-research.mjs) | `createStructuredResearch / createStructuredOutput / citationUrl` | [AI.md](AI.md) |
 | [server/task-queue](../server/task-queue.mjs) | `createTaskQueue` | [TASKS.md](TASKS.md) |
+| [text](../src/text.js) | `compactText` | [TEXT.md](TEXT.md) |
 
 ## Lifecycle rule
 

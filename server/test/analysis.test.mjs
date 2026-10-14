@@ -31,3 +31,20 @@ test('unused unverified bibliography is omitted with review while quantity prove
  const b=fixture();b.dosage.evidence='unknown';b.nutrients[0].evidence='unknown';assert.throws(()=>finalizeAnalysis(b,{citations:[],image:true}),e=>e.code==='AI_SOURCES_UNVERIFIED');
  const c=fixture();c.dosage.evidence='label_photo';c.dosage.sourceUrl='https://invented.example/label';const photo=finalizeAnalysis(c,{citations:[dosage.sourceUrl],image:true});assert.equal(photo.dosage.sourceUrl,null);
 });
+test('sourced adult fallback stays separate from unverified manufacturer directions and daily totals',()=>{
+ const a=fixture();a.dosage.evidence='unknown';a.dosage.servingSize=null;a.nutrients[0].evidence='unknown';a.sources=[{url:'https://guideline.example/adults',kind:'regulatory',title:'Adult reference'}];
+ a.doseFallback={basis:'established_adult_intake',ingredient:'Example ingredient',dailyAmountMin:25,dailyAmountMax:50,unit:'mg',sourceUrl:a.sources[0].url,explanation:'An adult intake reference, not a capsule count.'};
+ const result=finalizeAnalysis(a,{citations:[a.sources[0].url]});assert.equal(result.doseFallback.dailyAmountMin,25);assert.equal(result.dosage.directions,null);assert.equal(result.dosage.dailyServingsMin,null);assert.equal(result.nutrients[0].dailyAmountMin,null);assert.equal(result.labelDirections,null);assert.equal(result.needsReview,true);
+ for(const kind of ['retailer','manufacturer']){const bad=structuredClone(a);bad.sources[0].kind=kind;assert.throws(()=>finalizeAnalysis(bad,{citations:[bad.sources[0].url]}),e=>e.code==='AI_SOURCES_UNVERIFIED');}
+ const fabricated=structuredClone(a);assert.throws(()=>finalizeAnalysis(fabricated,{citations:[]}),e=>e.code==='AI_SOURCES_UNVERIFIED');
+});
+test('AI contract limits Home summary and rejects incomplete or invented fallback quantities',()=>{
+ const base={...fixture(),schemaVersion:'1.4',language:'lt',manufacturer:null,variant:null,productName:'Example',groupId:'owned',benefitSummary:'Energija, ląstelių apsauga',benefits:['Long explanation remains here.'],howToUse:'Read label',whenToUse:'With food',labelDirections:null,cautions:[],confidence:'low',needsReview:true,reviewReason:'Dose uncertain',evidenceNote:'Review',doseFallback:{basis:'not_needed',ingredient:null,dailyAmountMin:null,dailyAmountMax:null,unit:null,sourceUrl:null,explanation:''},compatibility:{summary:'No routine yet',requiresReview:true,assessments:[]}};
+ Object.assign(base.nutrients[0],{originalUnit:null,amountNote:'Per serving'});
+ assert.equal(validAnalysis(base,[{id:'owned'}],[],'lt'),true);
+ const long=structuredClone(base);long.benefitSummary='This is much too long for the home screen';assert.equal(validAnalysis(long,[{id:'owned'}],[],'lt'),false);
+ const unknown=structuredClone(base);unknown.dosage.evidence='unknown';assert.equal(validAnalysis(unknown,[{id:'owned'}],[],'lt'),false);
+ unknown.doseFallback={basis:'established_adult_intake',ingredient:'Example',dailyAmountMin:25,dailyAmountMax:50,unit:'mg',sourceUrl:'https://guideline.example/adults',explanation:'General adult intake, including food.'};assert.equal(validAnalysis(unknown,[{id:'owned'}],[],'lt'),true);
+ unknown.doseFallback.dailyAmountMax=10;assert.equal(validAnalysis(unknown,[{id:'owned'}],[],'lt'),false);
+ unknown.doseFallback.dailyAmountMax=50;unknown.doseFallback.sourceUrl=null;assert.equal(validAnalysis(unknown,[{id:'owned'}],[],'lt'),false);
+});

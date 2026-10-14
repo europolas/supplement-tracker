@@ -1,4 +1,4 @@
-# Supplement analysis 1.3
+# Supplement analysis 1.4
 
 POST /v1/supplements/jobs authenticates the owner, validates photo/text, serializes
 one recognition at a time per account and returns 202 with an opaque job ID. Poll
@@ -19,7 +19,7 @@ turns, an explicit low reasoning effort, a five-minute timeout and a bounded JSO
 tool source metadata, not just a model-generated bibliography. store:false is set;
 provider retention terms still apply. Server never fetches model-supplied URLs.
 
-Schema 1.3 inputs include name/manufacturer or label photo, every owned group and
+Schema 1.4 inputs include name/manufacturer or label photo, every owned group and
 all existing supplements (including available ingredient/dose data). The prompt
 prohibits following instructions inside photos, existing records or web pages and
 prohibits using private routine context in search queries. Only public product and
@@ -189,3 +189,51 @@ owner isolation and history without image leakage. Browser tests cover closing,
 reopening, queue additions during recognition, preserving a subsequent draft while
 older research progresses, reload restoration and logout cleanup. Provider calls in
 these checks are mocked; they do not incur paid research.
+
+## Short summaries, timing and dose fallback (0.7.0, schema 1.4)
+
+benefitSummary is a separate required field, <=80 characters and <=6 whitespace
+words, with 2–5 concise words requested. Full explanations remain in benefits.
+Legacy Home text uses the shared compactText display helper without overwriting it.
+No SQL schema change: analysis JSON is forward-extensible and older records render.
+
+Both prompts require the most specific supplied timing group, e.g. fat-containing
+meals prefer an existing breakfast/lunch with fats group over generic meals. The API
+no longer nulls groupId solely for low overall confidence (the reported Q10 bug).
+Unknown manufacturer dose and insufficient compatibility data stay review flags.
+Potential conflicts/duplicates still null automatic assignment. Manual group changes
+while research runs still win. Provisional photo timing never certifies safety.
+
+If manufacturer daily directions are unknown, doseFallback research is required.
+Its basis is established_adult_intake, usual_adult_supplement_range, unavailable or
+not_needed. An available entry has ingredient, positive ordered daily min/max, unit,
+explanation and an encountered source of kind clinical or regulatory. Source URLs
+are checked against independent provider citations; fabricated/unqualified fallback
+sources fail closed. Include food/total-intake assumptions and population limits.
+Missing references are explicitly unavailable; not_needed requires verified daily
+manufacturer directions. Do not substitute clinical treatment regimens, upper limits,
+other brands or EU label NRVs. Multi-ingredient/region-ambiguous formulas may lack
+any applicable standard. The app displays this reference separately, never deriving
+capsule counts or filling label servings/ingredient/daily NRV math from it.
+
+A clearly identified product may retain clinical/regulatory-only research without
+an accessible official label. This never permits manufacturer-dose/ingredient claims
+without exact manufacturer/actual label-photo evidence; those validators are unchanged.
+No new dose is silently written into older analyses. Explicit detail refresh requests
+the updated contract. Private replay tests adapt old schema metadata with a marked
+unavailable fallback; that adaptation is not new medical evidence.
+
+Regression checks: two-column Home summary/full-detail separation, conditional dose
+reference UI, schema length/ranges, citation/kind rejection, unchanged NRV unknowns,
+and low-confidence timing assignment through both synchronous and background routes.
+Existing conflict, manual edit, account isolation, queue lifecycle and iPhone checks
+remain required. One-time reported-account maintenance condensed existing benefits
+only and restored the stored, owned Q10 timing proposal; it did not rewrite doses.
+
+Real public-product contract check (2026-10-14): xAI returned valid schema 1.4 in
+Lithuanian, a three-word summary, an existing meal timing group and verified sources
+for ALERTEN BIOEMULCAP. Exact regional daily directions and a supported general
+adult norm were unavailable; the fallback correctly stayed unavailable rather than
+copying a regional capsule count or a disease-treatment trial regimen. This tests
+provider contract/provenance, not clinical truth. Group specificity follows the
+returned source-supported timing; a fat-specific assignment requires that evidence.

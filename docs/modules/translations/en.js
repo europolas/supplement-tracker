@@ -317,5 +317,11 @@ export default Object.freeze({
   "appUploadDetailsProgress": "Details processed: {done} of {total}",
   "appUploadAccepted": "Added to the queue. You can add another supplement or photo.",
   "appUploading": "Sending to the queue…",
-  "AI_QUEUE_FULL": "The upload queue is full. Wait for a task to finish and try again."
+  "AI_QUEUE_FULL": "The upload queue is full. Wait for a task to finish and try again.",
+  "appDoseFallback": "Adult reference amount",
+  "appDoseFallbackHelp": "General adult reference, not verified manufacturer directions or a personal prescription. Do not infer a capsule count from it.",
+  "appDoseFallbackUnavailable": "A reliable standard adult amount could not be established.",
+  "appDoseIntakeReference": "Reference for total daily intake",
+  "appDoseSupplementRange": "Usual adult supplement range",
+  "source_regulatory": "Regulatory source"
 });

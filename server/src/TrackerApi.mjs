@@ -185,7 +185,7 @@ export class TrackerApi {
      }
      if(capacity<=0){report.skipped.push({name:product.name,reasonCode:'SUPPLEMENT_LIMIT'});continue;}capacity--;
      const draft=draftAnalysis({...product,requestedName:body.name||null},{language,jobId:id}),recordId=randomUUID();
-     await db.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) VALUES (?,?,?,?,?,?,?)',[recordId,owner,product.review?null:product.groupId,draft.productName,JSON.stringify(draft),model,productRequestId(body.requestId,index)]);
+     await db.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) VALUES (?,?,?,?,?,?,?)',[recordId,owner,product.groupId,draft.productName,JSON.stringify(draft),model,productRequestId(body.requestId,index)]);
      report.items.push({id:recordId,name:draft.productName,status:'added',research:'queued'});
     }
     await db.execute('UPDATE analysis_jobs SET phase=\'enriching\',total_count=?,result=? WHERE id=? AND user_id=?',[report.items.length,JSON.stringify(report),id,owner]);
@@ -247,7 +247,9 @@ export class TrackerApi {
    const changed=JSON.stringify(latest.map(r=>[r.id,r.name,r.group_id,r.id===id?null:r.analysis]))!==snapshot;
    if(changed){result.compatibility.stale=true;result.compatibility.requiresReview=true;result.needsReview=true;}
    const conflict=result.compatibility.assessments.some(a=>['potential_conflict','duplicate'].includes(a.status));
-   let groupId=conflict||result.confidence==='low'?null:result.groupId;
+   // Confidence includes dose/variant evidence; it is not timing confidence.
+   // Keep a clear supplied timing match while retaining all review warnings.
+   let groupId=conflict?null:result.groupId;
    // Manual reassignment/deletion during research wins over automatic grouping.
    if(row.group_id!==target.group_id)groupId=row.group_id;
    const [owned]=await db.execute('SELECT id FROM day_groups WHERE id=? AND user_id=?',[groupId||'',owner]);if(!owned.length)groupId=null;
@@ -256,7 +258,7 @@ export class TrackerApi {
   });
  }
  async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){
-  const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:'xai'}),model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_3',maxTokens:Math.min(12000,4500+supplements.length*190)}));
+  const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:'xai'}),model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_4',maxTokens:Math.min(12000,4500+supplements.length*190)}));
   const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
   for(const assessment of result.compatibility.assessments){const s=supplements.find(s=>s.id===assessment.supplementId),a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;assessment.supplementName=s.name;if(assessment.status==='no_known_issue'&&a.enrichment&&a.enrichment.status!=='complete')assessment.status='insufficient_information';}
   if(result.compatibility.assessments.some(a=>a.status!=='no_known_issue')){result.needsReview=true;result.compatibility.requiresReview=true;}return data;
@@ -280,7 +282,7 @@ export class TrackerApi {
   this.running.add(owner);
   try{
    const key=this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'});
-   const {result,model,citations}=await this.provider(()=>this.chat({key,model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_3',maxTokens:Math.min(12000,4500+supplements.length*190)}));
+   const {result,model,citations}=await this.provider(()=>this.chat({key,model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_4',maxTokens:Math.min(12000,4500+supplements.length*190)}));
    if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');
    finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});
    await this.auth.authenticate(authorization);
@@ -289,7 +291,8 @@ export class TrackerApi {
    const conflicts=result.compatibility.assessments.some(a=>['potential_conflict','duplicate'].includes(a.status));
    if(conflicts||result.compatibility.assessments.some(a=>a.status==='insufficient_information')){result.needsReview=true;result.compatibility.requiresReview=true;}
    for(const item of result.compatibility.assessments)item.supplementName=supplements.find(s=>s.id===item.supplementId).name;
-   const id=randomUUID(),groupId=conflicts||result.confidence==='low'?null:result.groupId;
+   // Missing dose evidence alone must not erase a researched timing group.
+   const id=randomUUID(),groupId=conflicts?null:result.groupId;
    await this.auth.transaction(async db=>{
     const [latestGroups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);
     const [latestSupplements]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);

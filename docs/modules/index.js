@@ -40,3 +40,4 @@ export * from './validation.js';
 export * from './viewport.js';
 export * from './daily-log.js';
 export * from './image-input.js';
+export * from './text.js';

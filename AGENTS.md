@@ -38,10 +38,10 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker 0.6.0
+## Supplement Tracker 0.7.0
 
-Read README.md and server/ANALYSIS.md for research/schema 1.3, provenance, serving
-units and EU adult label NRV policy. modules/ is 1.7.1. App state is now account-scoped through the isolated
+Read README.md and server/ANALYSIS.md for research/schema 1.4, provenance, serving
+units and EU adult label NRV policy. modules/ is 1.8.0. App state is now account-scoped through the isolated
 Node API/MariaDB in server/. Never use the production DB for regression tests:
 server/scripts/test-isolated.sh provisions a disposable database instance. Initial
 admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
@@ -51,7 +51,7 @@ Do not claim delivery or enable recovery before DNS and real delivery verificati
 
 Preserve design A and persisted light/dark/system preferences, en/lt defaults and
 all iPhone fixes. Home is a sequence of group blocks: name, benefit/description,
-then a table with check control first, clickable name and benefit. Completion day
+then a table with check control first, clickable name with a short muted benefit below it. Completion day
 comes from the server's current date in a validated device timezone; history remains.
 
 scripts/build.mjs copies app.css and hashes all public assets. Docker web binds
@@ -80,10 +80,10 @@ Progressive analysis: photo-products.mjs schema v2 identifies/groups text OR all
 photo products in ONE grok-4.3 none call, English instructions + selected response
 language en/lt. Migration 006 adds job phase/language; all drafts are committed
 before enrichment. Raw photo is cleared before queueing background research.
-Detailed schema 1.3 has a language enum constrained to that submission's preference.
+Detailed schema 1.4 has a language enum constrained to that submission's preference.
 Each target sees all other records including drafts; incomplete context is never
 blanket safe. A serialized background queue + prioritized provider queue comes from
-canonical task-queue.mjs (library 1.7.1). No automatic paid retries. On restart mark
+canonical task-queue.mjs (library 1.8.0). No automatic paid retries. On restart mark
 jobs and queued/researching drafts failed but keep records. Retry from details is
 explicit, localized, owner-scoped and does not repeat recognition/add another row.
 Preserve manual group edits and flag compatibility stale on concurrent changes.
@@ -105,3 +105,13 @@ metadata and safe submission name/kind, never raw photo. The add dialog retains
 history and an unsent draft/photo when closed; server polling must never clear the
 next draft. Reload restores server history only. Logout clears all account-scoped
 UI state. Startup records failedPhase before failing abandoned jobs; no paid retry.
+
+Schema 1.4 adds benefitSummary (nonempty, <=6 words / 80 characters) and a separate
+source-verified doseFallback. Prefer strict timing matches to owned groups; low
+confidence or unknown dosage alone must not unassign a clear timing group. Actual
+potential_conflict/duplicate assessments still unassign. Never conflate a general
+adult intake/supplement range with manufacturer directions, a personal prescription,
+a clinical treatment dose, label NRV or capsule count. Unknown fallback stays null
+with an explanation. Clinical/regulatory-only research can retain identification
+but cannot populate unverified manufacturer dose/ingredient quantities. Historical
+1.1–1.3 data stays readable; Home compactText only limits legacy display, not storage.

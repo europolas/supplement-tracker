@@ -1,4 +1,4 @@
-# @europolas/app-modules 1.7.1
+# @europolas/app-modules 1.8.0
 
 Reusable browser modules, service worker and optional Node server helpers.
 Be frontend framework ir be naršyklės runtime priklausomybių. Node serverio
@@ -17,6 +17,7 @@ Every functional source file includes purpose and integration/cleanup comments.
 
 | Modulis | Eksportai / naudojimas |
 | --- | --- |
+| text | `compactText` — bounded plain-text previews, full detail retained |
 | config | `createConfig` — ID, vardas, API, tema, kalba, įjungiami moduliai |
 | viewport | `setupViewport` — veikiančios iPhone aukščio, pasukimo ir klaviatūros pataisos |
 | gestures | `setupGestures` — pinch ir teksto žymėjimo pasirinkimai, tekstiniai laukeliai redaguojami |

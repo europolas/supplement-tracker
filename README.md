@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.6.0
+# Supplement Tracker · 0.7.0
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.7.1.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.8.0.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -17,7 +17,7 @@ smoothly masked blur remain in place.
   plaintext keys are never returned or saved in browser persistence.
 - Day groups with their own name and benefit/description. Home shows each group's
   title, benefit on another line, then a supplement table with the check control
-  first, clickable name and benefit. Taken rows turn green.
+  first, then clickable name and a short muted benefit below the name. Taken rows turn green.
 - Product name/manufacturer or an explicitly selected photo can be sent to xAI.
   Separate camera/library controls are available. A photo may contain several
   readable products: each is independently researched and saved with progress,
@@ -33,7 +33,7 @@ smoothly masked blur remain in place.
 
 AI now performs real web research via xAI Responses. Exact manufacturer directions,
 serving size, ingredients, cautious benefits, timing and whole-routine compatibility
-are validated against a strict 1.3 schema; source URLs must occur in provider tool
+are validated against a strict 1.4 schema; source URLs must occur in provider tool
 metadata. Details include manufacturer dose, per-serving/daily quantities and
 server-calculated EU adult food-label NRV percentages for 27 vitamins/minerals.
 Ambiguous variants or unsupported units stay unknown instead of inventing a dose.
@@ -42,7 +42,7 @@ NRVs are label references, not personal medical prescriptions or upper limits.
 Analysis is progressive. ONE fast structured response identifies and provisionally
 groups every readable product from a name/photo, with all groups and the existing
 routine included. English instructions request the selected app response language
-(en by default, persisted lt when chosen). Schema 1.3 enforces the language marker
+(en by default, persisted lt when chosen). Schema 1.4 enforces the language marker
 for detailed results. Real test: the supplied seven-product photo was recognized
 and provisionally grouped in 5.8 seconds using grok-4.3 with reasoning none; this is
 one measurement, not a latency guarantee. Exact brand names remain untranslated.
@@ -136,3 +136,26 @@ password/profile/API key. Logout, password change/reset, admin blocking or accou
 deletion revoke access. Clearing site data or OS eviction still removes sign-in.
 Migration 004 upgrades only still-valid sessions; a previously lost session requires
 one new sign-in. Reusable toolkit defaults remain session-scoped and twelve hours.
+
+## Compact Home, timing groups and reference dosing (0.7.0)
+
+AI schema 1.4 separates benefitSummary (2–5 words, maximum 6 / 80 characters) from
+full benefits. Home uses a two-column check/name table, with the short summary under
+the name. Full evidence-qualified prose remains in details. Older records fall back
+to compactText without changing full saved text. The reusable plain-text limiter is
+contributed to app-modules 1.8.0 with Unicode/length tests and TEXT.md usage guide.
+
+Grouping uses the most specific existing timing group (including with-fat meals).
+Dose/variant uncertainty and low overall confidence require review but do not erase
+an otherwise explicit timing match. Potential conflicts/duplicates still block
+automatic assignment, and manual edits during research remain authoritative.
+
+When exact manufacturer daily directions are unavailable, research must attempt a
+separate doseFallback from authoritative clinical/regulatory primary sources: an
+established adult intake reference or an explicitly supported usual adult supplement
+range. Detail labels it separately with source, population/limits and explanation.
+It is not a personal prescription, capsule count or replacement manufacturer claim.
+Absent suitable evidence, the amount remains unavailable with a reason. Clinical
+trial regimens, upper limits and EU label NRVs must never become default doses.
+Fallback amounts do not fill label servings, ingredient amounts or NRV daily math.
+Old analyses remain readable; explicit detail refresh obtains the new dose lookup.

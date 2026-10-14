@@ -45,10 +45,10 @@ html #auth-status,html[data-theme="light"] #auth-status,html .account-card label
    Keep check controls first and full rows green; names remain separate detail buttons. */
 .supplement-table { width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface);table-layout:fixed; }
 .supplement-table th { font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:500;text-align:left;padding:11px 7px;border-bottom:1px solid var(--line);background:var(--paper); }
-.supplement-table th:first-child { width:47px;text-align:center; }.supplement-table th:nth-child(2) { width:50%; }
+.supplement-table th:first-child { width:47px;text-align:center; }
 .supplement-table .supplement-row { display:table-row;padding:0; }.supplement-table td { vertical-align:middle;padding:7px;border-bottom:1px solid var(--line);overflow-wrap:anywhere; }.supplement-table tr:last-child td { border-bottom:0; }
 .supplement-table td:first-child { padding:3px; }.supplement-table .supplement-open { width:100%;padding:10px 0; }.supplement-table .supplement-open strong { font-size:13px; }.supplement-table .check-button { width:40px;min-height:44px;padding:0; }
-.supplement-table .benefit-cell { font-size:11px;line-height:1.7;color:var(--muted); }.supplement-table .group-empty { text-align:center;padding:20px 12px;font-size:12px;color:var(--muted); }.group-benefit { display:block; }
+.supplement-table .group-empty { text-align:center;padding:20px 12px;font-size:12px;color:var(--muted); }.group-benefit { display:block; }
 
 /* Research amounts wrap inside the phone; preserve the single vertical scroller. */
 .nutrient-table { width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px; }
