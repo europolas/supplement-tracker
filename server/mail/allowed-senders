@@ -1,0 +1,2 @@
+/^supplements@perimove\.com$/ OK
+/.*/ REJECT Sender is not allowed

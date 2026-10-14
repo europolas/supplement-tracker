@@ -36,8 +36,8 @@ services:
       SMTP_PASSWORD_FILE: /run/secrets/smtp_password
       VAULT_KEY_FILE: /run/secrets/vault_key
       TRUST_PROXY: "true"
-    secrets: [db_app, api_secret, mail_key, smtp_password, vault_key]
-    networks: [database, outbound]
+    secrets: [db_app, api_secret, mail_key, smtp_password, vault_key, smtp_ca, dkim_private]
+    networks: [database, outbound, mail]
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
@@ -67,6 +67,17 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    logging:
+      options: {max-size: 10m, max-file: "3"}
+  smtp:
+    build: ./mail
+    restart: unless-stopped
+    secrets: [smtp_cert, smtp_key]
+    networks:
+      mail: {aliases: [smtp-mail]}
+      outbound: {}
+    volumes: [mailqueue:/var/spool/postfix]
+    mem_limit: 128m
     logging:
       options: {max-size: 10m, max-file: "3"}
   migrate:
@@ -99,8 +110,13 @@ services:
 networks:
   database: {internal: true}
   outbound: {}
+  mail:
+    internal: true
+    ipam:
+      config: [{subnet: 172.30.90.0/24}]
 volumes:
   database: {}
+  mailqueue: {}
 secrets:
   db_root: {file: ../.runtime/db_root}
   db_app: {file: ../.runtime/db_app}
@@ -108,3 +124,7 @@ secrets:
   mail_key: {file: ../.runtime/mail_key}
   smtp_password: {file: ../.runtime/smtp_password}
   vault_key: {file: ../.runtime/vault_key}
+  smtp_ca: {file: ../.runtime/mailtls/ca.crt}
+  smtp_cert: {file: ../.runtime/mailtls/server.crt}
+  smtp_key: {file: ../.runtime/mailtls/server.key}
+  dkim_private: {file: ../.runtime/dkim_private}

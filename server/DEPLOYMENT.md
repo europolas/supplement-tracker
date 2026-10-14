@@ -52,7 +52,12 @@ independent runtime secrets and DB volume securely; losing the vault key prevent
 reading saved provider keys. Backup/restore and credential rotation require their
 own procedure. Do not move release tags or reuse another application's credentials.
 
-SMTP is not configured/verified, so password-recovery requests return an explicit
-unavailable response instead of claiming an email was sent. This does not prevent
-sign-in, registration or PWA installation. Live product research and source-linked
-nutrient/dose calculation remain outside this release's implemented AI adapter.
+The separate Postfix service is configured with fresh TLS/DKIM keys and its own
+private network/queue. TLS verification passes, but SPF/DKIM/DMARC DNS records have
+not been published yet (user deferred this). Recovery remains explicitly unavailable.
+Follow mail/README.md and mail/DNS-records.json, verify real delivery, then enable
+MAIL_DELIVERY_READY in private configuration. Never reuse iphoneTest mail secrets.
+
+Research/dosage/NRV schema 1.2 is implemented; see ANALYSIS.md. Migration
+003_analysis_jobs adds only job metadata, never raw photos. Startup marks abandoned
+jobs failed instead of repeating a paid request; run exactly one API instance.

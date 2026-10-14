@@ -9,7 +9,7 @@ import nodemailer from 'nodemailer';
 import { randomBytes } from 'node:crypto';
 import { TrackerApi } from './TrackerApi.mjs';
 import { createCredentialVault } from './credential-vault.mjs';
-import { createStructuredChat } from './structured-chat.mjs';
+import { createStructuredResearch } from './structured-research.mjs';
 import { AuthApi } from './AuthApi.mjs';
 import { ApiError, hashPassword, decrypt } from './security.mjs';
 
@@ -30,7 +30,9 @@ const pool = mysql.createPool({
 });
 await pool.query('SELECT 1');
 const api = new AuthApi(pool, config, await hashPassword(randomBytes(32).toString('hex')));
-const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),chat:createStructuredChat(),models:(process.env.XAI_MODELS||'grok-4.7').split(',')});
+const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),chat:createStructuredResearch(),models:(process.env.XAI_MODELS||'grok-4.7').split(',')});
+// A single API instance owns in-memory photo payloads. Do not silently retry paid work after restart.
+await pool.query("UPDATE analysis_jobs SET status='failed',error_code='AI_JOB_INTERRUPTED',finished_at=UTC_TIMESTAMP(3) WHERE status='running'");
 const transport = process.env.SMTP_HOST && process.env.SMTP_FROM ? nodemailer.createTransport({
   host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587),
   secure: process.env.SMTP_PORT === '465', requireTLS: true,
@@ -44,7 +46,7 @@ const transport = process.env.SMTP_HOST && process.env.SMTP_FROM ? nodemailer.cr
 }) : null;
 let sending = false;
 async function flushMail() {
-  if (!transport || sending) return;
+  if (!config.mailConfigured || !transport || sending) return;
   sending = true;
   try {
     const [rows] = await pool.execute('SELECT id, encrypted_payload FROM email_outbox WHERE sent_at IS NULL AND attempts < 3 AND available_at <= UTC_TIMESTAMP(3) ORDER BY available_at LIMIT 1');
@@ -68,6 +70,7 @@ async function flushMail() {
 }
 const cleanup = setInterval(async () => {
   try {
+    await pool.query("DELETE FROM analysis_jobs WHERE finished_at < DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 7 DAY)");
     await pool.query('DELETE FROM auth_sessions WHERE expires_at < UTC_TIMESTAMP(3)');
     await pool.query('DELETE FROM auth_rate_limits WHERE expires_at < UTC_TIMESTAMP(3)');
     await pool.query('DELETE FROM password_resets WHERE expires_at < UTC_TIMESTAMP(3)');
@@ -116,7 +119,7 @@ export const server = http.createServer({ requestTimeout: 105000, headersTimeout
     let payload = {};
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH' || (req.method === 'DELETE' && (Number(req.headers['content-length'] || 0) > 0 || req.headers['transfer-encoding']))) {
       if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) throw new ApiError(415, "A JSON request body is required.");
-      payload = await body(req, path === '/v1/supplements/analyze' ? 4500000 : 16384);
+      payload = await body(req, ['/v1/supplements/analyze','/v1/supplements/jobs'].includes(path) ? 4500000 : 16384);
     }
     // Loopback-only container port; trusted local nginx must overwrite this header.
     const ip = process.env.TRUST_PROXY === 'true' ? req.headers['x-real-ip'] || req.socket.remoteAddress : req.socket.remoteAddress;

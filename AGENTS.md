@@ -38,14 +38,16 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker 0.2.0
+## Supplement Tracker 0.3.0
 
-Read README.md for implemented features and pending manufacturer research/dosage
-features. modules/ is 1.3.0. App state is now account-scoped through the isolated
+Read README.md and server/ANALYSIS.md for research/schema 1.2, provenance, serving
+units and EU adult label NRV policy. modules/ is 1.4.0. App state is now account-scoped through the isolated
 Node API/MariaDB in server/. Never use the production DB for regression tests:
 server/scripts/test-isolated.sh provisions a disposable database instance. Initial
 admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
-never read their contents into logs or commit them. Current SMTP readiness is false.
+never read their contents into logs or commit them. Current SMTP readiness is false: a separate TLS-tested mail service is prepared,
+but the user deferred SPF/DKIM/DMARC publication. Records: server/mail/DNS-records.json.
+Do not claim delivery or enable recovery before DNS and real delivery verification.
 
 Preserve design A and persisted light/dark/system preferences, en/lt defaults and
 all iPhone fixes. Home is a sequence of group blocks: name, benefit/description,
@@ -63,3 +65,10 @@ Account forms share the same createAuth instance with app screens. Never cache k
 photos or private API responses; only opaque session tokens live in sessionStorage.
 Preserve dirty-form, in-flight write and open-dialog protections for worker updates.
 New shared features belong in pwa-toolkit first, with tests and usage documentation.
+
+Analysis uses owner-scoped short HTTP jobs and server-side bounded research. Keep
+raw photos in memory, never DB/job rows. API startup fails abandoned running jobs
+without paid retries. This deployment runs one API instance, not distributed workers.
+Browser tests build to .runtime/browser-public; never rebuild mounted docs during
+tests. NRV constants are server-owned; do not infer personal dosage or convert
+unknown/IU/compound amounts blindly. Older saved analysis 1.1 remains readable.

@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.2.0
+# Supplement Tracker · 0.3.0
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.3.0.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.4.0.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -11,7 +11,8 @@ smoothly masked blur remain in place.
 
 - Account registration/sign-in/profile/password change/logout/deletion and admin
   user blocking. Recovery forms exist, but email remains unavailable until SMTP
-  configuration and real delivery verification are complete.
+  configuration and real delivery verification are complete. The separate mail
+  service is prepared and TLS-tested; the user deferred publishing its DNS records.
 - Account-owned xAI key save/replace/delete. AES-256-GCM encrypted server storage;
   plaintext keys are never returned or saved in browser persistence.
 - Day groups with their own name and benefit/description. Home shows each group's
@@ -27,12 +28,18 @@ smoothly masked blur remain in place.
 - Public PWA shell can install/cache offline. Account data and changes require
   internet. API data, photos and keys never enter the public worker cache.
 
-The current structured AI adapter does **not** perform live web research. Exact
-manufacturer-source verification, source-linked dosage extraction and EU nutrient
-reference-intake calculations requested for the next analysis revision remain
-pending. Product names alone never establish a dose. Current AI results explicitly
-request readable label directions or null and general cautious information.
-Do not describe this release as having those research/dosage features.
+AI now performs real web research via xAI Responses. Exact manufacturer directions,
+serving size, ingredients, cautious benefits, timing and whole-routine compatibility
+are validated against a strict 1.2 schema; source URLs must occur in provider tool
+metadata. Details include manufacturer dose, per-serving/daily quantities and
+server-calculated EU adult food-label NRV percentages for 27 vitamins/minerals.
+Ambiguous variants or unsupported units stay unknown instead of inventing a dose.
+NRVs are label references, not personal medical prescriptions or upper limits.
+
+Analysis is an owner-scoped background job: return later after iOS suspension to
+see the saved result. One active job per user, four globally; raw photos stay in
+memory only. Interrupted server jobs fail explicitly without automatic paid retries.
+Read server/ANALYSIS.md for the public contract, provenance and calculation limits.
 
 Previous 0.1.x device-local records are preserved but not automatically imported into
 an account: importing private local records requires an explicit user decision.
@@ -69,7 +76,7 @@ uses account records or emits raw provider responses.
 config, storage, settings, theme, i18n, viewport, gestures, router, forms, ui, network,
 auth, auth-screen, pwa/worker, daily-log (calendar key) and generic server AuthApi,
 security/migrations. New image-input, server/credential-vault and
-server/structured-chat examples are contributed to canonical pwa-toolkit, with
+server/structured-chat and server/structured-research examples are contributed to canonical pwa-toolkit, with
 contracts/tests in modules/docs/AI.md. App schema and supplement policy stay here.
 
 ## Publication
@@ -83,3 +90,12 @@ live outside Git; .runtime/ contains deployment secrets and must never be publis
 GitHub Pages is optional; this deployment uses the existing perimove.com HTTPS host.
 
 Keep .npmrc (install-links=true) and package-lock.json aligned for npm ci.
+
+Optional explicit paid end-to-end verification against a disposable DB:
+
+```bash
+LIVE_RESEARCH=1 PROVIDER_TEST_KEY_FILE=/private/path/to/key server/scripts/test-isolated.sh
+```
+
+Browser checks build to .runtime/browser-public so they never disturb mounted
+production docs. Mail DNS records and delivery activation steps: server/mail/README.md.

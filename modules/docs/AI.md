@@ -37,7 +37,7 @@ to 85 seconds by default, rejects redirects/refusals/truncation, and returns saf
 `ProviderError` codes. It never retries: repeating an AI request can incur another
 charge. Provider retention terms still apply; store:false is not a retention guarantee.
 
-This adapter does not perform web research or verify sources. Applications requiring
+The createStructuredChat adapter does not perform web research or verify sources. Applications requiring
 current product research must add explicit retrieval and source validation before
 claiming those features. Prompts alone do not establish that a web search occurred.
 
@@ -45,3 +45,24 @@ Share a single `createAuth` instance via `setupAccount(config,{auth,i18n})` when
 app screens and account forms need the same session state. `createAuth({timeout})`
 allows an AI-capable app to set a request timeout deliberately. Account form cleanup
 remains the responsibility of the composition root.
+
+## Research with encountered sources (server only)
+
+`createStructuredResearch` accepts the structured-chat contract but uses the xAI
+Responses API, image input conversion and mandatory web_search. It disables provider
+storage, inline citation markup and redirects, caps body size at 512 KiB, bounds
+agent turns to four and time to five minutes (explicit low reasoning effort). It never retries. max_turns is not a
+hard count of billable tool invocations. Return: `{result, model, citations, searches}`.
+
+`citationUrl` canonicalizes public HTTPS URLs; returned citations come from provider
+tool metadata, not generated answer text. Caller must bind returned claim URLs to
+these citations and validate domain-specific provenance. Encountering a URL does
+not prove every claim on that URL, manufacturer identity or clinical correctness.
+The application must state uncertainty; this adapter does not replace expert review.
+
+Long research belongs in a short HTTP job submission and owner-scoped polling flow.
+Do not raise a public proxy timeout and assume a mobile page will remain active.
+Keep photo payloads in memory; after restart, terminate abandoned jobs explicitly
+rather than automatically repeating a potentially billable request. Persist only
+state/result metadata, authorize job reads and recheck session/key/collection before
+committing results. This job policy is application-owned; the adapter is stateless.

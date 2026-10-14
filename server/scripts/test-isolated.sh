@@ -15,4 +15,9 @@ for attempt in {1..60}; do
  if docker exec "$check_db" healthcheck.sh --connect --innodb_initialized >/dev/null 2>&1; then break; fi
  sleep 1
 done
-docker run --rm --user "$(id -u):$(id -g)" --network "$check_network" -e DB_TEST_HOST=tracker-checks-db -v "$check_dir/root:/run/secrets/test_db_root:ro" -v "$PWD/test:/app/test:ro" supplement-tracker-api node --test test/*.test.mjs
+check_extra=()
+if [ "${LIVE_RESEARCH:-0}" = 1 ]; then
+ : "${PROVIDER_TEST_KEY_FILE:?Set a private test key file for the explicit paid check}"
+ check_extra=(-e LIVE_RESEARCH=1 -v "$PROVIDER_TEST_KEY_FILE:/run/secrets/provider_test_key:ro")
+fi
+docker run --rm --user "$(id -u):$(id -g)" "${check_extra[@]}" --network "$check_network" -e DB_TEST_HOST=tracker-checks-db -v "$check_dir/root:/run/secrets/test_db_root:ro" -v "$PWD/test:/app/test:ro" supplement-tracker-api node --test test/*.test.mjs

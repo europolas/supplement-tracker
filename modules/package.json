@@ -1,6 +1,6 @@
 {
   "name": "@europolas/app-modules",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "type": "module",
   "description": "Reusable browser and Node modules for mobile PWA applications",
   "files": [
@@ -20,7 +20,8 @@
     "./server/migrations": "./server/migrations.mjs",
     "./server/security": "./server/security.mjs",
     "./server/credential-vault": "./server/credential-vault.mjs",
-    "./server/structured-chat": "./server/structured-chat.mjs"
+    "./server/structured-chat": "./server/structured-chat.mjs",
+    "./server/structured-research": "./server/structured-research.mjs"
   },
   "engines": {
     "node": ">=22"

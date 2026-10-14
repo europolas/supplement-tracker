@@ -9,6 +9,7 @@ const config=createConfig(await(await fetch('./app.config.json')).json());
 const get=id=>document.getElementById(id),storage=createStorage(config.id);
 const settings=createSettings(storage,{language:config.language,theme:config.theme},{language:v=>['en','lt'].includes(v),theme:v=>['light','dark','system'].includes(v)});
 const theme=createTheme({storage}),i18n=createI18n(undefined,settings.state.get().language),toast=createToast(get('toast')),network=watchNetwork();
+theme.set(settings.state.get().theme);
 setupViewport();setupGestures(config.interaction);
 // This is a trusted bundled template; user and AI content always use textContent.
 get('account-forms').append(document.createRange().createContextualFragment(await(await fetch('./account.html')).text()));
@@ -16,7 +17,7 @@ const auth=createAuth({id:config.id,baseUrl:config.apiUrl,timeout:100000});
 setupAccount(config,{i18n,auth});
 const api=auth.api;
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router;
-let photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer;
+let photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null;
 const dirty=[...document.querySelectorAll('form')].map(form=>({form,tracker:trackDirty(form)}));
 const clearDirty=form=>dirty.find(item=>item.form===form)?.tracker.reset();
 for(const {form} of dirty){form.addEventListener('reset',()=>clearDirty(form));form.addEventListener('app:saved',()=>clearDirty(form));}
@@ -27,7 +28,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
- generation++;state={groups:[],supplements:[],ai:null,day:localDay()};analysisAbort?.abort();closeAdd(true);
+ generation++;watchedJob=null;sending=false;state={groups:[],supplements:[],ai:null,day:localDay()};analysisAbort?.abort();closeAdd(true);
  for(const {form} of dirty){if(form.id==='settings-form')continue;form.reset();clearDirty(form);}
  get('supplement-detail').replaceChildren();get('ai-form').elements.key.value='';
  get('app-error').hidden=true;get('home-status').textContent='';
@@ -49,6 +50,8 @@ async function load(){
   const result=await api.get('/v1/dashboard?timezone='+encodeURIComponent(zone()));
   if(session!==current()||version!==generation)return;
   state=result;get('app-error').hidden=true;status('home-status','');render();
+  const latest=await api.get('/v1/supplements/jobs');if(session===current()&&latest.job?.status==='running'&&!watchedJob)watchJob(latest.job,session);
+  else if(session===current()&&latest.job?.status==='failed')status('home-status',err(new Error(latest.job.error_code||'REQUEST_FAILED')),true);
  }catch(error){if(session===current()&&version===generation){status('home-status','');get('app-error').hidden=false;get('app-error').textContent=err(error);}}
 }
 function renderHome(){
@@ -101,13 +104,39 @@ function renderDetail(){
  const analysis=item.analysis,card=element('div',{className:'surface detail-section'});
  card.append(element('p',{text:state.groups.find(g=>g.id===item.group_id)?.name||i18n.t('appUnassigned'),className:'eyebrow'}),element('h1',{text:item.name,className:'detail-name'}));
  if(analysis.needsReview)card.append(element('p',{text:i18n.t('appReview')+(analysis.reviewReason?' '+analysis.reviewReason:''),className:'review-note'}));
+ if(analysis.manufacturer)card.append(element('p',{text:[analysis.manufacturer,analysis.variant].filter(Boolean).join(' · '),className:'muted'}));
+ if(analysis.dosage){
+  const d=analysis.dosage;card.append(heading(i18n.t('appManufacturerDose'),'h3'),element('p',{text:d.directions||i18n.t('appNoLabel')}));
+  if(d.servingSize)card.append(element('p',{text:i18n.t('appServingSize')+': '+d.servingSize,className:'detail-meta'}));
+ }
+ if(analysis.nutrients?.length){
+  card.append(heading(i18n.t('appNutrients'),'h3'));
+  const table=element('table',{className:'nutrient-table'}),head=element('thead'),tr=element('tr');
+  for(const key of ['appNutrient','appPerServing','appDailyAmount','appReference'])tr.append(element('th',{text:i18n.t(key),attributes:{scope:'col'}}));head.append(tr);table.append(head);const body=element('tbody');
+  const number=value=>new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value);
+  const unit=value=>value==='ug'?'µg':value;
+  const amount=(value,u)=>value===null||value===undefined?'—':number(value)+' '+unit(u);
+  const range=(a,b,u)=>a===null||a===undefined?'—':a===b?amount(a,u):number(a)+'–'+amount(b,u);
+  for(const n of analysis.nutrients){const row=element('tr');
+   const daily=range(n.dailyAmountMin,n.dailyAmountMax,n.unit==='other'?n.originalUnit||'':n.unit);
+   const reference=n.reference?amount(n.reference.amount,n.reference.unit):i18n.t('appNoNrv');
+   const percent=n.dailyPercentMin===null||n.dailyPercentMin===undefined?'':range(n.dailyPercentMin,n.dailyPercentMax,'%');
+   const name=element('td');name.append(element('strong',{text:n.name}));if(n.amountNote)name.append(element('small',{text:n.amountNote}));
+   row.append(name,element('td',{text:amount(n.amount,n.unit==='other'?n.originalUnit||'':n.unit)}),element('td',{text:daily+(percent?' · '+percent:'')}),element('td',{text:reference}));body.append(row);
+  }table.append(body);card.append(table,element('p',{text:i18n.t('appNrvHelp'),className:'detail-meta'}));
+ }
  if(analysis.compatibility){
   card.append(heading(i18n.t('appCompatibility'),'h3'),element('p',{text:analysis.compatibility.summary}));
   const list=element('ul');for(const assessment of analysis.compatibility.assessments){list.append(element('li',{text:assessment.supplementName+' · '+i18n.t('compat_'+assessment.status)+': '+assessment.reason}));}card.append(list);
  }
- for(const [key,value] of [['appBenefits',analysis.benefits],['appHow',analysis.howToUse],['appWhen',analysis.whenToUse],['appLabel',analysis.labelDirections||i18n.t('appNoLabel')],['appCautions',analysis.cautions]]){
+ for(const [key,value] of [['appBenefits',analysis.benefits],['appHow',analysis.howToUse],['appWhen',analysis.whenToUse],...(!analysis.dosage?[['appLabel',analysis.labelDirections||i18n.t('appNoLabel')]]:[]),['appCautions',analysis.cautions]]){
   card.append(heading(i18n.t(key),'h3'));
   if(Array.isArray(value)){const ul=element('ul');for(const entry of value)ul.append(element('li',{text:entry}));card.append(ul);}else card.append(element('p',{text:value}));
+ }
+ if(analysis.sources?.length){
+  card.append(heading(i18n.t('appSources'),'h3'));const list=element('ul',{className:'source-list'});
+  for(const source of analysis.sources){const row=element('li');row.append(element('a',{text:source.title,attributes:{href:source.url,target:'_blank',rel:'noopener noreferrer'}}),element('span',{text:' · '+i18n.t('source_'+source.kind),className:'detail-meta'}));list.append(row);}card.append(list);
+  if(analysis.research?.checkedAt)card.append(element('p',{text:i18n.t('appResearchedAt',{date:new Intl.DateTimeFormat(i18n.language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(analysis.research.checkedAt))}),className:'detail-meta'}));
  }
  card.append(element('p',{text:analysis.evidenceNote,className:'detail-meta'}),element('p',{text:i18n.t('appAiNote'),className:'detail-meta'}));
  const select=element('select',{attributes:{'aria-label':i18n.t('appMoveGroup')}});
@@ -153,13 +182,14 @@ get('remove-key').addEventListener('click',async()=>{
 });
 function clearPhoto(){imageGeneration++;photo=null;get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;get('analyze-form').elements.photo.value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 function closeAdd(force=false){
- if(sending&&!force)return;analysisAbort?.abort();get('add-dialog').close();get('analyze-form').reset();clearPhoto();requestId=null;addedId=null;
+ if(sending&&!force){get('add-dialog').close();return;}analysisAbort?.abort();get('add-dialog').close();get('analyze-form').reset();clearPhoto();requestId=null;addedId=null;
  get('view-added').hidden=true;get('analysis-status').textContent='';get('analyze-form').querySelector('fieldset').disabled=false;
 }
 get('add-supplement').addEventListener('click',()=>{
+ if(sending){notify(i18n.t('AI_BUSY'));return;}
  if(!state.ai?.configured){notify(i18n.t('AI_KEY_REQUIRED'),true);router.navigate('/account');return;}
  if(!state.groups.length){notify(i18n.t('CREATE_GROUP_FIRST'),true);router.navigate('/groups');return;}
- requestId=crypto.randomUUID();get('add-dialog').showModal();
+ closeAdd();requestId=crypto.randomUUID();get('add-dialog').showModal();
 });
 get('close-add').addEventListener('click',()=>closeAdd());
 get('add-dialog').addEventListener('cancel',event=>{event.preventDefault();closeAdd();});
@@ -173,18 +203,33 @@ get('analyze-form').elements.photo.addEventListener('change',async event=>{
  catch(error){if(version===imageGeneration){clearPhoto();status('analysis-status',err(error),true);}}
  finally{if(version===imageGeneration)get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 });
+/** Jobs continue on the server if iOS suspends this page. Only public job metadata
+ * is polled; no photo/key is persisted. Reload/login discovers the active own job. */
+async function watchJob(job,session){
+ if(watchedJob===job.id)return;watchedJob=job.id;sending=true;analysisAbort=new AbortController();const signal=analysisAbort.signal;
+ const wait=()=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},1800);function abort(){clearTimeout(timer);reject(new Error('AI_JOB_INTERRUPTED'));}signal.addEventListener('abort',abort,{once:true});});
+ try{
+  while(job.status==='running'){
+   if(session!==current())return;status('analysis-status',i18n.t('appSending'));status('home-status',i18n.t('appSending'));
+   await wait();job=await api.get('/v1/supplements/jobs/'+job.id,{signal});
+  }
+  if(session!==current())return;
+  if(job.status==='failed')throw new Error(job.error_code||'REQUEST_FAILED');
+  addedId=job.supplement_id;clearDirty(get('analyze-form'));clearPhoto();await load();status('analysis-status',i18n.t('appSent'));status('home-status','');get('view-added').hidden=false;notify(i18n.t('appSent'));
+ }catch(error){if(session===current()){status('analysis-status',err(error),true);status('home-status',err(error),true);get('analyze-form').querySelector('fieldset').disabled=false;requestId=crypto.randomUUID();}}
+ finally{if(watchedJob===job.id){watchedJob=null;sending=false;}get('close-add').disabled=false;}
+}
 get('analyze-form').addEventListener('submit',async event=>{
  event.preventDefault();if(sending||!current())return;
  const form=get('analyze-form'),name=form.elements.name.value.trim();
  if(!name&&!photo){status('analysis-status',i18n.t('NAME_OR_PHOTO_REQUIRED'),true);return;}
- const session=current();sending=true;writes++;form.querySelector('fieldset').disabled=true;get('close-add').disabled=true;
- status('analysis-status',i18n.t('appSending'));analysisAbort=new AbortController();
+ const session=current();sending=true;writes++;form.querySelector('fieldset').disabled=true;
+ status('analysis-status',i18n.t('appSending'));
  try{
-  const result=await api.post('/v1/supplements/analyze',{requestId:requestId||crypto.randomUUID(),name,image:photo,language:i18n.language},{signal:analysisAbort.signal});
-  if(session!==current())return;addedId=result.id;clearDirty(form);clearPhoto();
-  await load();status('analysis-status',i18n.t('appSent'));get('view-added').hidden=false;
+  const job=await api.post('/v1/supplements/jobs',{requestId:requestId||crypto.randomUUID(),name,image:photo,language:i18n.language});
+  if(session!==current())return;clearPhoto();await watchJob(job,session);
  }catch(error){if(session===current()){status('analysis-status',err(error),true);form.querySelector('fieldset').disabled=false;}}
- finally{sending=false;writes--;get('close-add').disabled=false;}
+ finally{if(!watchedJob)sending=false;writes--;get('close-add').disabled=false;}
 });
 get('view-added').addEventListener('click',()=>{const id=addedId;closeAdd();if(id)router.navigate('/detail?id='+encodeURIComponent(id));});
 settings.state.subscribe(value=>{

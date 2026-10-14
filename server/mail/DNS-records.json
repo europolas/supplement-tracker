@@ -1,0 +1,17 @@
+[
+  {
+    "type": "TXT",
+    "name": "@",
+    "value": "v=spf1 a -all"
+  },
+  {
+    "type": "TXT",
+    "name": "supplement._domainkey",
+    "value": "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzXqOaoqV5O76ZcNVcsv6/3YKY2Bi4K0rskE7Cw7NlL7SDywkE2YZMrTC7O7Fchp7bP7fRrAMyhvJSbF6Gs1TSuVB6IYJvCB9mrcFWYWPw17PzVywsH6RFbpS0yVgeCiai0Yw370sfLt3xD6vbBv9VX41CZJWJWm/6BKe3Je//XmFYl08612a9KnfFlFfGLiHVlj1ZCq9vqirnt0v8L4dqBz3c2gzV7/n/0TjH8GBSR2kTXEkoSvEsOrElVQ30PfojbnVdtONQrXlYPn/IkK8ZBcnfZOyYlmGrNAiei+0fMtrokQOeeC8Q/s119xs9fCyVG/JKgJSR9cZVeLZ2fFtpQIDAQAB"
+  },
+  {
+    "type": "TXT",
+    "name": "_dmarc",
+    "value": "v=DMARC1; p=none; adkim=r; aspf=r"
+  }
+]
