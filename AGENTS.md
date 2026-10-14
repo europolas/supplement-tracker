@@ -40,7 +40,7 @@ the canonical repository root. Carry it into each generated application's AGENTS
 
 ## Supplement Tracker foundation
 
-App ID: supplement-tracker. Current version: 0.1.0. Sources live in src/ and shared
+App ID: supplement-tracker. Current version: 0.1.1. Sources live in src/ and shared
 library copy in modules/ (1.2.0). src/app.js owns the supplement schema and screens;
 modules/src/daily-log.js owns generic completion records. Read README for the reused
 module list and current feature boundaries. All UI translations currently live in

@@ -1,4 +1,4 @@
-# Supplement Tracker · 0.1.0
+# Supplement Tracker · 0.1.1
 
 An independent PWA foundation generated from europolas/pwa-toolkit starter and
 app-modules. English is default; Lithuanian and light/dark/system themes persist.
@@ -59,3 +59,6 @@ but cannot change those settings. Until then, no hosted app URL is claimed live.
 The intended Pages URL is https://europolas.github.io/supplement-tracker/.
 No backend is deployed by this workflow. Each future backend must have its own
 secrets, DB/user and configuration; never reuse iphoneTest's production API/data.
+
+Keep .npmrc (install-links=true) with package-lock.json so file: module packaging
+uses the same mode with npm ci on local machines and GitHub runners.
