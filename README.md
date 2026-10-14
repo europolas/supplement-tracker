@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.5.0
+# Supplement Tracker · 0.6.0
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.7.0.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.7.1.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -52,7 +52,7 @@ states. One serialized background research queue then enriches missing/stale det
 using the selected research model (grok-4.7, low reasoning). Source/dose/NRV rules
 remain strict. Each target sees every other draft/saved product; uncertain contexts
 cannot receive blanket safe assessments. UI polling resumes after iOS suspension,
-allows new inputs while enriching and never puts photos/keys in browser storage.
+allows new queued inputs during recognition or enrichment and never puts photos/keys in browser storage.
 
 Within an account, exact product/variant identities reuse confirmed information in
 the SAME language for up to 30 days. In-flight identical products are not rebilled.
@@ -62,12 +62,19 @@ recognition or a duplicate product row. Manual group edits win; compatibility is
 marked stale if the collection changes during research. Interrupted queues are not
 automatically retried; their records remain visible with retry controls.
 
-Limits: 30 groups, 40 supplements; 3 submissions/minute and 30/day per owner;
+Limits: 30 groups, 40 supplements; 4 submissions/minute and 30/day per owner;
 one simultaneous recognition and at most four running jobs/account, eight globally.
 Four bounded provider slots with recognition priority; one background research at a
 time leaves capacity for interactive work. A fast submission plus per-product web
 research may incur several xAI charges. Raw photos are released before background
 work begins. Single API instance; no distributed queue/payload durability is implied.
+The add dialog displays each upload's queued, recognizing/grouping, researching and
+finished/failed stages, including every recognized product and skipped label.
+Closing/reopening keeps the process view and the unsent draft/photo in memory.
+Reload restores active jobs and the latest 20 history entries from the authenticated
+API (seven-day retention); an unsent photo is intentionally not persisted. The form
+unlocks after the server accepts an upload, so another name/photo can join the queue
+while earlier recognition runs. Up to four uploads can be active per account.
 Read server/ANALYSIS.md for provenance, lifecycle and calculation limits.
 
 ## Development and checks

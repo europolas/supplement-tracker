@@ -3,8 +3,9 @@
 POST /v1/supplements/jobs authenticates the owner, validates photo/text, serializes
 one recognition at a time per account and returns 202 with an opaque job ID. Poll
 GET /v1/supplements/jobs/:id; GET /v1/supplements/jobs returns the account's latest
-job for resuming after iOS suspension. Reads are owner-scoped. No prompt/photo/key
-is persisted in analysis_jobs. Finished state is retained seven days; supplement
+job, active jobs and recent history for resuming after iOS suspension. Reads are
+owner-scoped. Only the safe submission name/kind is saved as queue metadata; no
+full prompt, raw photo, API key or bearer token is persisted in analysis_jobs. Finished state is retained seven days; supplement
 request IDs remain unique per owner so saved requests are not billed twice.
 
 A single API process owns at most eight live jobs and four upstream requests. Raw
@@ -112,7 +113,7 @@ schema 1.3 adds an en/lt language enum fixed to the request; all free text must 
 that language, while JSON keys/instructions stay English. Prior analyses 1.1/1.2
 remain readable. Historical text is not silently translated when UI language changes.
 
-Job JSON includes phase (recognizing/enriching/done), language and result items with
+Job JSON includes phase (queued/recognizing/enriching/done), language and result items with
 id/name/status=added, research=queued/researching/complete/failed/reused. total_count
 counts recognized records; processed_count counts terminal research/reuse states.
 GET /v1/supplements/jobs returns latest job plus active[] for resuming every job.
@@ -136,7 +137,7 @@ a stale comparison into a safety clearance. Existing single synchronous analyze
 endpoint retains its strict snapshot contract for older clients.
 
 One simultaneous recognition per account; four active jobs/account, eight globally,
-40 supplements, 30 groups and 3 submissions/minute/30 per day. The queues are bounded
+40 supplements, 30 groups and 4 submissions/minute/30 per day. The queues are bounded
 in-process helpers, not a distributed system. Restart fails jobs and marks interrupted
 drafts failed; no private photo, credential or bearer token is stored in job rows.
 Opaque authorization is held only in the active task closure. Tasks have bounded
@@ -160,3 +161,31 @@ and an English preview in 5.967 s; default language is en. A separate real produ
 workflow returned the preview in 3.435 s, then sourced Lithuanian dose/NRV details
 in the background (280 s total), and passed save/check/delete in an isolated DB.
 These timings explain why source research is not on the interactive critical path.
+
+## Upload process queue (0.6.0, migration 008)
+
+Accepted uploads start in queued phase and keep submission={name,kind} plus timestamps.
+GET jobs includes owner-scoped recent[] (latest 20 by activity) and all active[].
+The dialog shows a timeline and per-product detail progress; it merges history by
+opaque ID and preserves expanded/collapsed cards. The composer is independent: only
+the short upload POST disables it. Closing/reopening never clears history or the
+next unsent name/photo, and polling never resets another draft. Full reload restores
+server history, not unsent photos. Logout clears all private modal/history state.
+
+A per-owner createTaskQueue({concurrency:1,maxPending:3}) serializes recognition.
+Its slot ends immediately after preview records commit, before awaiting enrichment.
+Thus queued photos include the latest recognized collection without waiting minutes
+for detailed web research. The existing global provider/research queues stay bounded.
+Validate the session before executing delayed recognition and recheck key/ownership
+before saving. Acceptance is idempotent before quota consumption under the owner lock;
+limits are four active jobs/account, eight globally, four accepted uploads/minute and
+30/day. A full queue returns AI_QUEUE_FULL while leaving the next draft intact.
+
+Queued raw photo bytes live only in bounded server memory; no browser outbox, DB
+payload or worker cache stores them. Server restart explicitly fails abandoned jobs,
+recording failedPhase for an accurate failure timeline; no automatic billable replay.
+The isolated DB tests cover serial FIFO acceptance, four-slot capacity, idempotency,
+owner isolation and history without image leakage. Browser tests cover closing,
+reopening, queue additions during recognition, preserving a subsequent draft while
+older research progresses, reload restoration and logout cleanup. Provider calls in
+these checks are mocked; they do not incur paid research.

@@ -38,10 +38,10 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker 0.5.0
+## Supplement Tracker 0.6.0
 
 Read README.md and server/ANALYSIS.md for research/schema 1.3, provenance, serving
-units and EU adult label NRV policy. modules/ is 1.7.0. App state is now account-scoped through the isolated
+units and EU adult label NRV policy. modules/ is 1.7.1. App state is now account-scoped through the isolated
 Node API/MariaDB in server/. Never use the production DB for regression tests:
 server/scripts/test-isolated.sh provisions a disposable database instance. Initial
 admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
@@ -83,12 +83,12 @@ before enrichment. Raw photo is cleared before queueing background research.
 Detailed schema 1.3 has a language enum constrained to that submission's preference.
 Each target sees all other records including drafts; incomplete context is never
 blanket safe. A serialized background queue + prioritized provider queue comes from
-canonical task-queue.mjs (library 1.7.0). No automatic paid retries. On restart mark
+canonical task-queue.mjs (library 1.7.1). No automatic paid retries. On restart mark
 jobs and queued/researching drafts failed but keep records. Retry from details is
 explicit, localized, owner-scoped and does not repeat recognition/add another row.
 Preserve manual group edits and flag compatibility stale on concurrent changes.
 Reuse only exact owned identities, matching language and source freshness (30 days).
-The client observes all active jobs, unlocks adding after recognition, refreshes
+The client observes all active jobs, unlocks adding after server acceptance, refreshes
 records on progress changes and clears all progress state on logout. Preserve camera
 capture and the separate library input with no capture. Do not rebuild mounted docs
 during browser tests. No changes to the original demo, its API/DB or deferred mail.
@@ -96,3 +96,12 @@ during browser tests. No changes to the original demo, its API/DB or deferred ma
 Migration 007 changes the supplements group-ownership FK to ON DELETE CASCADE for
 account removal. Group DELETE must keep its explicit unassign-first transaction;
 never replace it with raw group deletion if records are meant to remain.
+
+Migration 008 adds phase=queued. Each owner's bounded recognition queue runs one
+preview at a time and releases its slot before awaiting background research. Up to
+four active jobs/account, eight globally, four accepted submissions/minute and 30/day.
+GET jobs returns latest, active[] and recent[] (20 entries) with created/finished
+metadata and safe submission name/kind, never raw photo. The add dialog retains
+history and an unsent draft/photo when closed; server polling must never clear the
+next draft. Reload restores server history only. Logout clears all account-scoped
+UI state. Startup records failedPhase before failing abandoned jobs; no paid retry.

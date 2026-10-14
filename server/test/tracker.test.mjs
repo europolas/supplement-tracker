@@ -19,7 +19,7 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
  const root=await mysql.createConnection({host:process.env.DB_TEST_HOST,user:'root',password:readFileSync('/run/secrets/test_db_root','utf8').trim(),multipleStatements:true});
  const database='tracker_checks_'+randomBytes(5).toString('hex'),account='checks_'+randomBytes(5).toString('hex'),secret=randomBytes(32).toString('hex');let pool;
  try{
-  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));await root.query(readFileSync('/app/migrations/005_photo_batches.sql','utf8'));await root.query(readFileSync('/app/migrations/006_progressive_analysis.sql','utf8'));await root.query(readFileSync('/app/migrations/007_account_group_cascade.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
+  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));await root.query(readFileSync('/app/migrations/005_photo_batches.sql','utf8'));await root.query(readFileSync('/app/migrations/006_progressive_analysis.sql','utf8'));await root.query(readFileSync('/app/migrations/007_account_group_cascade.sql','utf8'));await root.query(readFileSync('/app/migrations/008_upload_queue.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
   pool=mysql.createPool({host:process.env.DB_TEST_HOST,user:account,password:secret,database,timezone:'Z'});
   const config={persistentSessions:true,secret:randomBytes(32).toString('hex'),mailConfigured:false,encryptionKey:randomBytes(32),appUrl:'https://app.example/'};
   const auth=new AuthApi(pool,config,await hashPassword('A long dummy secret phrase'));
@@ -126,6 +126,19 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    discovery={version:'2',products:[product('Unreadable source')],skipped:[],overflow:false};const [,reuse]=await request(a,'POST','/supplements/jobs',{requestId:randomUUID(),name:'Exact same product',language:'en'});
    for(let i=0;i<100;i++){done=(await request(a,'GET','/supplements/jobs/'+reuse.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}assert.equal(done.result.items[0].research,'reused');assert.equal(calls,previousCalls+1);
   });
+  await t.test('uploads queue during recognition, stay owner-scoped and release the slot before enrichment',async()=>{
+   await pool.query('DELETE FROM auth_rate_limits');let release,enter;const gate=new Promise(r=>release=r),entered=new Promise(r=>enter=r),original=tracker.discover,order=[];let concurrent=0,maximum=0;
+   tracker.discover=async input=>{const context=JSON.parse(input.messages[1].content[0].text);order.push(context.note);concurrent++;maximum=Math.max(maximum,concurrent);if(order.length===1){enter();await gate;}concurrent--;return {model:input.model,result:{version:'2',language:context.responseLanguage,products:[],skipped:[{location:'Input',reason:'No readable products'}],overflow:false}};};
+   const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64');
+   const firstBody={requestId:randomUUID(),name:'Upload 1',image};const [,firstJob]=await request(a,'POST','/supplements/jobs',firstBody);await entered;
+   const [,same]=await request(a,'POST','/supplements/jobs',firstBody);assert.equal(same.id,firstJob.id);
+   const jobs=[firstJob];for(let index=2;index<=4;index++){const [,job]=await request(a,'POST','/supplements/jobs',{requestId:randomUUID(),name:'Upload '+index,image});jobs.push(job);}
+   const queued=(await request(a,'GET','/supplements/jobs/'+jobs[1].id))[1];assert.equal(queued.phase,'queued');assert.equal(queued.result.submission.kind,'photo');assert.equal(queued.result.submission.name,'Upload 2');assert.equal(order.length,1);
+   await assert.rejects(request(a,'POST','/supplements/jobs',{requestId:randomUUID(),name:'Overflow'}),e=>e.message==='AI_QUEUE_FULL');
+   const own=(await request(a,'GET','/supplements/jobs'))[1],other=(await request(b,'GET','/supplements/jobs'))[1];assert.equal(own.active.length,4);assert.ok(own.recent.some(job=>job.id===queued.id));assert.equal(other.recent.some(job=>jobs.some(own=>own.id===job.id)),false);assert.equal(JSON.stringify(own).includes(image),false);
+   release();for(let i=0;i<100;i++){const active=(await request(a,'GET','/supplements/jobs'))[1].active;if(!active.length)break;await new Promise(r=>setTimeout(r,20));}
+   assert.deepEqual(order,['Upload 1','Upload 2','Upload 3','Upload 4']);assert.equal(maximum,1);const history=(await request(a,'GET','/supplements/jobs'))[1];assert.equal(history.active.length,0);assert.ok(jobs.every(job=>history.recent.some(saved=>saved.id===job.id&&saved.status==='failed')));tracker.discover=original;
+  });
   await t.test('photo discovery rechecks the key and serializes submissions before paid research',async()=>{
    await pool.query('DELETE FROM auth_rate_limits');let enter,release;
    const entered=new Promise(resolve=>enter=resolve),gate=new Promise(resolve=>release=resolve),original=tracker.discover;
@@ -133,7 +146,7 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    const body={requestId:randomUUID(),image:'data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64')};
    const before=calls;const [,job]=await request(a,'POST','/supplements/jobs',body);await entered;
    const [,same]=await request(a,'POST','/supplements/jobs',body);assert.equal(same.id,job.id);
-   await assert.rejects(request(a,'POST','/supplements/jobs',{...body,requestId:randomUUID()}),e=>e.message==='AI_BUSY');
+
    await assert.rejects(request(a,'POST','/supplements/analyze',{...body,requestId:randomUUID(),background:true,skipRateLimit:true}),e=>e.message==='AI_BUSY');
    await request(a,'PUT','/settings/ai',{key:'xai-changed-test-only-key',model:'grok-4.7'});release();
    let done;for(let i=0;i<50;i++){done=(await request(a,'GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}

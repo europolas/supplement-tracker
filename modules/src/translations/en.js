@@ -303,5 +303,19 @@ export default Object.freeze({
   "appProvisional": "Provisional grouping. Dose and compatibility are still being checked.",
   "appRefreshInfo": "Refresh information in selected language",
   "appAnalysisLanguage": "Saved analysis language: {language}. Refresh to use your selected language.",
-  "appCompatibilityStale": "Your routine changed while this information was researched. Compatibility needs review."
+  "appCompatibilityStale": "Your routine changed while this information was researched. Compatibility needs review.",
+  "appUploadQueue": "Upload queue",
+  "appUploadQueueCount": "{count} active uploads · you can add another",
+  "appUploadPhoto": "Photo",
+  "appUploadSupplement": "Supplement",
+  "appUpload_queued": "Waiting in queue",
+  "appUpload_recognizing": "Recognizing and grouping",
+  "appUpload_enriching": "Collecting detailed information",
+  "appUploadDone": "Completed",
+  "appUploadDoneIssues": "Completed with issues",
+  "appUploadFailed": "Failed",
+  "appUploadDetailsProgress": "Details processed: {done} of {total}",
+  "appUploadAccepted": "Added to the queue. You can add another supplement or photo.",
+  "appUploading": "Sending to the queue…",
+  "AI_QUEUE_FULL": "The upload queue is full. Wait for a task to finish and try again."
 });

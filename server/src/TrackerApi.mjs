@@ -9,7 +9,7 @@ import {ApiError} from './security.mjs';
 import {ProviderError} from './structured-chat.mjs';
 import {analysisSchema,validAnalysis,analysisMessages,finalizeAnalysis} from './analysis.mjs';
 import {photoProductsSchema,validPhotoProducts,photoProductsMessages,productRequestId,uniqueProducts,productIdentity,draftAnalysis} from './photo-products.mjs';
-const jobColumns='id,status,supplement_id,error_code,total_count,processed_count,result,phase,language';
+const jobColumns='id,status,supplement_id,error_code,total_count,processed_count,result,phase,language,created_at,finished_at';
 const jobResult=row=>row?{...row,result:typeof row.result==='string'?JSON.parse(row.result):row.result}:null;
 const safeCode=error=>error instanceof ProviderError?error.code:error instanceof ApiError?(/^[A-Z_]+$/.test(error.message)?error.message:error.status===429?'AI_RATE_LIMITED':error.status===401?'SESSION_EXPIRED':'REQUEST_FAILED'):'REQUEST_FAILED';
 const uuid=value=>typeof value==='string'&&/^[a-f0-9-]{36}$/.test(value);
@@ -28,7 +28,7 @@ export function validatePhoto(image){
  if(!valid)throw new ApiError(400,'IMAGE_INVALID');return image;
 }
 export class TrackerApi {
- constructor(pool,auth,{vault,chat,discover,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:1,maxPending:320});}
+ constructor(pool,auth,{vault,chat,discover,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:1,maxPending:320});}
  get providers(){return this.providerQueue.running;}
  async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
@@ -92,7 +92,7 @@ export class TrackerApi {
   }
   if(path==='/supplements/jobs'){
    if(method==='POST')return [202,await this.startAnalysis(owner,body,authorization)];
-   if(method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? ORDER BY created_at DESC LIMIT 1`,[owner]);const [active]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND status='running' ORDER BY created_at`,[owner]);return [200,{job:jobResult(rows[0]),active:active.map(jobResult)}];}
+   if(method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? ORDER BY created_at DESC LIMIT 1`,[owner]);const [recent]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? ORDER BY GREATEST(created_at,COALESCE(finished_at,created_at)) DESC LIMIT 20`,[owner]);const [active]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND status='running' ORDER BY created_at`,[owner]);return [200,{job:jobResult(rows[0]),active:active.map(jobResult),recent:recent.map(jobResult)}];}
   }
   const job=/^\/supplements\/jobs\/([a-f0-9-]{36})$/.exec(path);
   if(job&&method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE id=? AND user_id=?`,[job[1],owner]);if(!rows.length)throw new ApiError(404,'NOT_FOUND');return [200,jobResult(rows[0])];}
@@ -129,15 +129,16 @@ export class TrackerApi {
   if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');
   const name=text(body.name||'',250,false),image=validatePhoto(body.image),language=body.language==='lt'?'lt':'en';if(!name&&!image)throw new ApiError(400,'NAME_OR_PHOTO_REQUIRED');
   const id=randomUUID();let result;
-  if(this.activeJobs.size>=8)throw new ApiError(503,'AI_BUSY');this.activeJobs.add(id);
+  if(this.activeJobs.size>=8)throw new ApiError(503,'AI_QUEUE_FULL');this.activeJobs.add(id);
   try{await this.auth.transaction(async db=>{
    const [users]=await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);if(!users.length)throw new ApiError(401,'SESSION_EXPIRED');
    const [same]=await db.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND request_id=?`,[owner,body.requestId]);if(same.length){result=jobResult(same[0]);return;}
-   const [active]=await db.execute("SELECT phase FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active.length>=4||active.some(j=>j.phase==='recognizing'))throw new ApiError(409,'AI_BUSY');
-   await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language) VALUES (?,?,?,'running','recognizing',?)",[id,owner,body.requestId,language]);result={id,status:'running',phase:'recognizing',language,supplement_id:null,error_code:null};
+   const [active]=await db.execute("SELECT phase FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active.length>=4)throw new ApiError(409,'AI_QUEUE_FULL');
+   await this.auth.limit('ai-minute',owner,4,60);await this.auth.limit('ai-day',owner,30,86400);
+   const report={submission:{kind:image?'photo':'name',name},items:[],skipped:[],language};
+   await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language,result) VALUES (?,?,?,'running','queued',?,?)",[id,owner,body.requestId,language,JSON.stringify(report)]);result={id,status:'running',phase:'queued',language,result:report,created_at:new Date().toISOString(),supplement_id:null,error_code:null};
   });}catch(error){this.activeJobs.delete(id);throw error;}
   if(result.id!==id){this.activeJobs.delete(id);return result;}
-  this.jobOwners.set(owner,id);
   // The task owns a private mutable payload; it drops image bytes before enqueueing
   // any research. Waiting research contains names/IDs, never a raw photo or key.
   void this.runProgressive(owner,{requestId:body.requestId,name,image,language},authorization,id);
@@ -148,18 +149,24 @@ export class TrackerApi {
   await this.pool.execute('UPDATE analysis_jobs SET phase=?,total_count=?,processed_count=?,result=?,supplement_id=? WHERE id=? AND user_id=?',[phase,report.items.length,processed,JSON.stringify(report),report.items[0]?.id||null,id,owner]);
  }
  async runProgressive(owner,body,authorization,id){
-  let report={items:[],skipped:[],language:body.language};
+  let report={submission:{kind:body.image?'photo':'name',name:body.name},items:[],skipped:[],language:body.language};
+  let sealed,failurePhase='queued';
   try{
-   await this.auth.limit('ai-minute',owner,3,60);await this.auth.limit('ai-day',owner,30,86400);
+   let recognition=this.recognitionQueues.get(owner);if(!recognition){recognition=createTaskQueue({concurrency:1,maxPending:3});this.recognitionQueues.set(owner,recognition);}
+   // Release the owner recognition slot immediately after committing the preview,
+   // so queued photos do not wait for slow web research of an earlier upload.
+   await recognition.enqueue(async()=>{
+   failurePhase='recognizing';await this.auth.authenticate(authorization);this.jobOwners.set(owner,id);
+   await this.pool.execute("UPDATE analysis_jobs SET phase='recognizing' WHERE id=? AND user_id=?",[id,owner]);
    const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);if(!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
-   const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');
+   const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');sealed=keys[0].encrypted_key;
    const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
    const context=JSON.stringify(groups),started=Date.now(),language=body.language;
    const {result,model}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel,messages:photoProductsMessages({...body,groups,supplements}),schema:photoProductsSchema(groups,supplements,language),validate:v=>validPhotoProducts(v,groups,supplements,language),name:'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
    body.image=null; // No background research request resends a photo.
    if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
    await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);
-   report={items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started};
+   report={submission:report.submission,items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started};
    const products=uniqueProducts(result.products);if(!products.length&&!report.skipped.length)report.skipped.push({location:'',reasonCode:'SUPPLEMENT_NOT_IDENTIFIED'});if(result.overflow)report.skipped.push({location:'',reasonCode:'PHOTO_PRODUCT_LIMIT'});
    await this.auth.transaction(async db=>{
     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
@@ -184,15 +191,16 @@ export class TrackerApi {
     await db.execute('UPDATE analysis_jobs SET phase=\'enriching\',total_count=?,result=? WHERE id=? AND user_id=?',[report.items.length,JSON.stringify(report),id,owner]);
    });
    if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);await this.jobProgress(owner,id,report);
+   });failurePhase='enriching';
    for(const item of report.items){
     if(item.research!=='queued')continue;
-    try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';await this.jobProgress(owner,id,report);await this.enrich(owner,item.id,body.language,authorization,id,keys[0].encrypted_key);});item.research='complete';}
+    try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';await this.jobProgress(owner,id,report);await this.enrich(owner,item.id,body.language,authorization,id,sealed);});item.research='complete';}
     catch(error){item.research='failed';item.error=safeCode(error);await this.markResearchFailed(owner,item.id,id,item.error);}
     await this.jobProgress(owner,id,report);
    }
    await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status=?,error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[report.items.length?'complete':'failed',report.items.length?null:'SUPPLEMENT_NOT_IDENTIFIED',id,owner]);
-  }catch(error){body.image=null;const code=safeCode(error);for(const item of report.items){if(!['queued','researching'].includes(item.research))continue;item.research='failed';item.error=code;try{await this.markResearchFailed(owner,item.id,id,code);}catch{ /* DB may be unavailable; startup also marks interrupted drafts. */ }}try{await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,id,owner]);}catch{ /* Deleted accounts have no surviving private job metadata. */ }}
-  finally{body.image=null;this.activeJobs.delete(id);if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);}
+  }catch(error){body.image=null;report.failedPhase=failurePhase;const code=safeCode(error);for(const item of report.items){if(!['queued','researching'].includes(item.research))continue;item.research='failed';item.error=code;try{await this.markResearchFailed(owner,item.id,id,code);}catch{ /* DB may be unavailable; startup also marks interrupted drafts. */ }}try{await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,id,owner]);}catch{ /* Deleted accounts have no surviving private job metadata. */ }}
+  finally{body.image=null;this.activeJobs.delete(id);if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);const queue=this.recognitionQueues.get(owner);if(queue&&!queue.running&&!queue.size){queue.close();this.recognitionQueues.delete(owner);}}
  }
  /** Explicit refresh/retry never performs recognition and never adds a second row.
   * It uses the selected UI language; a completed result is retained while refreshing.
@@ -207,7 +215,7 @@ export class TrackerApi {
    const [rows]=await db.execute('SELECT name,analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[supplementId,owner]);if(!rows.length)throw new ApiError(404,'NOT_FOUND');const a=typeof rows[0].analysis==='string'?JSON.parse(rows[0].analysis):rows[0].analysis;
    if(['queued','researching'].includes(a.enrichment?.status)){const [live]=await db.execute("SELECT id FROM analysis_jobs WHERE id=? AND user_id=? AND status='running'",[a.enrichment.jobId,owner]);if(live.length)throw new ApiError(409,'AI_BUSY');}
    const [active]=await db.execute("SELECT COUNT(*) AS n FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active[0].n>=4)throw new ApiError(409,'AI_BUSY');
-   await this.auth.limit('ai-minute',owner,3,60);await this.auth.limit('ai-day',owner,30,86400);
+   await this.auth.limit('ai-minute',owner,4,60);await this.auth.limit('ai-day',owner,30,86400);
    const id=randomUUID(),report={items:[{id:supplementId,name:rows[0].name,status:'added',research:'queued',reused:true}],skipped:[],language};a.enrichment={status:'queued',jobId:id,language};
    await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),supplementId,owner]);
    await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language,total_count,result) VALUES (?,?,?,'running','enriching',?,1,?)",[id,owner,body.requestId,language,JSON.stringify(report)]);job={id,status:'running',phase:'enriching',language,total_count:1,processed_count:0,result:report};
@@ -260,7 +268,7 @@ export class TrackerApi {
   const [existing]=await this.pool.execute('SELECT id FROM supplements WHERE user_id=? AND request_id=?',[owner,body.requestId]);
   if(existing.length)return [200,{id:existing[0].id,reused:true}];
   if(this.running.has(owner)||!background&&this.jobOwners.has(owner))throw new ApiError(409,'AI_BUSY');
-  if(!skipRateLimit){await this.auth.limit('ai-minute',owner,3,60);await this.auth.limit('ai-day',owner,30,86400);}
+  if(!skipRateLimit){await this.auth.limit('ai-minute',owner,4,60);await this.auth.limit('ai-day',owner,30,86400);}
   const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);
   if(!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
   const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');

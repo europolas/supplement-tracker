@@ -303,5 +303,19 @@ export default Object.freeze({
   "appProvisional": "Preliminari grupė. Dozė ir suderinamumas dar tikrinami.",
   "appRefreshInfo": "Atnaujinti informaciją pasirinkta kalba",
   "appAnalysisLanguage": "Išsaugotos analizės kalba: {language}. Atnaujink, kad gautum informaciją pasirinkta kalba.",
-  "appCompatibilityStale": "Tavo papildų sąrašas pasikeitė tyrimo metu. Suderinamumą reikia peržiūrėti."
+  "appCompatibilityStale": "Tavo papildų sąrašas pasikeitė tyrimo metu. Suderinamumą reikia peržiūrėti.",
+  "appUploadQueue": "Įkėlimų eilė",
+  "appUploadQueueCount": "Vykstančių įkėlimų: {count} · gali pridėti dar vieną",
+  "appUploadPhoto": "Nuotrauka",
+  "appUploadSupplement": "Papildas",
+  "appUpload_queued": "Laukia eilėje",
+  "appUpload_recognizing": "Atpažįstama ir grupuojama",
+  "appUpload_enriching": "Renkama išsami informacija",
+  "appUploadDone": "Baigta",
+  "appUploadDoneIssues": "Baigta su pastabomis",
+  "appUploadFailed": "Nepavyko",
+  "appUploadDetailsProgress": "Apdorota papildų informacija: {done} iš {total}",
+  "appUploadAccepted": "Pridėta į eilę. Gali pridėti kitą papildą ar nuotrauką.",
+  "appUploading": "Siunčiama į eilę…",
+  "AI_QUEUE_FULL": "Įkėlimų eilė pilna. Palauk, kol baigsis viena užduotis, ir bandyk dar kartą."
 });

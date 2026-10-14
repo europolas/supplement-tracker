@@ -17,7 +17,7 @@ const auth=createAuth({id:config.id,baseUrl:config.apiUrl,persistence:'persisten
 setupAccount(config,{i18n,auth});
 const api=auth.api;
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router;
-let photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,latestReport=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set();
+let photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,latestReport=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set(),jobHistory=[];
 const dirty=[...document.querySelectorAll('form')].map(form=>({form,tracker:trackDirty(form)}));
 const clearDirty=form=>dirty.find(item=>item.form===form)?.tracker.reset();
 for(const {form} of dirty){form.addEventListener('reset',()=>clearDirty(form));form.addEventListener('app:saved',()=>clearDirty(form));}
@@ -28,11 +28,11 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
- generation++;activeJobs=[];modalJobId=null;jobSignature='';recognitionShown.clear();watchedJob=null;sending=false;state={groups:[],supplements:[],ai:null,day:localDay()};analysisAbort?.abort();closeAdd(true);
+ generation++;jobHistory=[];activeJobs=[];modalJobId=null;jobSignature='';recognitionShown.clear();watchedJob=null;sending=false;state={groups:[],supplements:[],ai:null,day:localDay()};analysisAbort?.abort();closeAdd(true);
  for(const {form} of dirty){if(form.id==='settings-form')continue;form.reset();clearDirty(form);}
  get('supplement-detail').replaceChildren();get('ai-form').elements.key.value='';
  get('app-error').hidden=true;get('home-status').textContent='';
- latestReport=null;renderReport('home-analysis-results',null);renderReport('analysis-results',null);
+ latestReport=null;renderReport('home-analysis-results',null);renderUploadQueue();
 }
 function heading(text,tag='h2'){return element(tag,{text});}
 function button(text,action,className='secondary'){
@@ -171,7 +171,7 @@ function render(){
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
  get('app-nav').hidden=!current();renderHome();renderGroups();renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');
- renderReport('home-analysis-results',latestReport);
+ renderReport('home-analysis-results',latestReport);renderUploadQueue();
 }
 /** Only server-owned account metadata is displayed; model text always uses safe
  * text nodes. Show partial successes and skipped/failed identities individually. */
@@ -204,16 +204,17 @@ get('remove-key').addEventListener('click',async()=>{
  renderAi();
 });
 function clearPhoto(){imageGeneration++;photo=null;get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['camera','photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
+function resetAddDraft(){get('analyze-form').reset();clearPhoto();clearDirty(get('analyze-form'));requestId=crypto.randomUUID();}
 function closeAdd(force=false){
- if(sending&&!force){get('add-dialog').close();return;}get('add-dialog').close();modalJobId=null;get('analyze-form').hidden=false;get('analyze-form').reset();clearPhoto();requestId=null;addedId=null;
- get('view-added').hidden=true;get('analysis-status').textContent='';get('analyze-form').querySelector('fieldset').disabled=false;
- renderReport('analysis-results',null);
+ get('add-dialog').close();if(!force)return;
+ resetAddDraft();modalJobId=null;addedId=null;get('view-added').hidden=true;get('analysis-status').textContent='';get('analyze-form').hidden=false;get('analyze-form').querySelector('fieldset').disabled=false;
 }
 get('add-supplement').addEventListener('click',()=>{
- if(sending){notify(i18n.t('AI_BUSY'));return;}
  if(!state.ai?.configured){notify(i18n.t('AI_KEY_REQUIRED'),true);router.navigate('/account');return;}
  if(!state.groups.length){notify(i18n.t('CREATE_GROUP_FIRST'),true);router.navigate('/groups');return;}
- closeAdd();requestId=crypto.randomUUID();get('add-dialog').showModal();
+ requestId ||= crypto.randomUUID();renderUploadQueue();get('add-dialog').showModal();
+ // Refresh history even when no active polling survived a previous connection loss.
+ void load();
 });
 get('close-add').addEventListener('click',()=>closeAdd());
 get('add-dialog').addEventListener('cancel',event=>{event.preventDefault();closeAdd();});
@@ -227,27 +228,49 @@ for(const name of ['camera','photo'])get('analyze-form').elements[name].addEvent
  catch(error){if(version===imageGeneration){clearPhoto();status('analysis-status',err(error),true);}}
  finally{if(version===imageGeneration)get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 });
-/** One account-scoped polling loop observes every running job. Recognition unlocks
- * the add flow immediately; durable server enrichment survives closing/reloading.
- * Only progress changes refresh records, avoiding a redraw every polling tick. */
+/** Account-scoped process history. Keep the composer independent of server jobs:
+ * polling must never clear a newly selected photo or typed next supplement. No
+ * private history/photo enters browser persistence; API history restores reloads. */
+function renderUploadQueue(){
+ const container=get('analysis-results'),previous=new Map([...container.querySelectorAll('details[data-job-id]')].map(node=>[node.dataset.jobId,node.open]));
+ container.replaceChildren();get('upload-queue').hidden=!jobHistory.length;
+ const running=jobHistory.filter(job=>job.status==='running');get('upload-queue-count').textContent=i18n.t('appUploadQueueCount',{count:running.length});
+ const ordered=[...jobHistory].sort((a,b)=>(a.status==='running'?0:1)-(b.status==='running'?0:1)||(a.status==='running'?Date.parse(a.created_at||0)-Date.parse(b.created_at||0):Date.parse(b.finished_at||b.created_at||0)-Date.parse(a.finished_at||a.created_at||0)));
+ for(const job of ordered){
+  const card=element('details',{className:'upload-job',attributes:{'data-job-id':job.id,'data-phase':job.phase||'recognizing'}});card.open=previous.has(job.id)?previous.get(job.id):job.status==='running'||job.id===modalJobId;
+  const submission=job.result?.submission,title=submission?.name||i18n.t(submission?.kind==='photo'?'appUploadPhoto':'appUploadSupplement');
+  const failed=job.status==='failed',issues=job.result?.items?.some(item=>item.research==='failed'||item.status==='failed');
+  const phase=job.phase||'recognizing',label=failed?'appUploadFailed':job.status==='complete'?(issues?'appUploadDoneIssues':'appUploadDone'):'appUpload_'+phase;
+  const summary=element('summary'),labels=element('div',{className:'upload-job-labels'});labels.append(element('strong',{text:title}),element('span',{text:i18n.t(label),className:'upload-job-phase'}));
+  if(job.created_at){const date=new Date(job.created_at);if(Number.isFinite(date.getTime()))labels.append(element('time',{text:new Intl.DateTimeFormat(i18n.language,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date),attributes:{datetime:date.toISOString()},className:'upload-job-time'}));}
+  summary.append(element('span',{text:failed?'!':job.status==='complete'?'✓':'…',className:'upload-job-icon',attributes:{'aria-hidden':'true'}}),labels);card.append(summary);
+  const step=job.status==='complete'?3:failed?({queued:0,recognizing:1,enriching:2}[job.result?.failedPhase]??(job.result?.items?.length?2:1)):({queued:0,recognizing:1,enriching:2,done:3}[phase]??1),steps=element('ol',{className:'upload-steps'});
+  ['appUpload_queued','appUpload_recognizing','appUpload_enriching','appUploadDone'].forEach((key,index)=>{const row=element('li',{text:i18n.t(key),className:index<step||job.status==='complete'?'is-complete':index===step?'is-current':''});if(index===step&&job.status==='running')row.setAttribute('aria-current','step');if(index===step&&failed)row.dataset.error='true';steps.append(row);});card.append(steps);
+  if(job.total_count>0){const progress=element('progress',{attributes:{max:String(job.total_count),value:String(job.processed_count||0),'aria-label':i18n.t('appUpload_enriching')}});card.append(progress,element('p',{text:i18n.t('appUploadDetailsProgress',{done:job.processed_count||0,total:job.total_count}),className:'form-help'}));}
+  if(failed)card.append(element('p',{text:err(new Error(job.error_code||'REQUEST_FAILED')),attributes:{'data-error':'true'}}));
+  if(job.result?.items?.length||job.result?.skipped?.length){const result=element('div',{attributes:{id:'upload-result-'+job.id},className:'upload-job-result'});card.append(result);container.append(card);renderReport(result.id,{...job.result,running:job.status==='running',total:job.total_count});}else container.append(card);
+ }
+}
+/** One loop observes every job; closing the upload dialog never aborts it. */
 async function observeJobs(data,session,refresh=false){
  if(session!==current())return;
- const active=data.active||((data.job?.status==='running')?[data.job]:[]),signature=JSON.stringify([data.job,active]);
+ const active=data.active||((data.job?.status==='running')?[data.job]:[]),signature=JSON.stringify([data.job,active,data.recent]);
  if(refresh&&signature!==jobSignature)await load(false);if(session!==current())return;jobSignature=signature;activeJobs=active;
- sending=active.some(job=>job.phase==='recognizing'||!job.phase&&!job.result);
+ const history=new Map(jobHistory.map(job=>[job.id,job]));for(const job of [...(data.recent||[]),...(data.job?[data.job]:[]),...active])history.set(job.id,job);
+ jobHistory=[...history.values()].sort((a,b)=>Date.parse(b.finished_at||b.created_at||0)-Date.parse(a.finished_at||a.created_at||0)).filter((job,index)=>job.status==='running'||index<20);
+ const recognizing=active.some(job=>!job.phase||job.phase==='recognizing'),queued=active.some(job=>job.phase==='queued');
  const progress=active.reduce((sum,job)=>({done:sum.done+(job.processed_count||0),total:sum.total+(job.total_count||0)}),{done:0,total:0});
- status('home-status',sending?i18n.t('appRecognizing'):active.length?i18n.t('appEnrichingProgress',progress):data.job?.status==='failed'?err(new Error(data.job.error_code||'REQUEST_FAILED')):'',data.job?.status==='failed');
- if(data.job?.result){latestReport={...data.job.result,running:data.job.status==='running',total:data.job.total_count};renderReport('home-analysis-results',latestReport);}
- const job=active.find(job=>job.id===modalJobId)||(data.job?.id===modalJobId?data.job:null);
- if(job){
-  if(job.result){renderReport('analysis-results',{...job.result,running:job.status==='running',total:job.total_count});}
-  if(job.status==='failed'){status('analysis-status',err(new Error(job.error_code||'REQUEST_FAILED')),true);get('analyze-form').hidden=false;get('analyze-form').querySelector('fieldset').disabled=false;requestId=crypto.randomUUID();}
+ status('home-status',recognizing?i18n.t('appRecognizing'):queued?i18n.t('appUpload_queued'):active.length?i18n.t('appEnrichingProgress',progress):data.job?.status==='failed'?err(new Error(data.job.error_code||'REQUEST_FAILED')):'',data.job?.status==='failed');
+ if(data.job?.result?.items?.length){latestReport={...data.job.result,running:data.job.status==='running',total:data.job.total_count};renderReport('home-analysis-results',latestReport);}
+ const job=history.get(modalJobId);
+ if(job&&!sending){
+  if(job.status==='failed')status('analysis-status',err(new Error(job.error_code||'REQUEST_FAILED')),true);
   else if(job.phase==='enriching'||job.status==='complete'){
-   if(!recognitionShown.has(job.id)){recognitionShown.add(job.id);clearPhoto();clearDirty(get('analyze-form'));notify(i18n.t('appRecognized',{count:job.result?.items.length||1}));}
-   get('analyze-form').hidden=true;addedId=job.supplement_id||job.result?.items[0]?.id;get('view-added').hidden=!addedId||Boolean(job.result?.items.length>1);
-   status('analysis-status',job.status==='complete'?i18n.t('appBatchSummary',{added:job.result?.items.length||1,total:job.total_count||1}):i18n.t('appRecognized',{count:job.total_count||0})+' '+i18n.t('appEnrichingProgress',{done:job.processed_count||0,total:job.total_count||0}));
-  }else status('analysis-status',i18n.t('appRecognizing'));
+   if(!recognitionShown.has(job.id)){recognitionShown.add(job.id);notify(i18n.t('appRecognized',{count:job.result?.items.length||1}));}
+   status('analysis-status',job.status==='complete'?i18n.t('appBatchSummary',{added:job.result?.items.filter(item=>item.status==='added').length||1,total:job.total_count||1}):i18n.t('appRecognized',{count:job.total_count||0})+' '+i18n.t('appEnrichingProgress',{done:job.processed_count||0,total:job.total_count||0}));
+  }else status('analysis-status',i18n.t(job.phase==='queued'?'appUpload_queued':'appRecognizing'));
  }
+ renderUploadQueue();
  if(active.length&&!watchedJob)void watchJobs(session);
 }
 async function watchJobs(session){
@@ -262,12 +285,12 @@ get('analyze-form').addEventListener('submit',async event=>{
  const form=get('analyze-form'),name=form.elements.name.value.trim();
  if(!name&&!photo){status('analysis-status',i18n.t('NAME_OR_PHOTO_REQUIRED'),true);return;}
  const session=current();sending=true;writes++;form.querySelector('fieldset').disabled=true;
- status('analysis-status',i18n.t('appRecognizing'));
+ status('analysis-status',i18n.t('appUploading'));
  try{
   const job=await api.post('/v1/supplements/jobs',{requestId:requestId||crypto.randomUUID(),name,image:photo,language:i18n.language});
-  if(session!==current())return;clearPhoto();modalJobId=job.id;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);
+  if(session!==current())return;resetAddDraft();modalJobId=job.id;status('analysis-status',i18n.t('appUploadAccepted'));await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);
  }catch(error){if(session===current()){status('analysis-status',err(error),true);form.querySelector('fieldset').disabled=false;}}
- finally{sending=activeJobs.some(job=>job.phase==='recognizing'||!job.phase&&!job.result);writes--;get('close-add').disabled=false;}
+ finally{sending=false;writes--;form.querySelector('fieldset').disabled=false;get('close-add').disabled=false;}
 });
 get('view-added').addEventListener('click',()=>{const id=addedId;closeAdd();if(id)router.navigate('/detail?id='+encodeURIComponent(id));});
 settings.state.subscribe(value=>{
