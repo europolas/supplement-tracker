@@ -25,3 +25,9 @@ test('strict domain schema enumerates only owned IDs and rejects extra fields/nu
 test('dose provenance normalizes unknown directions and computed values stay server owned',()=>{
  const a=fixture();a.dosage.evidence='unknown';const result=finalizeAnalysis(a,{citations:[dosage.sourceUrl]});assert.equal(result.dosage.directions,null);assert.equal(result.nutrients[0].dailyAmountMax,null);assert.equal(result.nutrients[0].reference.amount,80);assert.equal(result.needsReview,true);
 });
+test('unused unverified bibliography is omitted with review while quantity provenance remains strict',()=>{
+ const a=fixture();a.sources.push({url:'https://invented.example/unused',title:'Unverified extra link',kind:'clinical'});
+ const safe=finalizeAnalysis(a,{citations:[dosage.sourceUrl]});assert.equal(safe.sources.length,1);assert.equal(safe.research.omittedSourceCount,1);assert.equal(safe.needsReview,true);assert.equal(safe.dosage.directions,dosage.directions);
+ const b=fixture();b.dosage.evidence='unknown';b.nutrients[0].evidence='unknown';assert.throws(()=>finalizeAnalysis(b,{citations:[],image:true}),e=>e.code==='AI_SOURCES_UNVERIFIED');
+ const c=fixture();c.dosage.evidence='label_photo';c.dosage.sourceUrl='https://invented.example/label';const photo=finalizeAnalysis(c,{citations:[dosage.sourceUrl],image:true});assert.equal(photo.dosage.sourceUrl,null);
+});

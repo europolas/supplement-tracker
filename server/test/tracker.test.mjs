@@ -10,6 +10,7 @@ import {hashPassword,decrypt} from '../src/security.mjs';
 import {TrackerApi,calendarDay,validatePhoto} from '../src/TrackerApi.mjs';
 import {createCredentialVault} from '../src/credential-vault.mjs';
 import {validAnalysis} from '../src/analysis.mjs';
+import {ProviderError} from '../src/structured-chat.mjs';
 test('calendar boundary and image validation',()=>{
  assert.equal(calendarDay('Europe/Vilnius',new Date('2026-10-14T20:59:59Z')),'2026-10-14');assert.equal(calendarDay('Europe/Vilnius',new Date('2026-10-14T21:00:00Z')),'2026-10-15');assert.throws(()=>validatePhoto('https://example.com/label.jpg'));assert.throws(()=>validatePhoto('data:image/jpeg;base64,YWJjZGVmZ2g='));
 });
@@ -18,7 +19,7 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
  const root=await mysql.createConnection({host:process.env.DB_TEST_HOST,user:'root',password:readFileSync('/run/secrets/test_db_root','utf8').trim(),multipleStatements:true});
  const database='tracker_checks_'+randomBytes(5).toString('hex'),account='checks_'+randomBytes(5).toString('hex'),secret=randomBytes(32).toString('hex');let pool;
  try{
-  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
+  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));await root.query(readFileSync('/app/migrations/005_photo_batches.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
   pool=mysql.createPool({host:process.env.DB_TEST_HOST,user:account,password:secret,database,timezone:'Z'});
   const config={persistentSessions:true,secret:randomBytes(32).toString('hex'),mailConfigured:false,encryptionKey:randomBytes(32),appUrl:'https://app.example/'};
   const auth=new AuthApi(pool,config,await hashPassword('A long dummy secret phrase'));
@@ -29,10 +30,14 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
   const vault=createCredentialVault(randomBytes(32));
   const chat=async input=>{
    calls++;lastInput=input;const context=JSON.parse(input.messages[1].content[0].text);
-   const result={schemaVersion:'1.2',manufacturer:'Example',variant:'1000 mg',dosage:{directions:'1 tablet daily',servingSize:'1 tablet',dailyServingsMin:1,dailyServingsMax:1,sourceUrl:'https://manufacturer.example/product',evidence:'manufacturer'},nutrients:[{name:'Vitamin C',amount:1000,unit:'mg',originalUnit:null,nrvCode:'vitamin_c',nrvComparable:true,amountNote:'Per tablet',sourceUrl:'https://manufacturer.example/product',evidence:'manufacturer'}],sources:[{url:'https://manufacturer.example/product',title:'Official label',kind:'manufacturer'}],identified:true,productName:'Example manufacturer product',groupId:context.groups[0].id,benefits:['Potential benefit'],howToUse:'Check label.',whenToUse:'With food.',labelDirections:null,cautions:['Check interactions.'],confidence:'medium',needsReview:true,reviewReason:'Missing label.',evidenceNote:'General information.',compatibility:{summary:'Review needed.',requiresReview:false,assessments:context.existingSupplements.map(s=>({supplementId:s.id,status:mode==='conflict'?'duplicate':'insufficient_information',reason:'Unknown amount.'}))}};
+   if(mode==='batch'){assert.ok(context.selectedTarget);assert.ok(context.existingSupplements.length>=2);if(context.selectedTarget.name==='Unreadable source')throw new ProviderError('AI_SOURCES_UNVERIFIED');}
+   const result={schemaVersion:'1.2',manufacturer:'Example',variant:'1000 mg',dosage:{directions:'1 tablet daily',servingSize:'1 tablet',dailyServingsMin:1,dailyServingsMax:1,sourceUrl:'https://manufacturer.example/product',evidence:'manufacturer'},nutrients:[{name:'Vitamin C',amount:1000,unit:'mg',originalUnit:null,nrvCode:'vitamin_c',nrvComparable:true,amountNote:'Per tablet',sourceUrl:'https://manufacturer.example/product',evidence:'manufacturer'}],sources:[{url:'https://manufacturer.example/product',title:'Official label',kind:'manufacturer'}],identified:true,productName:context.selectedTarget?.name||'Example manufacturer product',groupId:context.groups[0].id,benefits:['Potential benefit'],howToUse:'Check label.',whenToUse:'With food.',labelDirections:null,cautions:['Check interactions.'],confidence:'medium',needsReview:true,reviewReason:'Missing label.',evidenceNote:'General information.',compatibility:{summary:'Review needed.',requiresReview:false,assessments:context.existingSupplements.map(s=>({supplementId:s.id,status:mode==='conflict'?'duplicate':'insufficient_information',reason:'Unknown amount.'}))}};
    assert.equal(input.validate(result),true);return {result,model:input.model,citations:['https://manufacturer.example/product']};
   };
-  const tracker=new TrackerApi(pool,auth,{vault,chat,now:()=>now});
+  let discoveryCalls=0;const discover=async input=>{discoveryCalls++;assert.equal(input.validate(discovery),true);return {result:discovery};};
+  const products=['Batch C','Unreadable source','Batch magnesium'].map(name=>({name,manufacturer:'Example',variant:'',labelText:'',location:name}));
+  let discovery={version:'1',products:[...products,products[0]],skipped:[{location:'Back left',reason:'Brand is not readable.'}],overflow:false};
+  const tracker=new TrackerApi(pool,auth,{vault,chat,discover,now:()=>now});
   const request=(session,method,path,body={},query)=>tracker.handle(method,path,body,'Bearer '+session.token,'test',query);
   const query=new URLSearchParams({timezone:'Europe/Vilnius'});
   await request(a,'POST','/bootstrap',{timezone:'Europe/Vilnius',language:'en'});await request(b,'POST','/bootstrap',{timezone:'Europe/Vilnius',language:'lt'});
@@ -87,6 +92,37 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    let done;for(let i=0;i<30;i++){done=(await request(a,'GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
    assert.equal(done.status,'complete');assert.equal(done.supplement_id,first);assert.equal(calls,2);
    const [,same]=await request(a,'POST','/supplements/jobs',body);assert.equal(same.id,job.id);assert.equal(calls,2);
+  });
+  await t.test('photo batches save readable targets, preserve partial successes and compare siblings',async()=>{
+   // Isolated database only: make this scenario's submission quota independent.
+   await pool.query('DELETE FROM auth_rate_limits');
+   mode='batch';const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64');
+   const body={requestId:randomUUID(),image,language:'lt'};
+   const [,job]=await request(a,'POST','/supplements/jobs',body);
+   await assert.rejects(request(b,'GET','/supplements/jobs/'+job.id),e=>e.status===404);
+   let done;for(let i=0;i<100;i++){done=(await request(a,'GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
+   assert.equal(done.status,'complete');assert.equal(done.total_count,3);assert.equal(done.processed_count,3);assert.equal(discoveryCalls,1);assert.equal(done.result.items.filter(i=>i.status==='added').length,2);assert.equal(done.result.items[1].error,'AI_SOURCES_UNVERIFIED');assert.equal(done.result.skipped[0].location,'Back left');
+   const context=JSON.parse(lastInput.messages[1].content[0].text);assert.equal(context.selectedTarget.name,'Batch magnesium');assert.ok(context.existingSupplements.some(s=>s.name==='Batch C'),'Later target must see earlier batch successes');
+   const [stored]=await pool.query('SELECT * FROM analysis_jobs WHERE id=?',[job.id]);assert.equal(JSON.stringify(stored).includes(image),false);assert.equal(JSON.stringify(stored).includes('xai-test-only'),false);
+   const before=calls;const [,same]=await request(a,'POST','/supplements/jobs',body);assert.equal(same.id,job.id);assert.equal(calls,before);assert.equal(discoveryCalls,1);
+   // No readable identities is a terminal report, not a fabricated supplement.
+   discovery={version:'1',products:[],skipped:[{location:'All bottles',reason:'Names are blurred.'}],overflow:false};
+   const [,empty]=await request(a,'POST','/supplements/jobs',{...body,requestId:randomUUID()});
+   let failed;for(let i=0;i<100;i++){failed=(await request(a,'GET','/supplements/jobs/'+empty.id))[1];if(failed.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
+   assert.equal(failed.status,'failed');assert.equal(failed.result.items.length,0);assert.equal(failed.result.skipped.length,1);assert.equal(calls,before);
+  });
+  await t.test('photo discovery rechecks the key and serializes submissions before paid research',async()=>{
+   await pool.query('DELETE FROM auth_rate_limits');let enter,release;
+   const entered=new Promise(resolve=>enter=resolve),gate=new Promise(resolve=>release=resolve),original=tracker.discover;
+   tracker.discover=async()=>{enter();await gate;return {result:{version:'1',products,skipped:[],overflow:false}};};
+   const body={requestId:randomUUID(),image:'data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64')};
+   const before=calls;const [,job]=await request(a,'POST','/supplements/jobs',body);await entered;
+   const [,same]=await request(a,'POST','/supplements/jobs',body);assert.equal(same.id,job.id);
+   await assert.rejects(request(a,'POST','/supplements/jobs',{...body,requestId:randomUUID()}),e=>e.message==='AI_BUSY');
+   await assert.rejects(request(a,'POST','/supplements/analyze',{...body,requestId:randomUUID(),background:true,skipRateLimit:true}),e=>e.message==='AI_BUSY');
+   await request(a,'PUT','/settings/ai',{key:'xai-changed-test-only-key',model:'grok-4.7'});release();
+   let done;for(let i=0;i<50;i++){done=(await request(a,'GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
+   assert.equal(done.status,'failed');assert.equal(done.error_code,'AI_KEY_CHANGED');assert.equal(calls,before);assert.equal(tracker.providers,0);tracker.discover=original;
   });
   await t.test('foreign groups and malformed provider results are rejected',async()=>{
    const foreign=(await request(b,'GET','/dashboard',{},query))[1].groups[0].id;await assert.rejects(request(a,'PATCH','/supplements/'+first,{groupId:foreign}),e=>e.status===404);assert.equal(validAnalysis({productName:'wrong'},dashboard.groups,dashboard.supplements),false);

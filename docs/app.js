@@ -17,7 +17,7 @@ const auth=createAuth({id:config.id,baseUrl:config.apiUrl,persistence:'persisten
 setupAccount(config,{i18n,auth});
 const api=auth.api;
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router;
-let photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null;
+let photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,latestReport=null;
 const dirty=[...document.querySelectorAll('form')].map(form=>({form,tracker:trackDirty(form)}));
 const clearDirty=form=>dirty.find(item=>item.form===form)?.tracker.reset();
 for(const {form} of dirty){form.addEventListener('reset',()=>clearDirty(form));form.addEventListener('app:saved',()=>clearDirty(form));}
@@ -32,6 +32,7 @@ function resetSession(){
  for(const {form} of dirty){if(form.id==='settings-form')continue;form.reset();clearDirty(form);}
  get('supplement-detail').replaceChildren();get('ai-form').elements.key.value='';
  get('app-error').hidden=true;get('home-status').textContent='';
+ latestReport=null;renderReport('home-analysis-results',null);renderReport('analysis-results',null);
 }
 function heading(text,tag='h2'){return element(tag,{text});}
 function button(text,action,className='secondary'){
@@ -52,6 +53,7 @@ async function load(){
   state=result;get('app-error').hidden=true;status('home-status','');render();
   const latest=await api.get('/v1/supplements/jobs');if(session===current()&&latest.job?.status==='running'&&!watchedJob)watchJob(latest.job,session);
   else if(session===current()&&latest.job?.status==='failed')status('home-status',err(new Error(latest.job.error_code||'REQUEST_FAILED')),true);
+  if(session===current()&&latest.job?.result){latestReport={...latest.job.result,running:latest.job.status==='running',total:latest.job.total_count};renderReport('home-analysis-results',latestReport);}
  }catch(error){if(session===current()&&version===generation){status('home-status','');get('app-error').hidden=false;get('app-error').textContent=err(error);}}
 }
 function renderHome(){
@@ -137,6 +139,7 @@ function renderDetail(){
   card.append(heading(i18n.t('appSources'),'h3'));const list=element('ul',{className:'source-list'});
   for(const source of analysis.sources){const row=element('li');row.append(element('a',{text:source.title,attributes:{href:source.url,target:'_blank',rel:'noopener noreferrer'}}),element('span',{text:' · '+i18n.t('source_'+source.kind),className:'detail-meta'}));list.append(row);}card.append(list);
   if(analysis.research?.checkedAt)card.append(element('p',{text:i18n.t('appResearchedAt',{date:new Intl.DateTimeFormat(i18n.language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(analysis.research.checkedAt))}),className:'detail-meta'}));
+  if(analysis.research?.omittedSourceCount)card.append(element('p',{text:i18n.t('appOmittedSources',{count:analysis.research.omittedSourceCount}),className:'review-note'}));
  }
  card.append(element('p',{text:analysis.evidenceNote,className:'detail-meta'}),element('p',{text:i18n.t('appAiNote'),className:'detail-meta'}));
  const select=element('select',{attributes:{'aria-label':i18n.t('appMoveGroup')}});
@@ -162,6 +165,20 @@ function render(){
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
  get('app-nav').hidden=!current();renderHome();renderGroups();renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');
+ renderReport('home-analysis-results',latestReport);
+}
+/** Only server-owned account metadata is displayed; model text always uses safe
+ * text nodes. Show partial successes and skipped/failed identities individually. */
+function renderReport(id,report){
+ const container=get(id);container.replaceChildren();container.hidden=!report;if(!report)return;
+ const items=report.items||[],added=items.filter(item=>item.status==='added');
+ container.append(heading(report.running?i18n.t('appBatchProgress',{done:items.length,total:report.total}):i18n.t('appBatchSummary',{added:added.length,total:items.length}),'h3'));
+ const list=element('ul');
+ for(const item of items){const row=element('li');
+  if(item.status==='added'&&state.supplements.some(s=>s.id===item.id))row.append(button('✓ '+item.name,()=>{get('add-dialog').close();router.navigate('/detail?id='+encodeURIComponent(item.id));}));
+  else row.textContent=item.name+(item.status==='failed'?' — '+i18n.message(item.error):'');list.append(row);
+ }container.append(list);
+ if(report.skipped?.length){container.append(heading(i18n.t('appPhotoSkipped'),'h3'));const skipped=element('ul');for(const item of report.skipped)skipped.append(element('li',{text:[item.name||item.location,item.reasonCode?i18n.message(item.reasonCode):item.reason].filter(Boolean).join(' — ')}));container.append(skipped);}
 }
 function resetGroup(){get('group-form').reset();clearDirty(get('group-form'));get('cancel-group').hidden=true;get('group-form-title').textContent=i18n.t('appNewGroup');}
 get('cancel-group').addEventListener('click',resetGroup);
@@ -180,10 +197,11 @@ get('remove-key').addEventListener('click',async()=>{
  await mutate(async()=>{state.ai=await api.delete('/v1/settings/ai');get('ai-form').elements.key.value='';clearDirty(get('ai-form'));});
  renderAi();
 });
-function clearPhoto(){imageGeneration++;photo=null;get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;get('analyze-form').elements.photo.value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
+function clearPhoto(){imageGeneration++;photo=null;get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['camera','photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 function closeAdd(force=false){
  if(sending&&!force){get('add-dialog').close();return;}analysisAbort?.abort();get('add-dialog').close();get('analyze-form').reset();clearPhoto();requestId=null;addedId=null;
  get('view-added').hidden=true;get('analysis-status').textContent='';get('analyze-form').querySelector('fieldset').disabled=false;
+ renderReport('analysis-results',null);
 }
 get('add-supplement').addEventListener('click',()=>{
  if(sending){notify(i18n.t('AI_BUSY'));return;}
@@ -195,7 +213,7 @@ get('close-add').addEventListener('click',()=>closeAdd());
 get('add-dialog').addEventListener('cancel',event=>{event.preventDefault();closeAdd();});
 get('remove-photo').addEventListener('click',()=>{clearPhoto();requestId=crypto.randomUUID();});
 get('analyze-form').elements.name.addEventListener('input',()=>{requestId=crypto.randomUUID();});
-get('analyze-form').elements.photo.addEventListener('change',async event=>{
+for(const name of ['camera','photo'])get('analyze-form').elements[name].addEventListener('change',async event=>{
  const selected=event.target.files[0];if(!selected)return;
  const version=++imageGeneration;get('analyze-form').querySelector('button[type="submit"]').disabled=true;
  status('analysis-status',i18n.t('appPreparingPhoto'));
@@ -203,19 +221,21 @@ get('analyze-form').elements.photo.addEventListener('change',async event=>{
  catch(error){if(version===imageGeneration){clearPhoto();status('analysis-status',err(error),true);}}
  finally{if(version===imageGeneration)get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 });
-/** Jobs continue on the server if iOS suspends this page. Only public job metadata
+/** Jobs continue on the server if iOS suspends this page. Only owner-scoped job metadata
  * is polled; no photo/key is persisted. Reload/login discovers the active own job. */
 async function watchJob(job,session){
  if(watchedJob===job.id)return;watchedJob=job.id;sending=true;analysisAbort=new AbortController();const signal=analysisAbort.signal;
  const wait=()=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},1800);function abort(){clearTimeout(timer);reject(new Error('AI_JOB_INTERRUPTED'));}signal.addEventListener('abort',abort,{once:true});});
  try{
   while(job.status==='running'){
-   if(session!==current())return;status('analysis-status',i18n.t('appSending'));status('home-status',i18n.t('appSending'));
+   if(session!==current())return;const message=job.total_count?i18n.t('appBatchProgress',{done:job.processed_count||0,total:job.total_count}):i18n.t('appSending');status('analysis-status',message);status('home-status',message);
+   if(job.result){latestReport={...job.result,running:true,total:job.total_count};renderReport('home-analysis-results',latestReport);renderReport('analysis-results',latestReport);}
    await wait();job=await api.get('/v1/supplements/jobs/'+job.id,{signal});
   }
   if(session!==current())return;
-  if(job.status==='failed')throw new Error(job.error_code||'REQUEST_FAILED');
-  addedId=job.supplement_id;clearDirty(get('analyze-form'));clearPhoto();await load();status('analysis-status',i18n.t('appSent'));status('home-status','');get('view-added').hidden=false;notify(i18n.t('appSent'));
+  if(job.result){latestReport=job.result;renderReport('home-analysis-results',latestReport);renderReport('analysis-results',latestReport);}
+  if(job.status==='failed'){if(job.result?.items.some(item=>item.status==='added'))await load();throw new Error(job.error_code||'REQUEST_FAILED');}
+  addedId=job.supplement_id;clearDirty(get('analyze-form'));clearPhoto();await load();renderReport('analysis-results',latestReport);const message=job.result?i18n.t('appBatchSummary',{added:job.result.items.filter(item=>item.status==='added').length,total:job.result.items.length}):i18n.t('appSent');status('analysis-status',message);status('home-status','');get('view-added').hidden=Boolean(job.result?.items.length>1);notify(message);
  }catch(error){if(session===current()){status('analysis-status',err(error),true);status('home-status',err(error),true);get('analyze-form').querySelector('fieldset').disabled=false;requestId=crypto.randomUUID();}}
  finally{if(watchedJob===job.id){watchedJob=null;sending=false;}get('close-add').disabled=false;}
 }

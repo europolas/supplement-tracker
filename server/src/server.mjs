@@ -9,7 +9,7 @@ import nodemailer from 'nodemailer';
 import { randomBytes } from 'node:crypto';
 import { TrackerApi } from './TrackerApi.mjs';
 import { createCredentialVault } from './credential-vault.mjs';
-import { createStructuredResearch } from './structured-research.mjs';
+import { createStructuredResearch, createStructuredOutput } from './structured-research.mjs';
 import { AuthApi } from './AuthApi.mjs';
 import { ApiError, hashPassword, decrypt } from './security.mjs';
 
@@ -31,7 +31,7 @@ const pool = mysql.createPool({
 });
 await pool.query('SELECT 1');
 const api = new AuthApi(pool, config, await hashPassword(randomBytes(32).toString('hex')));
-const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),chat:createStructuredResearch(),models:(process.env.XAI_MODELS||'grok-4.7').split(',')});
+const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),chat:createStructuredResearch(),discover:createStructuredOutput({timeout:90000}),models:(process.env.XAI_MODELS||'grok-4.7').split(',')});
 // A single API instance owns in-memory photo payloads. Do not silently retry paid work after restart.
 await pool.query("UPDATE analysis_jobs SET status='failed',error_code='AI_JOB_INTERRUPTED',finished_at=UTC_TIMESTAMP(3) WHERE status='running'");
 const transport = process.env.SMTP_HOST && process.env.SMTP_FROM ? nodemailer.createTransport({

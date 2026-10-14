@@ -49,7 +49,7 @@ additional feature modules. Browser index exports do not include server/worker c
 | [image-input](../src/image-input.js) | `prepareImage` | [AI.md](AI.md) |
 | [server/credential-vault](../server/credential-vault.mjs) | `createCredentialVault` | [AI.md](AI.md) |
 | [server/structured-chat](../server/structured-chat.mjs) | `createStructuredChat / ProviderError` | [AI.md](AI.md) |
-| [server/structured-research](../server/structured-research.mjs) | `createStructuredResearch / citationUrl` | [AI.md](AI.md) |
+| [server/structured-research](../server/structured-research.mjs) | `createStructuredResearch / createStructuredOutput / citationUrl` | [AI.md](AI.md) |
 
 ## Lifecycle rule
 

@@ -200,7 +200,7 @@ export default Object.freeze({
   "appOrPhoto": "or add a photo of the label",
   "appTakePhoto": "Take or choose a photo",
   "appRemovePhoto": "Remove photo",
-  "appAiConsent": "The product name, selected photo, all groups and all existing supplements are sent to xAI using your key. API usage may incur charges.",
+  "appAiConsent": "The product name, selected photo, all groups and all existing supplements are sent to xAI using your key. Each readable product is researched separately, using additional API calls that may incur charges.",
   "appSend": "Send",
   "appView": "View supplement",
   "appLoading": "Loading your routine…",
@@ -250,7 +250,7 @@ export default Object.freeze({
   "AI_KEY_REQUIRED": "Save your xAI key in Account first.",
   "CREATE_GROUP_FIRST": "Create a day group first.",
   "GROUP_LIMIT": "You can create up to 30 groups.",
-  "SUPPLEMENT_LIMIT": "This version supports up to 40 supplements.",
+  "SUPPLEMENT_LIMIT": "Your routine can contain up to 40 supplements. Remove an item before adding more.",
   "NAME_OR_PHOTO_REQUIRED": "Enter a product name or select a photo.",
   "IMAGE_INVALID": "Choose a readable image under 20 MB.",
   "AI_BUSY": "An analysis is already running.",
@@ -283,5 +283,13 @@ export default Object.freeze({
   "appNrvHelp": "NRV = EU adult food-label nutrient reference value. This is not a personal recommended dose or a safety limit. Daily amounts and percentages use the manufacturer’s stated serving frequency; missing or non-equivalent units remain unknown. Some ingredients have no assigned NRV.",
   "AI_SOURCES_UNVERIFIED": "Product sources could not be confirmed from the search. Nothing was added. Try a clearer label or exact product variant.",
   "AI_RESEARCH_FAILED": "The AI did not complete a source-backed search. Nothing was added. Please try again.",
-  "AI_JOB_INTERRUPTED": "The server restarted before analysis finished. Please send again; no automatic paid retry was made."
+  "AI_JOB_INTERRUPTED": "The server restarted before analysis finished. Please send again; no automatic paid retry was made.",
+  "appCameraPhoto": "Take photo",
+  "appLibraryPhoto": "Choose from library",
+  "appMultiPhotoHelp": "One photo can contain several supplements. Every readable product and brand is researched separately; unclear bottles are skipped.",
+  "appBatchProgress": "Researching supplements: {done} of {total} processed. You can return later.",
+  "appBatchSummary": "Analysis complete: {added} of {total} supplements added.",
+  "appPhotoSkipped": "Not added from the photo",
+  "PHOTO_PRODUCT_LIMIT": "More than 40 readable products. Send the remaining products in another photo.",
+  "appOmittedSources": "{count} unverified extra source link(s) were omitted. Review the confirmed sources and missing label details."
 });

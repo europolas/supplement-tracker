@@ -38,10 +38,10 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker 0.3.1
+## Supplement Tracker 0.4.0
 
 Read README.md and server/ANALYSIS.md for research/schema 1.2, provenance, serving
-units and EU adult label NRV policy. modules/ is 1.5.0. App state is now account-scoped through the isolated
+units and EU adult label NRV policy. modules/ is 1.6.0. App state is now account-scoped through the isolated
 Node API/MariaDB in server/. Never use the production DB for regression tests:
 server/scripts/test-isolated.sh provisions a disposable database instance. Initial
 admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
@@ -75,3 +75,13 @@ without paid retries. This deployment runs one API instance, not distributed wor
 Browser tests build to .runtime/browser-public; never rebuild mounted docs during
 tests. NRV constants are server-owned; do not infer personal dosage or convert
 unknown/IU/compound amounts blindly. Older saved analysis 1.1 remains readable.
+
+Multi-product photos use photo-products.mjs for strict identity extraction, then
+one sourced analysis per target. Keep selectedTarget in prompts, all earlier batch
+successes in compatibility context, and deterministic child request IDs. Migration
+005 adds job progress/result JSON (no raw images/prompts/keys). Partial successes
+remain saved and failures/skipped labels are visible after reload. Camera input
+has capture=environment; library input MUST omit capture. Both use prepareImage.
+Submission quota applies once per photo, not per product. Max 40 products/routine,
+four upstream calls globally; no automatic paid retries. Check the optional paid
+LIVE_PHOTO workflow only with an explicitly supplied private test photo/key.

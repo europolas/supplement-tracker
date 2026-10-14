@@ -29,7 +29,12 @@ The response includes identity/variant, potential benefits, timing, manufacturer
 serving/directions, ingredient quantities, source references and exactly one
 compatibility assessment for each existing supplement. Local validation enforces
 owned group/supplement IDs, complete assessments, numeric limits and required keys.
-Every claimed source must appear in provider search citations. Manufacturer-dose
+Every retained source must appear in provider search citations. An unused extra
+bibliography link outside those citations is omitted with a visible review notice
+(research.omittedSourceCount); it cannot discard otherwise sourced product details.
+An unverified link supporting manufacturer dose/amounts still fails closed, as does
+a result without any confirmed sources. Label-photo sourceUrl is cleared unless it
+also points to a confirmed source. Manufacturer-dose
 claims require a manufacturer source or an actual supplied readable label photo;
 otherwise dose and amounts stay unknown. This proves encountered URL provenance,
 not independent clinical truth or correctness of every AI statement. Ambiguous
@@ -78,3 +83,72 @@ The live disposable-DB workflow passed full background-job save/check/delete.
 Browser checks cover NRV/source rendering, resumption, terminal failures, photo
 re-encoding and full-height layout. SMTP TLS is verified; DNS/inbox delivery is
 explicitly deferred by the user and not claimed complete.
+
+## Multi-product photos (app 0.4.0, migration 005)
+
+Camera and library are explicit separate file inputs. Library has no capture
+attribute; both use the same resize/re-encode/validation path. A photo job first
+uses createStructuredOutput (90 s, no tools) with photo-products schema version 1:
+products[{name,manufacturer,variant,labelText,location}], skipped[{location,reason}],
+overflow. Readable brand AND product are mandatory. Blurry/occluded background
+bottles are never guessed. Exact duplicate identities are collapsed; at most 40
+identities and 40 unreadable explanations are returned. Product text/name-only
+requests retain the single-product research flow.
+
+Distinct photo targets are researched sequentially with the original image and an
+explicit selectedTarget. Each target sees current groups and ALL saved supplements,
+including earlier successful siblings. Existing schema 1.2 provenance, dose/NRV,
+compatibility and transaction rules remain in force per target. Duplicate/conflicting
+products still require review and remain unassigned rather than being silently
+accepted into a group. Photos cannot establish an unreadable back-label dose.
+
+Jobs now expose total_count, processed_count, result:{items,skipped}. Each item has
+name/status and either id (added) or safe error (failed). Skipped entries have a
+location/name and plain reason or localized reasonCode. The job's supplement_id
+is the first added record for old clients. Complete means at least one success;
+the report must be checked for individual failures. All-failed/zero-identification
+jobs are failed but retain explanations. Restart interruption preserves any already
+saved records and progress. Raw images/prompts/keys are never stored in these rows.
+Reports are owner-scoped and retained with the job for seven days.
+
+Stable SHA-256-derived child UUIDs bind parent request ID + product index; resubmitting
+a completed parent returns the same report without new provider calls. Failed items
+are not retried automatically. Each submission uses one quota unit, with at most
+one discovery call + one sourced research request per readable product (up to the
+remaining 40-record capacity). Capacity overflow is reported, not silently truncated.
+Provider calls are bounded at four globally; session/key are checked after discovery
+and before/after each research call. This worker still requires one API instance.
+
+Optional paid real-photo check in a disposable DB:
+
+```bash
+LIVE_RESEARCH=1 LIVE_PHOTO=1 \
+PROVIDER_TEST_KEY_FILE=/private/path/xai_test_key \
+LIVE_PHOTO_FILE=/private/path/test-photo.jpg server/scripts/test-isolated.sh
+```
+
+The supplied regression photo has seven readable foreground products and blurred
+background labels. The check expects all seven readable targets to be processed, with every added or
+failed target accounted for, and explains skipped objects. Source uncertainty may
+legitimately produce a partial result; do not weaken provenance to force success. It prints only names/status/counts, never keys or raw provider data.
+
+Photo validation record (2026-10-14): the supplied photo produced seven distinct
+foreground targets; all seven were researched sequentially, six were saved in the
+initial strict-source run and blurred background labels were reported separately.
+The seventh exposed an unused bibliography URL on a different regional host.
+After correcting unused-link handling, the captured actual provider response
+passed source validation with two confirmed links, one omitted link and unknown
+manufacturer directions retained as unknown. The private-response replay checks
+save/check/delete in a disposable DB without repeating paid research. UI, ownership,
+job resumption, partial-result and key-change checks pass. Installed iPhone camera/
+library OS menus still need a physical-device check; desktop verifies the inputs.
+
+To replay the private validated provider fixture without additional provider calls:
+
+```bash
+PROVIDER_RESULT_FILE=/private/path/provider-result.json server/scripts/test-isolated.sh
+```
+
+This optional fixture belongs outside Git. The fixture's group ID is mapped to the
+test account's owned group before local schema validation; clinical content and
+original encountered source metadata are preserved. Production records are unused.

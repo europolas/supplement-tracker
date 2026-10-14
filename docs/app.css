@@ -56,3 +56,11 @@ html #auth-status,html[data-theme="light"] #auth-status,html .account-card label
 .nutrient-table th { color:var(--muted);font-size:9px;font-weight:500; }.nutrient-table th:first-child { width:34%; }
 .nutrient-table strong { font-weight:550; }.nutrient-table small { display:block;color:var(--muted);font-size:9px;margin-top:3px; }
 .source-list a { color:var(--green);text-underline-offset:3px;overflow-wrap:anywhere; }
+/* A capture input forces the camera on iPhone. The separate library input must
+   keep capture absent, so the OS can offer saved photos and files. */
+.photo-actions { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+.photo-actions .photo-picker { flex-direction:column;gap:6px;padding:15px 8px;text-align:center;min-height:92px; }
+.photo-picker:focus-within { outline:2px solid #90ad82;outline-offset:2px; }
+.analysis-results { border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:15px;margin:10px 0 24px;overflow-wrap:anywhere; }
+.analysis-results h3 { font-size:13px;margin:0 0 10px; }.analysis-results ul { padding-left:17px;margin:8px 0; }
+.analysis-results li { font-size:12px;line-height:1.7;margin:6px 0; }.analysis-results button { background:none;color:var(--green);text-align:left;font:inherit;padding:6px 0;min-height:40px;text-decoration:underline;text-underline-offset:3px; }

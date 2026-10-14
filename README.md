@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.3.1
+# Supplement Tracker · 0.4.0
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.5.0.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.6.0.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -19,7 +19,10 @@ smoothly masked blur remain in place.
   title, benefit on another line, then a supplement table with the check control
   first, clickable name and benefit. Taken rows turn green.
 - Product name/manufacturer or an explicitly selected photo can be sent to xAI.
-  All groups and all existing supplements are included for compatibility review.
+  Separate camera/library controls are available. A photo may contain several
+  readable products: each is independently researched and saved with progress,
+  partial successes and unreadable/failed explanations. All groups and existing
+  supplements (including earlier batch additions) are included for compatibility review.
   JSON Schema is checked again on the server; incompatible/duplicate products are
   left unassigned for review. Analysis has sending/completed/error states.
 - Supplement detail, manual group reassignment and deletion. Daily completion is
@@ -45,7 +48,10 @@ Previous 0.1.x device-local records are preserved but not automatically imported
 an account: importing private local records requires an explicit user decision.
 Photos are resized/re-encoded in memory and sent only with an explicit Send action;
 raw images are not stored. Requests can incur xAI charges. Maximums: 30 groups,
-40 supplements, 3 analyses/minute and 30/day per user in this initial release.
+40 supplements, 3 analysis submissions/minute and 30/day per user in this initial release.
+Each photo submission first extracts up to 40 identities, then uses one research
+request per readable distinct product (limited by remaining collection capacity).
+A multi-product photo takes longer and can incur several provider charges.
 An explicit retry after an interrupted provider request can incur another charge;
 completed saved requests reuse the request ID and do not call AI again.
 

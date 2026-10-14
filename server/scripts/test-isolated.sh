@@ -20,4 +20,11 @@ if [ "${LIVE_RESEARCH:-0}" = 1 ]; then
  : "${PROVIDER_TEST_KEY_FILE:?Set a private test key file for the explicit paid check}"
  check_extra=(-e LIVE_RESEARCH=1 -v "$PROVIDER_TEST_KEY_FILE:/run/secrets/provider_test_key:ro")
 fi
+if [ "${LIVE_PHOTO:-0}" = 1 ]; then
+ : "${LIVE_PHOTO_FILE:?Set a local photo file for the explicitly paid batch check}"
+ check_extra+=(-e LIVE_PHOTO=1 -v "$LIVE_PHOTO_FILE:/run/test-photo.jpg:ro")
+fi
+if [ -n "${PROVIDER_RESULT_FILE:-}" ]; then
+ check_extra+=(-e REPLAY_RESEARCH=1 -v "$PROVIDER_RESULT_FILE:/run/provider-result.json:ro")
+fi
 docker run --rm --user "$(id -u):$(id -g)" "${check_extra[@]}" --network "$check_network" -e DB_TEST_HOST=tracker-checks-db -v "$check_dir/root:/run/secrets/test_db_root:ro" -v "$PWD/test:/app/test:ro" supplement-tracker-api node --test test/*.test.mjs

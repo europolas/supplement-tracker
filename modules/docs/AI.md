@@ -66,3 +66,36 @@ Keep photo payloads in memory; after restart, terminate abandoned jobs explicitl
 rather than automatically repeating a potentially billable request. Persist only
 state/result metadata, authorize job reads and recheck session/key/collection before
 committing results. This job policy is application-owned; the adapter is stateless.
+
+## Structured identity extraction without research (server only)
+
+`createStructuredOutput` is an additional named export from
+`@europolas/app-modules/server/structured-research`. It uses the same bounded
+Responses transport, JSON Schema and local validator, with tool fields omitted (xAI rejects tool_choice when no tools are supplied). Its `{result,model,citations,searches}` return contract is the
+same, but successful extraction does not require searches or citations. Never
+present extracted identities/OCR as source-backed research or medical advice.
+
+```js
+import { createStructuredOutput, createStructuredResearch }
+  from '@europolas/app-modules/server/structured-research';
+const extract = createStructuredOutput({ timeout: 90000 });
+const research = createStructuredResearch();
+// schema/validator/messages are application-owned. Include image data only with
+// explicit consent, validate readable identities, then research each target.
+const { result } = await extract({ key, model, messages, schema, validate });
+```
+
+For a multi-product photo: extract all readable product+brand identities, reject
+ambiguous background objects, deduplicate identical identities, then research each
+selected target separately. Explicitly identify the target so neighboring labels
+are not merged. Refresh the user's full collection before each target when later
+results must consider earlier additions. Persist progress and individual failures;
+keep successful records when another target fails. Show skipped identities/reasons.
+Bound product count, concurrency and billable submissions, disclose additional calls,
+recheck owner/key before every target, and do not automatically retry paid failures.
+Raw photos remain in closure memory; no browser cache or job table should store them.
+The app owns orchestration and validation; this reusable adapter has no job/database
+state and requires no cleanup beyond awaiting the bounded request.
+
+Provider contracts: [xAI Responses](https://docs.x.ai/developers/rest-api-reference/inference/responses)
+and [image understanding](https://docs.x.ai/developers/model-capabilities/images/understanding).

@@ -200,7 +200,7 @@ export default Object.freeze({
   "appOrPhoto": "arba pridėk etiketės nuotrauką",
   "appTakePhoto": "Fotografuoti arba pasirinkti nuotrauką",
   "appRemovePhoto": "Pašalinti nuotrauką",
-  "appAiConsent": "Produkto pavadinimas, pasirinkta nuotrauka, visos grupės ir visi esami papildai siunčiami į xAI naudojant tavo raktą. API naudojimas gali kainuoti.",
+  "appAiConsent": "Pavadinimas, pasirinkta nuotrauka, visos grupės ir visi esami papildai siunčiami į xAI naudojant tavo raktą. Kiekvienas įskaitomas produktas tiriamas atskirai, todėl atliekama daugiau API užklausų, kurios gali kainuoti.",
   "appSend": "Siųsti",
   "appView": "Peržiūrėti papildą",
   "appLoading": "Įkeliama tavo rutina…",
@@ -250,7 +250,7 @@ export default Object.freeze({
   "AI_KEY_REQUIRED": "Pirma išsaugok xAI raktą paskyroje.",
   "CREATE_GROUP_FIRST": "Pirma sukurk dienos grupę.",
   "GROUP_LIMIT": "Galima sukurti iki 30 grupių.",
-  "SUPPLEMENT_LIMIT": "Ši versija palaiko iki 40 papildų.",
+  "SUPPLEMENT_LIMIT": "Tavo sąraše gali būti iki 40 papildų. Prieš pridėdamas daugiau pašalink nereikalingą.",
   "NAME_OR_PHOTO_REQUIRED": "Įvesk produkto pavadinimą arba pasirink nuotrauką.",
   "IMAGE_INVALID": "Pasirink įskaitomą nuotrauką iki 20 MB.",
   "AI_BUSY": "Analizė jau vyksta.",
@@ -283,5 +283,13 @@ export default Object.freeze({
   "appNrvHelp": "RMV = ES suaugusiųjų etiketėse naudojama referencinė maistinė vertė. Tai nėra asmeninė rekomenduojama dozė ar saugumo riba. Dienos kiekiai ir procentai skaičiuojami pagal gamintojo vartojimo dažnumą; trūkstami ar nepalyginami kiekiai paliekami nežinomi. Daliai medžiagų RMV nepriskirta.",
   "AI_SOURCES_UNVERIFIED": "Produkto šaltinių paieškoje patvirtinti nepavyko. Nieko nepridėta. Pridėk aiškesnę etiketę ar tikslų produkto variantą.",
   "AI_RESEARCH_FAILED": "AI neatliko paieškos su šaltiniais. Nieko nepridėta. Bandyk dar kartą.",
-  "AI_JOB_INTERRUPTED": "Serveris buvo paleistas iš naujo dar nebaigus analizės. Siųsk dar kartą; automatinė mokama užklausa nekartota."
+  "AI_JOB_INTERRUPTED": "Serveris buvo paleistas iš naujo dar nebaigus analizės. Siųsk dar kartą; automatinė mokama užklausa nekartota.",
+  "appCameraPhoto": "Fotografuoti",
+  "appLibraryPhoto": "Pasirinkti iš bibliotekos",
+  "appMultiPhotoHelp": "Vienoje nuotraukoje gali būti keli papildai. Kiekvienas aiškiai įskaitomas pavadinimas ir gamintojas analizuojamas atskirai; neaiškūs buteliukai praleidžiami.",
+  "appBatchProgress": "Tiriami papildai: apdorota {done} iš {total}. Rezultato gali grįžti vėliau.",
+  "appBatchSummary": "Analizė baigta: pridėta {added} iš {total} papildų.",
+  "appPhotoSkipped": "Iš nuotraukos nepridėta",
+  "PHOTO_PRODUCT_LIMIT": "Nuotraukoje daugiau nei 40 įskaitomų produktų. Likusius pateik kitoje nuotraukoje.",
+  "appOmittedSources": "Praleista nepatvirtintų papildomų šaltinių nuorodų: {count}. Peržiūrėk patvirtintus šaltinius ir trūkstamus etiketės duomenis."
 });
