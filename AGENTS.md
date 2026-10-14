@@ -38,10 +38,10 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker 0.7.0
+## Supplement Tracker 0.7.1
 
 Read README.md and server/ANALYSIS.md for research/schema 1.4, provenance, serving
-units and EU adult label NRV policy. modules/ is 1.8.0. App state is now account-scoped through the isolated
+units and EU adult label NRV policy. modules/ is 1.8.1. App state is now account-scoped through the isolated
 Node API/MariaDB in server/. Never use the production DB for regression tests:
 server/scripts/test-isolated.sh provisions a disposable database instance. Initial
 admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
@@ -115,3 +115,9 @@ a clinical treatment dose, label NRV or capsule count. Unknown fallback stays nu
 with an explanation. Clinical/regulatory-only research can retain identification
 but cannot populate unverified manufacturer dose/ingredient quantities. Historical
 1.1–1.3 data stays readable; Home compactText only limits legacy display, not storage.
+
+Detail initially shows dose, benefits, compatibility and timing only. Secondary
+metadata/evidence and management actions live in native details/summary. Preserve
+expansion for the same product during redraws, never across products/accounts.
+Dose fallback qualification and stale compatibility stay in the relevant primary
+section; do not expose draft dosage as verified. No backend or AI changes in 0.7.1.

@@ -99,38 +99,50 @@ function renderGroups(){
   },'danger-link'));card.append(actions);list.append(card);
  }
 }
+/** Keep the everyday detail view limited to dose, benefit, compatibility and
+ * timing. Native disclosure contains the unchanged evidence and management tools.
+ * Preserve expansion only for this product across polling/language/theme renders;
+ * navigating to a different product or signing out resets it. Nothing is persisted.
+ */
 function renderDetail(){
  const id=new URLSearchParams(location.hash.split('?')[1]||'').get('id');
- const item=state.supplements.find(s=>s.id===id),container=get('supplement-detail');container.replaceChildren();
+ const item=state.supplements.find(s=>s.id===id),container=get('supplement-detail');
+ const previous=container.querySelector('details[data-supplement-id]'),expanded=previous?.dataset.supplementId===id&&previous.open;
+ container.replaceChildren();
  if(!item){container.append(element('p',{text:i18n.t('appDetailMissing')}));return;}
- const analysis=item.analysis,card=element('div',{className:'surface detail-section'});
- card.append(element('p',{text:state.groups.find(g=>g.id===item.group_id)?.name||i18n.t('appUnassigned'),className:'eyebrow'}),element('h1',{text:item.name,className:'detail-name'}));
- if(analysis.needsReview)card.append(element('p',{text:i18n.t('appReview')+(analysis.reviewReason?' '+analysis.reviewReason:''),className:'review-note'}));
- if(analysis.manufacturer)card.append(element('p',{text:[analysis.manufacturer,analysis.variant].filter(Boolean).join(' · '),className:'muted'}));
- const pending=['queued','researching'].includes(analysis.enrichment?.status);
- if(analysis.enrichment&&analysis.enrichment.status!=='complete')card.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status)+(analysis.enrichment.error?' '+i18n.message(analysis.enrichment.error):''),className:'review-note'}));
- if(analysis.language&&analysis.language!==i18n.language)card.append(element('p',{text:i18n.t('appAnalysisLanguage',{language:analysis.language==='lt'?'Lietuvių':'English'}),className:'detail-meta'}));
- if(analysis.compatibility?.stale)card.append(element('p',{text:i18n.t('appCompatibilityStale'),className:'review-note'}));
- if(analysis.schemaVersion!=='draft-1'){
- if(analysis.dosage){
-  const d=analysis.dosage;card.append(heading(i18n.t('appManufacturerDose'),'h3'),element('p',{text:d.directions||i18n.t('appNoLabel')}));
-  if(d.servingSize)card.append(element('p',{text:i18n.t('appServingSize')+': '+d.servingSize,className:'detail-meta'}));
+ const analysis=item.analysis,card=element('div',{className:'surface detail-section'}),primary=element('div',{attributes:{id:'detail-primary'}}),extra=element('div',{className:'detail-extra-content',attributes:{id:'detail-extra-content'}});
+ const pending=['queued','researching'].includes(analysis.enrichment?.status),draft=analysis.schemaVersion==='draft-1',fallback=analysis.doseFallback;
+ const reference=fallback&&['established_adult_intake','usual_adult_supplement_range'].includes(fallback.basis)&&(!analysis.dosage?.directions||analysis.dosage?.dailyServingsMin==null);
+ const section=(key,name)=>{const node=element('section',{attributes:{'data-detail-section':name}});node.append(heading(i18n.t(key),'h3'));primary.append(node);return node;};
+ const prose=(target,value)=>{if(Array.isArray(value)){const list=element('ul');for(const text of value)list.append(element('li',{text}));target.append(list);}else target.append(element('p',{text:value}));};
+ card.append(element('h1',{text:item.name,className:'detail-name'}),primary);
+ const dose=section('appDose','dose');
+ if(draft)dose.append(element('p',{text:i18n.t('appInfo_'+(analysis.enrichment?.status||'queued'))}));
+ else if(reference){
+  const number=value=>new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value),unit=fallback.unit==='ug'?'µg':fallback.unit;
+  const range=fallback.dailyAmountMin===fallback.dailyAmountMax?number(fallback.dailyAmountMin):number(fallback.dailyAmountMin)+'–'+number(fallback.dailyAmountMax);
+  dose.append(element('p',{text:fallback.ingredient+': '+range+' '+unit}),element('p',{text:i18n.t('appDoseFallback')+' · '+i18n.t(fallback.basis==='established_adult_intake'?'appDoseIntakeReference':'appDoseSupplementRange'),className:'detail-meta'}),element('p',{text:i18n.t('appDoseFallbackHelp'),className:'detail-meta'}));
+ }else dose.append(element('p',{text:analysis.dosage?.directions||analysis.labelDirections||(pending?i18n.t('appInfo_'+analysis.enrichment.status):i18n.t('appNoLabel'))}));
+ if(analysis.dosage?.servingSize)dose.append(element('p',{text:i18n.t('appServingSize')+': '+analysis.dosage.servingSize,className:'detail-meta'}));
+ if(fallback?.basis==='unavailable')dose.append(element('p',{text:i18n.t('appDoseFallbackUnavailable'),className:'detail-meta'}));
+ prose(section('appBenefits','benefits'),analysis.benefits?.length?analysis.benefits:i18n.t(pending?'appInfo_'+analysis.enrichment.status:'appNoBenefits'));
+ const compatibility=section('appCompatibility','compatibility');
+ if(analysis.compatibility?.stale)compatibility.append(element('p',{text:i18n.t('appCompatibilityStale'),className:'review-note'}));
+ prose(compatibility,analysis.compatibility?.summary||i18n.t(pending?'appInfo_'+analysis.enrichment.status:'appNoCompatibility'));
+ if(analysis.compatibility?.assessments?.length){const list=element('ul');for(const a of analysis.compatibility.assessments)list.append(element('li',{text:(a.supplementName||state.supplements.find(s=>s.id===a.supplementId)?.name||'')+' · '+i18n.t('compat_'+a.status)+': '+a.reason}));compatibility.append(list);}
+ prose(section('appWhen','timing'),analysis.whenToUse||i18n.t(pending?'appInfo_'+analysis.enrichment.status:'appNoTiming'));
+ if(analysis.needsReview)extra.append(element('p',{text:i18n.t('appReview')+(analysis.reviewReason?' '+analysis.reviewReason:''),className:'review-note'}));
+ if(analysis.manufacturer)extra.append(element('p',{text:[analysis.manufacturer,analysis.variant].filter(Boolean).join(' · '),className:'muted'}));
+ if(analysis.enrichment&&analysis.enrichment.status!=='complete')extra.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status)+(analysis.enrichment.error?' '+i18n.message(analysis.enrichment.error):''),className:'review-note'}));
+ if(analysis.language&&analysis.language!==i18n.language)extra.append(element('p',{text:i18n.t('appAnalysisLanguage',{language:analysis.language==='lt'?'Lietuvių':'English'}),className:'detail-meta'}));
+ if(analysis.schemaVersion==='draft-1')extra.append(element('p',{text:i18n.t('appProvisional'),className:'review-note'}));
+ if(fallback&&fallback.basis!=='not_needed'){
+  extra.append(heading(i18n.t('appDoseFallback'),'h3'));if(fallback.explanation)prose(extra,fallback.explanation);
+  if(fallback.sourceUrl)extra.append(element('a',{text:i18n.t('appSources'),attributes:{href:fallback.sourceUrl,target:'_blank',rel:'noopener noreferrer'},className:'detail-meta'}));
  }
- const fallback=analysis.doseFallback;
- if(fallback&&fallback.basis!=='not_needed'&&(!analysis.dosage?.directions||analysis.dosage?.dailyServingsMin==null)){
-  card.append(heading(i18n.t('appDoseFallback'),'h3'));
-  if(['established_adult_intake','usual_adult_supplement_range'].includes(fallback.basis)){
-   const number=value=>new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value),unit=fallback.unit==='ug'?'µg':fallback.unit;
-   const range=fallback.dailyAmountMin===fallback.dailyAmountMax?number(fallback.dailyAmountMin):number(fallback.dailyAmountMin)+'–'+number(fallback.dailyAmountMax);
-   card.append(element('p',{text:fallback.ingredient+': '+range+' '+unit}),element('p',{text:i18n.t(fallback.basis==='established_adult_intake'?'appDoseIntakeReference':'appDoseSupplementRange'),className:'detail-meta'}));
-   card.append(element('p',{text:i18n.t('appDoseFallbackHelp'),className:'review-note'}));
-  }else card.append(element('p',{text:i18n.t('appDoseFallbackUnavailable')}));
-  if(fallback.explanation)card.append(element('p',{text:fallback.explanation}));
-  // The URL was independently matched to provider citations on the server.
-  if(fallback.sourceUrl)card.append(element('a',{text:i18n.t('appSources'),attributes:{href:fallback.sourceUrl,target:'_blank',rel:'noopener noreferrer'},className:'detail-meta'}));
- }
- if(analysis.nutrients?.length){
-  card.append(heading(i18n.t('appNutrients'),'h3'));
+ for(const[key,value]of[['appHow',analysis.howToUse],['appCautions',analysis.cautions]]){if(!value?.length)continue;extra.append(heading(i18n.t(key),'h3'));prose(extra,value);}
+ if(!draft&&analysis.nutrients?.length){
+  extra.append(heading(i18n.t('appNutrients'),'h3'));
   const table=element('table',{className:'nutrient-table'}),head=element('thead'),tr=element('tr');
   for(const key of ['appNutrient','appPerServing','appDailyAmount','appReference'])tr.append(element('th',{text:i18n.t(key),attributes:{scope:'col'}}));head.append(tr);table.append(head);const body=element('tbody');
   const number=value=>new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value);
@@ -143,34 +155,30 @@ function renderDetail(){
    const percent=n.dailyPercentMin===null||n.dailyPercentMin===undefined?'':range(n.dailyPercentMin,n.dailyPercentMax,'%');
    const name=element('td');name.append(element('strong',{text:n.name}));if(n.amountNote)name.append(element('small',{text:n.amountNote}));
    row.append(name,element('td',{text:amount(n.amount,n.unit==='other'?n.originalUnit||'':n.unit)}),element('td',{text:daily+(percent?' · '+percent:'')}),element('td',{text:reference}));body.append(row);
-  }table.append(body);card.append(table,element('p',{text:i18n.t('appNrvHelp'),className:'detail-meta'}));
+  }table.append(body);extra.append(table,element('p',{text:i18n.t('appNrvHelp'),className:'detail-meta'}));
  }
- if(analysis.compatibility){
-  card.append(heading(i18n.t('appCompatibility'),'h3'),element('p',{text:analysis.compatibility.summary}));
-  const list=element('ul');for(const assessment of analysis.compatibility.assessments){list.append(element('li',{text:assessment.supplementName+' · '+i18n.t('compat_'+assessment.status)+': '+assessment.reason}));}card.append(list);
+ if(!draft&&analysis.sources?.length){
+  extra.append(heading(i18n.t('appSources'),'h3'));const list=element('ul',{className:'source-list'});
+  for(const source of analysis.sources){const row=element('li');row.append(element('a',{text:source.title,attributes:{href:source.url,target:'_blank',rel:'noopener noreferrer'}}),element('span',{text:' · '+i18n.t('source_'+source.kind),className:'detail-meta'}));list.append(row);}extra.append(list);
+  if(analysis.research?.checkedAt)extra.append(element('p',{text:i18n.t('appResearchedAt',{date:new Intl.DateTimeFormat(i18n.language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(analysis.research.checkedAt))}),className:'detail-meta'}));
+  if(analysis.research?.omittedSourceCount)extra.append(element('p',{text:i18n.t('appOmittedSources',{count:analysis.research.omittedSourceCount}),className:'review-note'}));
  }
- for(const [key,value] of [['appBenefits',analysis.benefits],['appHow',analysis.howToUse],['appWhen',analysis.whenToUse],...(!analysis.dosage?[['appLabel',analysis.labelDirections||i18n.t('appNoLabel')]]:[]),['appCautions',analysis.cautions]]){
-  card.append(heading(i18n.t(key),'h3'));
-  if(Array.isArray(value)){const ul=element('ul');for(const entry of value)ul.append(element('li',{text:entry}));card.append(ul);}else card.append(element('p',{text:value}));
- }
- if(analysis.sources?.length){
-  card.append(heading(i18n.t('appSources'),'h3'));const list=element('ul',{className:'source-list'});
-  for(const source of analysis.sources){const row=element('li');row.append(element('a',{text:source.title,attributes:{href:source.url,target:'_blank',rel:'noopener noreferrer'}}),element('span',{text:' · '+i18n.t('source_'+source.kind),className:'detail-meta'}));list.append(row);}card.append(list);
-  if(analysis.research?.checkedAt)card.append(element('p',{text:i18n.t('appResearchedAt',{date:new Intl.DateTimeFormat(i18n.language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(analysis.research.checkedAt))}),className:'detail-meta'}));
-  if(analysis.research?.omittedSourceCount)card.append(element('p',{text:i18n.t('appOmittedSources',{count:analysis.research.omittedSourceCount}),className:'review-note'}));
- }
- card.append(element('p',{text:analysis.evidenceNote,className:'detail-meta'}),element('p',{text:i18n.t('appAiNote'),className:'detail-meta'}));
- }else{card.append(element('p',{text:i18n.t('appProvisional'),className:'review-note'}),heading(i18n.t('appBenefits'),'h3'),element('p',{text:analysis.benefits.join(' · ')}),element('p',{text:analysis.whenToUse}));}
- const refresh=button(i18n.t('appRefreshInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});refresh.disabled=pending;card.append(refresh);
+ if(analysis.evidenceNote)extra.append(element('p',{text:analysis.evidenceNote,className:'detail-meta'}));
+ extra.append(element('p',{text:i18n.t('appAiNote'),className:'detail-meta'}));
+ const refresh=button(i18n.t('appRefreshInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});refresh.disabled=pending;extra.append(refresh);
  const select=element('select',{attributes:{'aria-label':i18n.t('appMoveGroup')}});
  select.append(element('option',{text:i18n.t('appUnassigned'),attributes:{value:''}}));
  for(const group of state.groups)select.append(element('option',{text:group.name,attributes:{value:group.id}}));select.value=item.group_id||'';
  select.addEventListener('change',async()=>{select.disabled=true;await mutate(()=>api.patch('/v1/supplements/'+item.id,{groupId:select.value||null}));});
- card.append(heading(i18n.t('appMoveGroup'),'h3'),select);
- card.append(button(i18n.t('appDeleteSupplement'),async()=>{
+ extra.append(heading(i18n.t('appMoveGroup'),'h3'),select);
+ extra.append(button(i18n.t('appDeleteSupplement'),async()=>{
   if(!await confirmDialog(i18n.t('appDeleteSupplementConfirm'),{i18n}))return;
   await mutate(async()=>{await api.delete('/v1/supplements/'+item.id);router.navigate('/');});
- },'danger-link'));container.append(card);
+ },'danger-link'));
+ const disclosure=element('details',{className:'detail-more',attributes:{'data-supplement-id':item.id}}),toggle=element('summary',{className:'secondary',attributes:{'aria-controls':extra.id}});
+ const label=()=>{toggle.textContent=i18n.t(disclosure.open?'appLessInfo':'appMoreInfo');};
+ disclosure.open=Boolean(expanded);label();disclosure.addEventListener('toggle',label);
+ disclosure.append(toggle,extra);card.append(disclosure);container.append(card);
 }
 function renderAi(){
  get('ai-settings').hidden=!current();if(!state.ai)return;

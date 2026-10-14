@@ -75,3 +75,13 @@ html #auth-status,html[data-theme="light"] #auth-status,html .account-card label
 .upload-job-icon { display:grid;place-items:center;flex-shrink:0;width:27px;height:27px;background:var(--soft);border-radius:50%;color:var(--green); }.upload-job[open] summary { border-bottom:1px solid var(--line); }
 .upload-steps { padding:4px 0 4px 20px;list-style:decimal; }.upload-steps li { color:var(--muted);font-size:11px;line-height:1.7;margin:7px 0; }.upload-steps .is-complete { color:var(--green); }.upload-steps .is-current { font-weight:650;color:var(--ink); }
 .upload-job progress { width:100%;height:6px;accent-color:var(--green); }.upload-job-result { margin-bottom:12px; }.upload-job-result h3 { font-size:12px; }.upload-job-result ul { padding-left:18px;font-size:12px;line-height:1.7; }.upload-job-result button { font-size:12px; }
+
+/* Native disclosure keeps secondary evidence/actions out of the everyday view.
+   Expansion stays with the current product across account progress redraws. */
+.detail-more { margin-top:26px;border-top:1px solid var(--line);padding-top:20px; }
+.detail-more>summary { display:flex;align-items:center;justify-content:space-between;min-height:46px;cursor:pointer;list-style:none; }
+.detail-more>summary::-webkit-details-marker { display:none; }
+.detail-more>summary::after { content:'+';font-size:20px;font-weight:400; }
+.detail-more[open]>summary::after { content:'−'; }
+.detail-more>summary:focus-visible { outline:2px solid #90ad82;outline-offset:3px; }
+.detail-extra-content { padding-top:16px; }

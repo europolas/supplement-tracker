@@ -323,5 +323,11 @@ export default Object.freeze({
   "appDoseFallbackUnavailable": "Patikimos standartinės normos suaugusiesiems nustatyti nepavyko.",
   "appDoseIntakeReference": "Bendro paros suvartojimo orientyras",
   "appDoseSupplementRange": "Įprasto papildymo kiekio intervalas suaugusiesiems",
-  "source_regulatory": "Reguliavimo institucija"
+  "source_regulatory": "Reguliavimo institucija",
+  "appDose": "Dozė",
+  "appMoreInfo": "Daugiau informacijos",
+  "appLessInfo": "Mažiau informacijos",
+  "appNoBenefits": "Informacijos apie naudą dar nėra.",
+  "appNoCompatibility": "Informacijos apie suderinamumą dar nėra.",
+  "appNoTiming": "Informacijos apie vartojimo laiką dar nėra."
 });

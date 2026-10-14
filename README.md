@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.7.0
+# Supplement Tracker · 0.7.1
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.8.0.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.8.1.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -159,3 +159,14 @@ Absent suitable evidence, the amount remains unavailable with a reason. Clinical
 trial regimens, upper limits and EU label NRVs must never become default doses.
 Fallback amounts do not fill label servings, ingredient amounts or NRV daily math.
 Old analyses remain readable; explicit detail refresh obtains the new dose lookup.
+
+## Compact supplement detail (0.7.1)
+
+The initial detail view contains dose (with qualified fallback when available),
+benefits, full compatibility and timing. A native, keyboard-accessible More/Less
+information disclosure contains manufacturer/variant, longer review explanations,
+how-to text, cautions, nutrients/NRV, source links, research metadata and refresh,
+group and delete actions. No saved information is discarded. Expansion survives
+redraws for the same product but resets for another product or sign-out; it is not
+persisted. A stale compatibility notice remains with compatibility so its meaning
+is clear. Draft doses stay pending until detailed research is ready.

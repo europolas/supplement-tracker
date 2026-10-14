@@ -45,3 +45,15 @@ apps. Browser storage may be cleared by the OS. No secret belongs in local draft
 logs, an outbox payload or a public archive. Account sessions use opaque tokens in sessionStorage by default. Applications may
 explicitly opt into persistent sign-in (see BACKEND.md); only the revocable token
 and expiry enter localStorage, never profile data, passwords or provider keys.
+
+## Compact detail views with existing UI primitives
+
+Use element('details') and a first child element('summary') for secondary metadata,
+source tables or management controls. Native disclosure supports keyboard and
+assistive technology without another global controller. Keep the primary content
+outside, and update the summary with localized More/Less information on toggle.
+When a parent screen redraws on polling or theme/language changes, capture open only
+for the same record ID before replacing its DOM. A new record or logout resets it;
+no private expansion history needs browser persistence. All remote text still uses
+element/textContent. The screen owns detached nodes/listeners; no external observer
+or timer is needed. This is a composition of existing element, not a new module.

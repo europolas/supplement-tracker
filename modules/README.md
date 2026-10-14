@@ -1,4 +1,4 @@
-# @europolas/app-modules 1.8.0
+# @europolas/app-modules 1.8.1
 
 Reusable browser modules, service worker and optional Node server helpers.
 Be frontend framework ir be naršyklės runtime priklausomybių. Node serverio

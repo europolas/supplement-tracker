@@ -323,5 +323,11 @@ export default Object.freeze({
   "appDoseFallbackUnavailable": "A reliable standard adult amount could not be established.",
   "appDoseIntakeReference": "Reference for total daily intake",
   "appDoseSupplementRange": "Usual adult supplement range",
-  "source_regulatory": "Regulatory source"
+  "source_regulatory": "Regulatory source",
+  "appDose": "Dose",
+  "appMoreInfo": "More information",
+  "appLessInfo": "Less information",
+  "appNoBenefits": "Benefit information is not available yet.",
+  "appNoCompatibility": "Compatibility information is not available yet.",
+  "appNoTiming": "Timing information is not available yet."
 });
