@@ -64,3 +64,5 @@ html #auth-status,html[data-theme="light"] #auth-status,html .account-card label
 .analysis-results { border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:15px;margin:10px 0 24px;overflow-wrap:anywhere; }
 .analysis-results h3 { font-size:13px;margin:0 0 10px; }.analysis-results ul { padding-left:17px;margin:8px 0; }
 .analysis-results li { font-size:12px;line-height:1.7;margin:6px 0; }.analysis-results button { background:none;color:var(--green);text-align:left;font:inherit;padding:6px 0;min-height:40px;text-decoration:underline;text-underline-offset:3px; }
+/* Provisional records are usable immediately, with an explicit research state. */
+.research-badge { display:block;font-size:10px;line-height:1.6;color:var(--muted);font-weight:400;margin-top:4px; }

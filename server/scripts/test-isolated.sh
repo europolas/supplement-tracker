@@ -18,7 +18,7 @@ done
 check_extra=()
 if [ "${LIVE_RESEARCH:-0}" = 1 ]; then
  : "${PROVIDER_TEST_KEY_FILE:?Set a private test key file for the explicit paid check}"
- check_extra=(-e LIVE_RESEARCH=1 -v "$PROVIDER_TEST_KEY_FILE:/run/secrets/provider_test_key:ro")
+ check_extra=(-e LIVE_RESEARCH=1 -e LIVE_LANGUAGE="${LIVE_LANGUAGE:-en}" -v "$PROVIDER_TEST_KEY_FILE:/run/secrets/provider_test_key:ro")
 fi
 if [ "${LIVE_PHOTO:-0}" = 1 ]; then
  : "${LIVE_PHOTO_FILE:?Set a local photo file for the explicitly paid batch check}"

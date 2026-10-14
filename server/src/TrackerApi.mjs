@@ -3,12 +3,13 @@
  * are never persisted in this class's results or logs. Completion day is derived on
  * the server using a validated device timezone; no midnight background worker is needed.
  */
+import {createTaskQueue} from './task-queue.mjs';
 import {randomUUID} from 'node:crypto';
 import {ApiError} from './security.mjs';
 import {ProviderError} from './structured-chat.mjs';
 import {analysisSchema,validAnalysis,analysisMessages,finalizeAnalysis} from './analysis.mjs';
-import {photoProductsSchema,validPhotoProducts,photoProductsMessages,productRequestId,uniqueProducts} from './photo-products.mjs';
-const jobColumns='id,status,supplement_id,error_code,total_count,processed_count,result';
+import {photoProductsSchema,validPhotoProducts,photoProductsMessages,productRequestId,uniqueProducts,productIdentity,draftAnalysis} from './photo-products.mjs';
+const jobColumns='id,status,supplement_id,error_code,total_count,processed_count,result,phase,language';
 const jobResult=row=>row?{...row,result:typeof row.result==='string'?JSON.parse(row.result):row.result}:null;
 const safeCode=error=>error instanceof ProviderError?error.code:error instanceof ApiError?(/^[A-Z_]+$/.test(error.message)?error.message:error.status===429?'AI_RATE_LIMITED':error.status===401?'SESSION_EXPIRED':'REQUEST_FAILED'):'REQUEST_FAILED';
 const uuid=value=>typeof value==='string'&&/^[a-f0-9-]{36}$/.test(value);
@@ -27,8 +28,9 @@ export function validatePhoto(image){
  if(!valid)throw new ApiError(400,'IMAGE_INVALID');return image;
 }
 export class TrackerApi {
- constructor(pool,auth,{vault,chat,discover,models=['grok-4.7'],now=()=>new Date()}){this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Set();this.providers=0;}
- async provider(task){if(this.providers>=4)throw new ApiError(503,'AI_BUSY');this.providers++;try{return await task();}finally{this.providers--;}}
+ constructor(pool,auth,{vault,chat,discover,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:1,maxPending:320});}
+ get providers(){return this.providerQueue.running;}
+ async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
   const [keys]=await this.pool.execute('SELECT updated_at FROM provider_credentials WHERE user_id=?',[user]);
   const [prefs]=await this.pool.execute('SELECT model,timezone FROM tracker_preferences WHERE user_id=?',[user]);
@@ -90,11 +92,13 @@ export class TrackerApi {
   }
   if(path==='/supplements/jobs'){
    if(method==='POST')return [202,await this.startAnalysis(owner,body,authorization)];
-   if(method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? ORDER BY created_at DESC LIMIT 1`,[owner]);return [200,{job:jobResult(rows[0])}];}
+   if(method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? ORDER BY created_at DESC LIMIT 1`,[owner]);const [active]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND status='running' ORDER BY created_at`,[owner]);return [200,{job:jobResult(rows[0]),active:active.map(jobResult)}];}
   }
   const job=/^\/supplements\/jobs\/([a-f0-9-]{36})$/.exec(path);
   if(job&&method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE id=? AND user_id=?`,[job[1],owner]);if(!rows.length)throw new ApiError(404,'NOT_FOUND');return [200,jobResult(rows[0])];}
   if(method==='POST'&&path==='/supplements/analyze')return this.analyze(owner,body,authorization);
+  const research=/^\/supplements\/([a-f0-9-]{36})\/research$/.exec(path);
+  if(research&&method==='POST')return [202,await this.startResearch(owner,research[1],body,authorization)];
   const supplement=/^\/supplements\/([a-f0-9-]{36})(\/completion)?$/.exec(path);
   if(supplement){
    const id=supplement[1];
@@ -123,71 +127,131 @@ export class TrackerApi {
  }
  async startAnalysis(owner,body,authorization){
   if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');
-  const name=text(body.name||'',250,false),image=validatePhoto(body.image);if(!name&&!image)throw new ApiError(400,'NAME_OR_PHOTO_REQUIRED');
-  // One active job per account is serialized by its account row, also across HTTP requests.
+  const name=text(body.name||'',250,false),image=validatePhoto(body.image),language=body.language==='lt'?'lt':'en';if(!name&&!image)throw new ApiError(400,'NAME_OR_PHOTO_REQUIRED');
   const id=randomUUID();let result;
-  if(this.activeJobs.size>=4)throw new ApiError(503,'AI_BUSY');this.activeJobs.add(id);
+  if(this.activeJobs.size>=8)throw new ApiError(503,'AI_BUSY');this.activeJobs.add(id);
   try{await this.auth.transaction(async db=>{
    const [users]=await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);if(!users.length)throw new ApiError(401,'SESSION_EXPIRED');
-   const [same]=await db.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND request_id=?`,[owner,body.requestId]);
-   if(same.length){result=jobResult(same[0]);return;}
-   if(this.running.has(owner))throw new ApiError(409,'AI_BUSY');
-   const [active]=await db.execute("SELECT id FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active.length)throw new ApiError(409,'AI_BUSY');
-   await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status) VALUES (?,?,?,'running')",[id,owner,body.requestId]);result={id,status:'running',supplement_id:null,error_code:null};
+   const [same]=await db.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND request_id=?`,[owner,body.requestId]);if(same.length){result=jobResult(same[0]);return;}
+   const [active]=await db.execute("SELECT phase FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active.length>=4||active.some(j=>j.phase==='recognizing'))throw new ApiError(409,'AI_BUSY');
+   await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language) VALUES (?,?,?,'running','recognizing',?)",[id,owner,body.requestId,language]);result={id,status:'running',phase:'recognizing',language,supplement_id:null,error_code:null};
   });}catch(error){this.activeJobs.delete(id);throw error;}
   if(result.id!==id){this.activeJobs.delete(id);return result;}
-  this.jobOwners.add(owner);
-  // Keep private payload only in this closure; the DB contains state, never raw photos/keys.
-  Promise.resolve().then(async()=>{
-   try{
-    let report;
-    if(image)report=await this.analyzePhoto(owner,{...body,name,image},authorization,id);
-    else{const [,data]=await this.analyze(owner,{...body,name,image},authorization,{background:true});report={items:[{id:data.id,name,status:'added'}],skipped:[]};}
-    const added=report.items.filter(item=>item.status==='added');
-    await this.pool.execute("UPDATE analysis_jobs SET status=?,supplement_id=?,total_count=?,processed_count=?,result=?,error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[added.length?'complete':'failed',added[0]?.id||null,report.items.length,report.items.length,JSON.stringify(report),added.length?null:report.items[0]?.error||'SUPPLEMENT_NOT_IDENTIFIED',id,owner]);
-   }
-   catch(error){try{await this.pool.execute("UPDATE analysis_jobs SET status='failed',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[safeCode(error),id,owner]);}catch{ /* account may have been deleted; do not log private input */ }}
-   finally{this.activeJobs.delete(id);this.jobOwners.delete(owner);}
-  });
+  this.jobOwners.set(owner,id);
+  // The task owns a private mutable payload; it drops image bytes before enqueueing
+  // any research. Waiting research contains names/IDs, never a raw photo or key.
+  void this.runProgressive(owner,{requestId:body.requestId,name,image,language},authorization,id);
   return result;
  }
- /** Discover all readable identities once, then research one target at a time.
-  * Each target sees newly saved siblings as part of the full compatibility context.
-  * Partial successes remain saved; progress contains no image, prompt or key. A
-  * failed item is never automatically retried or silently reported as added.
+ async jobProgress(owner,id,report,phase='enriching'){
+  const processed=report.items.filter(item=>['complete','reused','failed'].includes(item.research)).length;
+  await this.pool.execute('UPDATE analysis_jobs SET phase=?,total_count=?,processed_count=?,result=?,supplement_id=? WHERE id=? AND user_id=?',[phase,report.items.length,processed,JSON.stringify(report),report.items[0]?.id||null,id,owner]);
+ }
+ async runProgressive(owner,body,authorization,id){
+  let report={items:[],skipped:[],language:body.language};
+  try{
+   await this.auth.limit('ai-minute',owner,3,60);await this.auth.limit('ai-day',owner,30,86400);
+   const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);if(!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
+   const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');
+   const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
+   const context=JSON.stringify(groups),started=Date.now(),language=body.language;
+   const {result,model}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel,messages:photoProductsMessages({...body,groups,supplements}),schema:photoProductsSchema(groups,supplements,language),validate:v=>validPhotoProducts(v,groups,supplements,language),name:'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
+   body.image=null; // No background research request resends a photo.
+   if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
+   await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);
+   report={items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started};
+   const products=uniqueProducts(result.products);if(!products.length&&!report.skipped.length)report.skipped.push({location:'',reasonCode:'SUPPLEMENT_NOT_IDENTIFIED'});if(result.overflow)report.skipped.push({location:'',reasonCode:'PHOTO_PRODUCT_LIMIT'});
+   await this.auth.transaction(async db=>{
+    await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+    const [latestGroups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);if(JSON.stringify(latestGroups)!==context)throw new ApiError(409,'COLLECTION_CHANGED');
+    const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);
+    let capacity=40-rows.length;
+    for(const [index,product] of products.entries()){
+     const identity=productIdentity(product),matches=rows.filter(row=>{const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;return productIdentity(a.identity||{...a,name:row.name})===identity;}),existing=matches.find(row=>row.id===product.existingId)||matches.find(row=>row.group_id)||matches[0];
+     if(existing){
+      const a=typeof existing.analysis==='string'?JSON.parse(existing.analysis):existing.analysis;
+      const fresh=a.enrichment?.status!=='failed'&&(!a.enrichment||a.enrichment.status==='complete')&&a.language===language&&a.research?.checkedAt&&Date.now()-Date.parse(a.research.checkedAt)<30*86400000&&a.sources?.length;
+      // Another live job owns this same product; reuse its queue item instead of billing twice.
+      const pending=['queued','researching'].includes(a.enrichment?.status);
+      if(!fresh&&!pending){a.identity=product;a.enrichment={status:'queued',jobId:id,language};await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),existing.id,owner]);}
+      report.items.push({id:existing.id,name:existing.name,status:'added',reused:true,research:fresh||pending?'reused':'queued'});continue;
+     }
+     if(capacity<=0){report.skipped.push({name:product.name,reasonCode:'SUPPLEMENT_LIMIT'});continue;}capacity--;
+     const draft=draftAnalysis({...product,requestedName:body.name||null},{language,jobId:id}),recordId=randomUUID();
+     await db.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) VALUES (?,?,?,?,?,?,?)',[recordId,owner,product.review?null:product.groupId,draft.productName,JSON.stringify(draft),model,productRequestId(body.requestId,index)]);
+     report.items.push({id:recordId,name:draft.productName,status:'added',research:'queued'});
+    }
+    await db.execute('UPDATE analysis_jobs SET phase=\'enriching\',total_count=?,result=? WHERE id=? AND user_id=?',[report.items.length,JSON.stringify(report),id,owner]);
+   });
+   if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);await this.jobProgress(owner,id,report);
+   for(const item of report.items){
+    if(item.research!=='queued')continue;
+    try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';await this.jobProgress(owner,id,report);await this.enrich(owner,item.id,body.language,authorization,id,keys[0].encrypted_key);});item.research='complete';}
+    catch(error){item.research='failed';item.error=safeCode(error);await this.markResearchFailed(owner,item.id,id,item.error);}
+    await this.jobProgress(owner,id,report);
+   }
+   await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status=?,error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[report.items.length?'complete':'failed',report.items.length?null:'SUPPLEMENT_NOT_IDENTIFIED',id,owner]);
+  }catch(error){body.image=null;const code=safeCode(error);for(const item of report.items){if(!['queued','researching'].includes(item.research))continue;item.research='failed';item.error=code;try{await this.markResearchFailed(owner,item.id,id,code);}catch{ /* DB may be unavailable; startup also marks interrupted drafts. */ }}try{await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,id,owner]);}catch{ /* Deleted accounts have no surviving private job metadata. */ }}
+  finally{body.image=null;this.activeJobs.delete(id);if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);}
+ }
+ /** Explicit refresh/retry never performs recognition and never adds a second row.
+  * It uses the selected UI language; a completed result is retained while refreshing.
   */
- async analyzePhoto(owner,body,authorization,jobId){
-  await this.auth.limit('ai-minute',owner,3,60);await this.auth.limit('ai-day',owner,30,86400);
-  const [groups]=await this.pool.execute('SELECT id FROM day_groups WHERE user_id=?',[owner]);if(!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
-  const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');
-  const [counts]=await this.pool.execute('SELECT COUNT(*) AS n FROM supplements WHERE user_id=?',[owner]);if(counts[0].n>=40)throw new ApiError(400,'SUPPLEMENT_LIMIT');
-  const settings=await this.settings(owner);if(!this.models.includes(settings.model))throw new ApiError(400,'INVALID_MODEL');
-  const key=this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'});
-  const {result}=await this.provider(()=>this.discover({key,model:settings.model,messages:photoProductsMessages(body),schema:photoProductsSchema,validate:validPhotoProducts,name:'readable_photo_products_v1',maxTokens:9000}));
-  // Adapters validate as well, but keep this boundary explicit for injected providers.
-  if(!validPhotoProducts(result))throw new ApiError(502,'AI_INVALID_RESPONSE');
-  await this.auth.authenticate(authorization);
-  const [current]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(current[0]?.encrypted_key!==keys[0].encrypted_key)throw new ApiError(409,'AI_KEY_CHANGED');
-  const products=uniqueProducts(result.products),capacity=40-counts[0].n;
-  const report={items:[],skipped:[...result.skipped]};
-  if(!products.length&&!report.skipped.length)report.skipped.push({location:'',reasonCode:'SUPPLEMENT_NOT_IDENTIFIED'});
-  if(result.overflow)report.skipped.push({location:'',reasonCode:'PHOTO_PRODUCT_LIMIT'});
-  for(const product of products.slice(capacity))report.skipped.push({location:product.location,name:[product.manufacturer,product.name,product.variant].filter(Boolean).join(' '),reasonCode:'SUPPLEMENT_LIMIT'});
-  const selected=products.slice(0,capacity);
-  const progress=()=>this.pool.execute('UPDATE analysis_jobs SET total_count=?,processed_count=?,result=? WHERE id=? AND user_id=?',[selected.length,report.items.length,JSON.stringify(report),jobId,owner]);
-  await progress();let stopped=null;
-  for(const [index,product] of selected.entries()){
-   const name=[product.manufacturer,product.name,product.variant].filter(Boolean).join(' ').slice(0,250);
-   if(stopped)report.items.push({name,status:'failed',error:stopped});
-   else try{
-    await this.auth.authenticate(authorization);
-    const [latest]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(latest[0]?.encrypted_key!==keys[0].encrypted_key)throw new ApiError(409,'AI_KEY_CHANGED');
-    const [,saved]=await this.analyze(owner,{...body,name,requestId:productRequestId(body.requestId,index)},authorization,{background:true,skipRateLimit:true,target:product});
-    report.items.push({id:saved.id,name,status:'added'});
-   }catch(error){const code=safeCode(error);report.items.push({name,status:'failed',error:code});if(['AI_KEY_CHANGED','AI_KEY_REQUIRED','AI_KEY_REJECTED','AI_RATE_LIMITED','SESSION_EXPIRED','SUPPLEMENT_LIMIT'].includes(code))stopped=code;}
-   await progress();
-  }
-  return report;
+ async startResearch(owner,supplementId,body,authorization){
+  if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');const language=body.language==='lt'?'lt':'en';
+  const sealed=await this.checkKey(owner);let job;
+  if(this.activeJobs.size>=8)throw new ApiError(503,'AI_BUSY');
+  await this.auth.transaction(async db=>{
+   await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+   const [same]=await db.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND request_id=?`,[owner,body.requestId]);if(same.length){job=jobResult(same[0]);return;}
+   const [rows]=await db.execute('SELECT name,analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[supplementId,owner]);if(!rows.length)throw new ApiError(404,'NOT_FOUND');const a=typeof rows[0].analysis==='string'?JSON.parse(rows[0].analysis):rows[0].analysis;
+   if(['queued','researching'].includes(a.enrichment?.status)){const [live]=await db.execute("SELECT id FROM analysis_jobs WHERE id=? AND user_id=? AND status='running'",[a.enrichment.jobId,owner]);if(live.length)throw new ApiError(409,'AI_BUSY');}
+   const [active]=await db.execute("SELECT COUNT(*) AS n FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active[0].n>=4)throw new ApiError(409,'AI_BUSY');
+   await this.auth.limit('ai-minute',owner,3,60);await this.auth.limit('ai-day',owner,30,86400);
+   const id=randomUUID(),report={items:[{id:supplementId,name:rows[0].name,status:'added',research:'queued',reused:true}],skipped:[],language};a.enrichment={status:'queued',jobId:id,language};
+   await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),supplementId,owner]);
+   await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language,total_count,result) VALUES (?,?,?,'running','enriching',?,1,?)",[id,owner,body.requestId,language,JSON.stringify(report)]);job={id,status:'running',phase:'enriching',language,total_count:1,processed_count:0,result:report};
+  });
+  if(job.status!=='running'||this.activeJobs.has(job.id))return job;this.activeJobs.add(job.id);
+  void (async()=>{const item=job.result.items[0];try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';await this.jobProgress(owner,job.id,job.result);await this.enrich(owner,supplementId,language,authorization,job.id,sealed);});item.research='complete';}
+   catch(error){item.research='failed';item.error=safeCode(error);await this.markResearchFailed(owner,supplementId,job.id,item.error);}
+   finally{try{await this.jobProgress(owner,job.id,job.result,'done');await this.pool.execute("UPDATE analysis_jobs SET status='complete',finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[job.id,owner]);}catch{ /* Deleted account. */ }this.activeJobs.delete(job.id);}
+  })().catch(()=>{this.activeJobs.delete(job.id);});return job;
+ }
+ async checkKey(owner,encrypted){const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');if(encrypted&&keys[0].encrypted_key!==encrypted)throw new ApiError(409,'AI_KEY_CHANGED');return keys[0].encrypted_key;}
+ async markResearchFailed(owner,id,jobId,error){
+  await this.auth.transaction(async db=>{const [rows]=await db.execute('SELECT analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!rows.length)return;const a=typeof rows[0].analysis==='string'?JSON.parse(rows[0].analysis):rows[0].analysis;if(a.enrichment?.jobId!==jobId)return;a.enrichment={...a.enrichment,status:'failed',error};await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),id,owner]);});
+ }
+ /** One serialized background research task sees ALL drafts immediately. Concurrent
+  * user edits cannot be overwritten; collection changes retain sourced quantities
+  * but explicitly invalidate any blanket compatibility clearance. */
+ async enrich(owner,id,language,authorization,jobId,encrypted){
+  await this.auth.authenticate(authorization);const sealed=await this.checkKey(owner,encrypted),settings=await this.settings(owner);
+  const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);
+  const [rows]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);const target=rows.find(row=>row.id===id);if(!target)throw new ApiError(404,'NOT_FOUND');
+  const previous=typeof target.analysis==='string'?JSON.parse(target.analysis):target.analysis;if(previous.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
+  previous.enrichment.status='researching';await this.pool.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(previous),id,owner]);
+  const supplements=rows.filter(row=>row.id!==id),snapshot=JSON.stringify(rows.map(row=>[row.id,row.name,row.group_id,row.id===id?null:row.analysis]));
+  const {result,model}=await this.requestResearch(owner,{name:target.name,image:null,language,target:previous.identity||null,groups,supplements,settings,sealed},authorization);
+  await this.auth.transaction(async db=>{
+   const [latest]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const row=latest.find(r=>r.id===id);if(!row)throw new ApiError(404,'NOT_FOUND');
+   const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;if(a.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
+   const changed=JSON.stringify(latest.map(r=>[r.id,r.name,r.group_id,r.id===id?null:r.analysis]))!==snapshot;
+   if(changed){result.compatibility.stale=true;result.compatibility.requiresReview=true;result.needsReview=true;}
+   const conflict=result.compatibility.assessments.some(a=>['potential_conflict','duplicate'].includes(a.status));
+   let groupId=conflict||result.confidence==='low'?null:result.groupId;
+   // Manual reassignment/deletion during research wins over automatic grouping.
+   if(row.group_id!==target.group_id)groupId=row.group_id;
+   const [owned]=await db.execute('SELECT id FROM day_groups WHERE id=? AND user_id=?',[groupId||'',owner]);if(!owned.length)groupId=null;
+   result.identity=previous.identity;result.enrichment={status:'complete',jobId,language};
+   await db.execute('UPDATE supplements SET name=?,analysis=?,model=?,group_id=? WHERE id=? AND user_id=?',[result.productName,JSON.stringify(result),model,groupId,id,owner]);
+  });
+ }
+ async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){
+  const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:'xai'}),model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_3',maxTokens:Math.min(12000,4500+supplements.length*190)}));
+  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
+  for(const assessment of result.compatibility.assessments){const s=supplements.find(s=>s.id===assessment.supplementId),a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;assessment.supplementName=s.name;if(assessment.status==='no_known_issue'&&a.enrichment&&a.enrichment.status!=='complete')assessment.status='insufficient_information';}
+  if(result.compatibility.assessments.some(a=>a.status!=='no_known_issue')){result.needsReview=true;result.compatibility.requiresReview=true;}return data;
  }
  async analyze(owner,body,authorization,{background=false,skipRateLimit=false,target=null}={}){
   if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');
@@ -208,7 +272,7 @@ export class TrackerApi {
   this.running.add(owner);
   try{
    const key=this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'});
-   const {result,model,citations}=await this.provider(()=>this.chat({key,model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements),validate:value=>validAnalysis(value,groups,supplements),name:'supplement_analysis_v1_2',maxTokens:Math.min(12000,4500+supplements.length*190)}));
+   const {result,model,citations}=await this.provider(()=>this.chat({key,model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_3',maxTokens:Math.min(12000,4500+supplements.length*190)}));
    if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');
    finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});
    await this.auth.authenticate(authorization);

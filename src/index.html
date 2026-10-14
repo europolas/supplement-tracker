@@ -28,6 +28,7 @@ one small step.</h1>
    <button id="add-supplement" class="primary add-primary" type="button"><span aria-hidden="true">＋</span> <span data-i18n="appAdd">Add supplement</span></button>
    <p id="home-status" role="status"></p>
    <div id="home-analysis-results" class="analysis-results" hidden></div>
+   <p id="routine-note" class="form-help" data-i18n="appProvisional" hidden>Provisional grouping. Dose and compatibility are still being checked.</p>
    <div id="routine-groups"></div>
    <div id="home-empty" class="empty-card" hidden><span class="empty-symbol" aria-hidden="true">＋</span><h2 data-i18n="appEmptyTitle">A fresh start.</h2><p data-i18n="appEmptyText">Add your first supplement. We'll find its place in your day.</p></div>
   </section>
@@ -66,9 +67,9 @@ every day.</h1></div>
     <label class="photo-picker"><span aria-hidden="true">⊕</span><span data-i18n="appCameraPhoto">Take photo</span><input name="camera" type="file" accept="image/*" capture="environment"></label>
     <label class="photo-picker"><span aria-hidden="true">▧</span><span data-i18n="appLibraryPhoto">Choose from library</span><input name="photo" type="file" accept="image/*"></label>
    </div>
-   <p class="form-help" data-i18n="appMultiPhotoHelp">One photo can contain several supplements. Every readable product and brand is researched separately; unclear bottles are skipped.</p>
+   <p class="form-help" data-i18n="appMultiPhotoHelp">One photo can contain several supplements. We identify and provisionally group them together, then collect missing details in the background.</p>
    <img id="photo-preview" alt="Selected supplement label" hidden><button id="remove-photo" class="text-button" type="button" data-i18n="appRemovePhoto" hidden>Remove photo</button>
-   <p class="form-help" data-i18n="appAiConsent">The name, photo and your routine are sent to xAI using your key. Each readable product is researched separately, using additional API calls that may incur charges.</p>
+   <p class="form-help" data-i18n="appAiConsent">One shared AI request recognizes and provisionally groups all products. Only missing or outdated details are researched separately in the background. Your name/photo, groups and existing supplements are sent to xAI using your key; additional API calls may incur charges.</p>
    <button class="primary send-button" type="submit" data-i18n="appSend">Send</button>
   </fieldset></form>
   <p id="analysis-status" role="status"></p><div id="analysis-results" class="analysis-results" hidden></div><button id="view-added" class="secondary" type="button" data-i18n="appView" hidden>View supplement</button>

@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.4.0
+# Supplement Tracker · 0.5.0
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.6.0.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.7.0.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -33,27 +33,42 @@ smoothly masked blur remain in place.
 
 AI now performs real web research via xAI Responses. Exact manufacturer directions,
 serving size, ingredients, cautious benefits, timing and whole-routine compatibility
-are validated against a strict 1.2 schema; source URLs must occur in provider tool
+are validated against a strict 1.3 schema; source URLs must occur in provider tool
 metadata. Details include manufacturer dose, per-serving/daily quantities and
 server-calculated EU adult food-label NRV percentages for 27 vitamins/minerals.
 Ambiguous variants or unsupported units stay unknown instead of inventing a dose.
 NRVs are label references, not personal medical prescriptions or upper limits.
 
-Analysis is an owner-scoped background job: return later after iOS suspension to
-see the saved result. One active job per user, four globally; raw photos stay in
-memory only. Interrupted server jobs fail explicitly without automatic paid retries.
-Read server/ANALYSIS.md for the public contract, provenance and calculation limits.
+Analysis is progressive. ONE fast structured response identifies and provisionally
+groups every readable product from a name/photo, with all groups and the existing
+routine included. English instructions request the selected app response language
+(en by default, persisted lt when chosen). Schema 1.3 enforces the language marker
+for detailed results. Real test: the supplied seven-product photo was recognized
+and provisionally grouped in 5.8 seconds using grok-4.3 with reasoning none; this is
+one measurement, not a latency guarantee. Exact brand names remain untranslated.
 
-Previous 0.1.x device-local records are preserved but not automatically imported into
-an account: importing private local records requires an explicit user decision.
-Photos are resized/re-encoded in memory and sent only with an explicit Send action;
-raw images are not stored. Requests can incur xAI charges. Maximums: 30 groups,
-40 supplements, 3 analysis submissions/minute and 30/day per user in this initial release.
-Each photo submission first extracts up to 40 identities, then uses one research
-request per readable distinct product (limited by remaining collection capacity).
-A multi-product photo takes longer and can incur several provider charges.
-An explicit retry after an interrupted provider request can incur another charge;
-completed saved requests reuse the request ID and do not call AI again.
+All recognized records are saved immediately with visible queued/researching/failed
+states. One serialized background research queue then enriches missing/stale details
+using the selected research model (grok-4.7, low reasoning). Source/dose/NRV rules
+remain strict. Each target sees every other draft/saved product; uncertain contexts
+cannot receive blanket safe assessments. UI polling resumes after iOS suspension,
+allows new inputs while enriching and never puts photos/keys in browser storage.
+
+Within an account, exact product/variant identities reuse confirmed information in
+the SAME language for up to 30 days. In-flight identical products are not rebilled.
+Historical saved text retains its language until explicit refresh. The detail page's
+refresh action uses the current app language and makes one research request without
+recognition or a duplicate product row. Manual group edits win; compatibility is
+marked stale if the collection changes during research. Interrupted queues are not
+automatically retried; their records remain visible with retry controls.
+
+Limits: 30 groups, 40 supplements; 3 submissions/minute and 30/day per owner;
+one simultaneous recognition and at most four running jobs/account, eight globally.
+Four bounded provider slots with recognition priority; one background research at a
+time leaves capacity for interactive work. A fast submission plus per-product web
+research may incur several xAI charges. Raw photos are released before background
+work begins. Single API instance; no distributed queue/payload durability is implied.
+Read server/ANALYSIS.md for provenance, lifecycle and calculation limits.
 
 ## Development and checks
 

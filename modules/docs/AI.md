@@ -99,3 +99,29 @@ state and requires no cleanup beyond awaiting the bounded request.
 
 Provider contracts: [xAI Responses](https://docs.x.ai/developers/rest-api-reference/inference/responses)
 and [image understanding](https://docs.x.ai/developers/model-capabilities/images/understanding).
+
+## Progressive preview and localized results
+
+A single quick structured output can identify/group every product before source
+research completes. Store provisional records immediately and expose progress;
+show missing/researching/failed states rather than presenting guesses as verified
+quantities. Queue only missing or stale details with [task-queue](TASKS.md), keep
+recognition responsive, and let users continue navigating or add another input.
+
+Write system instructions in English, request a selected responseLanguage explicitly,
+and constrain the result's language field to that same en/lt value in JSON Schema.
+English is the default; do not infer a language from the image or browser locale.
+Brand/product names retain their spelling. Existing persisted analyses need explicit
+refresh/relocalization; changing the UI language does not translate historical data.
+Cache/reuse only exact product/variant matches inside the same authorized owner,
+matching response language and a documented freshness policy. Keep manual edits,
+flag stale compatibility when the collection changes, and never label incomplete
+context as an established safety clearance.
+
+At the October 2026 provider contract, grok-4.3 supports reasoning.effort=none and
+image/schema input; grok-4.7 supports low/medium/high/xhigh, not none. Model access
+is account-dependent. These are API settings, not a guaranteed mapping of the Grok
+consumer app's Fast/Expert labels. Benchmark the actual task rather than promising
+a fixed latency. Keep detailed web research in the background and disclose its cost.
+See [Grok 4.3](https://docs.x.ai/developers/models/grok-4.3) and
+[reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning).

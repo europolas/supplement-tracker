@@ -38,10 +38,10 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker 0.4.0
+## Supplement Tracker 0.5.0
 
-Read README.md and server/ANALYSIS.md for research/schema 1.2, provenance, serving
-units and EU adult label NRV policy. modules/ is 1.6.0. App state is now account-scoped through the isolated
+Read README.md and server/ANALYSIS.md for research/schema 1.3, provenance, serving
+units and EU adult label NRV policy. modules/ is 1.7.0. App state is now account-scoped through the isolated
 Node API/MariaDB in server/. Never use the production DB for regression tests:
 server/scripts/test-isolated.sh provisions a disposable database instance. Initial
 admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
@@ -76,12 +76,23 @@ Browser tests build to .runtime/browser-public; never rebuild mounted docs durin
 tests. NRV constants are server-owned; do not infer personal dosage or convert
 unknown/IU/compound amounts blindly. Older saved analysis 1.1 remains readable.
 
-Multi-product photos use photo-products.mjs for strict identity extraction, then
-one sourced analysis per target. Keep selectedTarget in prompts, all earlier batch
-successes in compatibility context, and deterministic child request IDs. Migration
-005 adds job progress/result JSON (no raw images/prompts/keys). Partial successes
-remain saved and failures/skipped labels are visible after reload. Camera input
-has capture=environment; library input MUST omit capture. Both use prepareImage.
-Submission quota applies once per photo, not per product. Max 40 products/routine,
-four upstream calls globally; no automatic paid retries. Check the optional paid
-LIVE_PHOTO workflow only with an explicitly supplied private test photo/key.
+Progressive analysis: photo-products.mjs schema v2 identifies/groups text OR all
+photo products in ONE grok-4.3 none call, English instructions + selected response
+language en/lt. Migration 006 adds job phase/language; all drafts are committed
+before enrichment. Raw photo is cleared before queueing background research.
+Detailed schema 1.3 has a language enum constrained to that submission's preference.
+Each target sees all other records including drafts; incomplete context is never
+blanket safe. A serialized background queue + prioritized provider queue comes from
+canonical task-queue.mjs (library 1.7.0). No automatic paid retries. On restart mark
+jobs and queued/researching drafts failed but keep records. Retry from details is
+explicit, localized, owner-scoped and does not repeat recognition/add another row.
+Preserve manual group edits and flag compatibility stale on concurrent changes.
+Reuse only exact owned identities, matching language and source freshness (30 days).
+The client observes all active jobs, unlocks adding after recognition, refreshes
+records on progress changes and clears all progress state on logout. Preserve camera
+capture and the separate library input with no capture. Do not rebuild mounted docs
+during browser tests. No changes to the original demo, its API/DB or deferred mail.
+
+Migration 007 changes the supplements group-ownership FK to ON DELETE CASCADE for
+account removal. Group DELETE must keep its explicit unassign-first transaction;
+never replace it with raw group deletion if records are meant to remain.

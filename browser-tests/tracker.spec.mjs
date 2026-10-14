@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
-async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false}={}){
- let completed=false,added=false,started=false,configured=true,release,terminalJob=null;
- const gate=new Promise(resolve=>release=resolve),requests=[];
+async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false}={}){
+ let completed=false,added=false,started=false,configured=true,release,terminalJob=null,released=false,detailsReady=!progressive;
+ const requests=[];release=()=>{released=true;};
  await page.route('https://perimove.com/supplement-api/**',async route=>{
   const request=route.request(),path=new URL(request.url()).pathname.replace('/supplement-api','');requests.push({path,method:request.method()});
   let result={ok:true};
@@ -17,13 +17,22 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false}={})
   else if(path==='/v1/me')result={user,expiresAt:null};
   else if(path==='/v1/settings/ai'){configured=request.method()!=='DELETE';result={...ai,configured};}
   else if(path==='/v1/supplements/jobs'&&request.method()==='POST'){started=true;result={id:'test-job',status:'running'};}
-  else if(path==='/v1/supplements/jobs/test-job'){if(waitAnalysis)await gate;if(failAnalysis)result={id:'test-job',status:'failed',error_code:'AI_SOURCES_UNVERIFIED'};else{added=true;result={id:'test-job',status:'complete',supplement_id:id,...(batch?{total_count:2,processed_count:2,result:{items:[{id,name:'Readable vitamin',status:'added'},{name:'Unconfirmed magnesium',status:'failed',error:'AI_SOURCES_UNVERIFIED'}],skipped:[{location:'Back row',reason:'Brand is blurred.'}]}}:{})};terminalJob=result;}}
-  else if(path==='/v1/supplements/jobs')result={job:terminalJob||(started&&!added?{id:'test-job',status:'running'}:null)};
+  else if(path==='/v1/supplements/jobs'||path==='/v1/supplements/jobs/test-job'){
+   const running={id:'test-job',status:'running',phase:'recognizing'};
+   if(!started)result={job:null,active:[]};
+   else if(waitAnalysis&&!released)result={job:running,active:[running]};
+   else if(failAnalysis)result={job:{id:'test-job',status:'failed',phase:'done',error_code:'AI_SOURCES_UNVERIFIED'},active:[]};
+   else{
+    added=true;terminalJob={id:'test-job',status:detailsReady?'complete':'running',phase:detailsReady?'done':'enriching',supplement_id:id,...((batch||progressive)?{total_count:batch?2:1,processed_count:detailsReady?(batch?2:1):0,result:{items:[{id,name:'Readable vitamin',status:'added',research:detailsReady?'complete':'researching'},...(batch?[{name:'Unconfirmed magnesium',status:'failed',error:'AI_SOURCES_UNVERIFIED'}]:[])],skipped:batch?[{location:'Back row',reason:'Brand is blurred.'}]:[]}}:{})};result={job:terminalJob,active:detailsReady?[]:[terminalJob]};
+   }
+   if(path.endsWith('/test-job'))result=result.job;
+  }
   else if(path.endsWith('/completion'))completed=request.postDataJSON().completed;
   else if(path==='/v1/dashboard')result={day:new Date().toLocaleDateString('sv-SE'),groups:[{id:group,name:'With a meal',description:'Energy and everyday support'}],supplements:added?[{id,group_id:group,name:'Example <b>supplement</b>',completed,analysis:{manufacturer:'Example',dosage:{directions:'1 tablet daily',servingSize:'1 tablet'},nutrients:[{name:'Vitamin C',amount:1000,unit:'mg',amountNote:'Per tablet',reference:{amount:80,unit:'mg'},dailyAmountMin:1000,dailyAmountMax:1000,dailyPercentMin:1250,dailyPercentMax:1250}],sources:[{url:'https://manufacturer.example/label',title:'Official product label',kind:'manufacturer'}],research:{checkedAt:'2026-10-14T10:00:00Z',omittedSourceCount:1},benefits:['Everyday support'],howToUse:'Check the label.',whenToUse:'With food.',labelDirections:null,cautions:['Confirm suitability.'],needsReview:true,evidenceNote:'Example only.',compatibility:{summary:'Review your routine.',assessments:[]}}}]:[],ai};
+  if(path==='/v1/dashboard'&&progressive&&added){const a=result.supplements[0].analysis;a.schemaVersion=detailsReady?'1.3':'draft-1';a.language='en';a.enrichment={status:detailsReady?'complete':'researching'};}
   await route.fulfill({json:result});
  });
- return {release,requests};
+ return {release,requests,releaseResearch:()=>{detailsReady=true;}};
 }
 async function login(page){await page.goto('/');await page.locator('#login-form [name=email]').fill(user.email);await page.locator('#login-form [name=password]').fill('A long example password');await page.locator('#login-form button[type=submit]').click();await expect(page.locator('#app-nav')).toBeVisible();await expect(page.locator('[data-screen="/"]')).toBeVisible();}
 test('shared login opens English routine and preserves iPhone layout',async({page})=>{
@@ -33,7 +42,7 @@ test('shared login opens English routine and preserves iPhone layout',async({pag
 });
 test('analysis disables send, reports completion and renders safe table/details',async({page})=>{
  const fake=await mock(page,{waitAnalysis:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Example manufacturer supplement');await page.locator('#analyze-form button[type=submit]').click();
- await expect(page.locator('#analyze-form button[type=submit]')).toBeDisabled();await expect(page.locator('#analysis-status')).toContainText('Searching');fake.release();await expect(page.locator('#analysis-status')).toContainText('complete');await page.locator('#close-add').click();
+ await expect(page.locator('#analyze-form button[type=submit]')).toBeDisabled();await expect(page.locator('#analysis-status')).toContainText('Recognizing');fake.release();await expect(page.locator('#analysis-status')).toContainText('complete');await page.locator('#close-add').click();
  await expect(page.locator('.supplement-row td:first-child button')).toHaveAttribute('aria-pressed','false');await page.locator('.check-button').click();await expect(page.locator('.supplement-row')).toHaveClass(/is-done/);await expect(page.locator('#today-progress')).toContainText('1 of 1');await expect(page.locator('.supplement-row b')).toHaveCount(0);
  await page.locator('.supplement-open').click();await expect(page.locator('#supplement-detail h1')).toHaveText('Example <b>supplement</b>');await expect(page.locator('#supplement-detail')).toContainText('Compatibility with your routine');await expect(page.locator('.nutrient-table')).toContainText('1,250 %');await expect(page.locator('.source-list a')).toHaveAttribute('href','https://manufacturer.example/label');await expect(page.locator('#supplement-detail')).toContainText('1 unverified extra source');
 });
@@ -49,7 +58,7 @@ test('PWA caches only public assets and logout clears private screen state',asyn
 });
 
 test('server job resumes after reload and the next add form is usable',async({page})=>{
- const fake=await mock(page,{waitAnalysis:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('A public test product');await page.locator('#analyze-form button[type=submit]').click();await expect(page.locator('#analysis-status')).toContainText('Searching');await page.locator('#close-add').click();await page.reload();await expect(page.locator('#home-status')).toContainText('Searching');fake.release();await expect(page.locator('.supplement-row')).toHaveCount(1);await expect(page.locator('#home-status')).toHaveText('');await page.locator('#add-supplement').click();await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();await expect(page.locator('#analyze-form [name=name]')).toHaveValue('');
+ const fake=await mock(page,{waitAnalysis:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('A public test product');await page.locator('#analyze-form button[type=submit]').click();await expect(page.locator('#analysis-status')).toContainText('Recognizing');await page.locator('#close-add').click();await page.reload();await expect(page.locator('#home-status')).toContainText('Recognizing');fake.release();await expect(page.locator('.supplement-row')).toHaveCount(1);await expect(page.locator('#home-status')).toHaveText('');await page.locator('#add-supplement').click();await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();await expect(page.locator('#analyze-form [name=name]')).toHaveValue('');
 });
 test('a failed source check shows an error and never adds an item',async({page})=>{
  await mock(page,{failAnalysis:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Unconfirmed product');await page.locator('#analyze-form button[type=submit]').click();await expect(page.locator('#analysis-status')).toContainText('Nothing was added');await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();await expect(page.locator('.supplement-row')).toHaveCount(0);
@@ -77,4 +86,11 @@ test('batch report exposes each success, failure and unreadable label and clears
  await mock(page,{batch:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Several products');await page.locator('#analyze-form button[type=submit]').click();
  await expect(page.locator('#analysis-results')).toContainText('1 of 2');await expect(page.locator('#analysis-results')).toContainText('Unconfirmed magnesium');await expect(page.locator('#analysis-results')).toContainText('Brand is blurred.');await expect(page.locator('#view-added')).toBeHidden();
  await page.locator('#analysis-results button').click();await expect(page.locator('#supplement-detail h1')).toBeVisible();await page.reload();await expect(page.locator('#home-analysis-results')).toContainText('Brand is blurred.');await page.locator('.account-link').click();await page.locator('#logout-button').click();await expect(page.locator('#home-analysis-results')).toBeEmpty();await expect(page.locator('#analysis-results')).toBeEmpty();
+});
+
+test('recognized products appear before research completes and a second add flow is available',async({page})=>{
+ const fake=await mock(page,{progressive:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Several products');await page.locator('#analyze-form button[type=submit]').click();
+ await expect(page.locator('#analysis-status')).toContainText('recognized');await page.locator('#close-add').click();await expect(page.locator('.supplement-row')).toHaveCount(1);await expect(page.locator('.supplement-open .research-badge')).toContainText('Checking');
+ await page.locator('#add-supplement').click();await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();await page.locator('#close-add').click();await page.locator('.supplement-open').click();await expect(page.locator('#supplement-detail')).toContainText('Provisional grouping');
+ fake.releaseResearch();await expect(page.locator('#supplement-detail')).toContainText('Manufacturer');await expect(page.locator('#supplement-detail')).not.toContainText('Provisional grouping');
 });

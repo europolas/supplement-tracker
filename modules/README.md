@@ -1,6 +1,6 @@
-# @europolas/app-modules 1.6.0
+# @europolas/app-modules 1.7.0
 
-40 funkcinių modulių failai: 36 naršyklės moduliai, service worker ir 3 serverio moduliai.
+Reusable browser modules, service worker and optional Node server helpers.
 Be frontend framework ir be naršyklės runtime priklausomybių. Node serverio
 runtime atskirai naudoja mysql2 ir nodemailer, jų konkrečios versijos užrakintos.
 
@@ -152,3 +152,5 @@ objektai pateikia valymo funkcijas; išmontuodami ekranus ar programėlę jas kv
 `auth-screen` UI kalba šiuo metu lietuvių; kitų kalbų žodynus jam reikia pridėti.
 
 Optional AI examples: [photo preparation, encrypted credentials and structured provider requests](docs/AI.md).
+
+`server/task-queue` provides bounded prioritized background work; see [TASKS.md](docs/TASKS.md).

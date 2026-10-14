@@ -19,24 +19,25 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
  const root=await mysql.createConnection({host:process.env.DB_TEST_HOST,user:'root',password:readFileSync('/run/secrets/test_db_root','utf8').trim(),multipleStatements:true});
  const database='tracker_checks_'+randomBytes(5).toString('hex'),account='checks_'+randomBytes(5).toString('hex'),secret=randomBytes(32).toString('hex');let pool;
  try{
-  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));await root.query(readFileSync('/app/migrations/005_photo_batches.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
+  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));await root.query(readFileSync('/app/migrations/005_photo_batches.sql','utf8'));await root.query(readFileSync('/app/migrations/006_progressive_analysis.sql','utf8'));await root.query(readFileSync('/app/migrations/007_account_group_cascade.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
   pool=mysql.createPool({host:process.env.DB_TEST_HOST,user:account,password:secret,database,timezone:'Z'});
   const config={persistentSessions:true,secret:randomBytes(32).toString('hex'),mailConfigured:false,encryptionKey:randomBytes(32),appUrl:'https://app.example/'};
   const auth=new AuthApi(pool,config,await hashPassword('A long dummy secret phrase'));
   const password='A long isolated testing password';
   for(const name of ['alice','bob'])await auth.register({email:name+'@example.test',name,password},name);
   const a=await auth.login({email:'alice@example.test',password},'a'),b=await auth.login({email:'bob@example.test',password},'b');
-  let now=new Date('2026-10-14T20:59:59Z'),calls=0,lastInput,mode='valid';
+  let now=new Date('2026-10-14T20:59:59Z'),calls=0,lastInput,mode='valid',pauseResearch=null,enteredResearch=null;
   const vault=createCredentialVault(randomBytes(32));
   const chat=async input=>{
-   calls++;lastInput=input;const context=JSON.parse(input.messages[1].content[0].text);
+   calls++;lastInput=input;if(pauseResearch){enteredResearch?.();await pauseResearch;}const context=JSON.parse(input.messages[1].content[0].text);
    if(mode==='batch'){assert.ok(context.selectedTarget);assert.ok(context.existingSupplements.length>=2);if(context.selectedTarget.name==='Unreadable source')throw new ProviderError('AI_SOURCES_UNVERIFIED');}
-   const result={schemaVersion:'1.2',manufacturer:'Example',variant:'1000 mg',dosage:{directions:'1 tablet daily',servingSize:'1 tablet',dailyServingsMin:1,dailyServingsMax:1,sourceUrl:'https://manufacturer.example/product',evidence:'manufacturer'},nutrients:[{name:'Vitamin C',amount:1000,unit:'mg',originalUnit:null,nrvCode:'vitamin_c',nrvComparable:true,amountNote:'Per tablet',sourceUrl:'https://manufacturer.example/product',evidence:'manufacturer'}],sources:[{url:'https://manufacturer.example/product',title:'Official label',kind:'manufacturer'}],identified:true,productName:context.selectedTarget?.name||'Example manufacturer product',groupId:context.groups[0].id,benefits:['Potential benefit'],howToUse:'Check label.',whenToUse:'With food.',labelDirections:null,cautions:['Check interactions.'],confidence:'medium',needsReview:true,reviewReason:'Missing label.',evidenceNote:'General information.',compatibility:{summary:'Review needed.',requiresReview:false,assessments:context.existingSupplements.map(s=>({supplementId:s.id,status:mode==='conflict'?'duplicate':'insufficient_information',reason:'Unknown amount.'}))}};
+   const result={schemaVersion:'1.3',language:context.responseLanguage,manufacturer:'Example',variant:'1000 mg',dosage:{directions:'1 tablet daily',servingSize:'1 tablet',dailyServingsMin:1,dailyServingsMax:1,sourceUrl:'https://manufacturer.example/product',evidence:'manufacturer'},nutrients:[{name:'Vitamin C',amount:1000,unit:'mg',originalUnit:null,nrvCode:'vitamin_c',nrvComparable:true,amountNote:'Per tablet',sourceUrl:'https://manufacturer.example/product',evidence:'manufacturer'}],sources:[{url:'https://manufacturer.example/product',title:'Official label',kind:'manufacturer'}],identified:true,productName:context.selectedTarget?.name||'Example manufacturer product',groupId:context.groups[0].id,benefits:[context.responseLanguage==='lt'?'Galima nauda':'Potential benefit'],howToUse:'Check label.',whenToUse:'With food.',labelDirections:null,cautions:['Check interactions.'],confidence:'medium',needsReview:true,reviewReason:'Missing label.',evidenceNote:'General information.',compatibility:{summary:'Review needed.',requiresReview:false,assessments:context.existingSupplements.map(s=>({supplementId:s.id,status:mode==='conflict'?'duplicate':'insufficient_information',reason:'Unknown amount.'}))}};
    assert.equal(input.validate(result),true);return {result,model:input.model,citations:['https://manufacturer.example/product']};
   };
-  let discoveryCalls=0;const discover=async input=>{discoveryCalls++;assert.equal(input.validate(discovery),true);return {result:discovery};};
-  const products=['Batch C','Unreadable source','Batch magnesium'].map(name=>({name,manufacturer:'Example',variant:'',labelText:'',location:name}));
-  let discovery={version:'1',products:[...products,products[0]],skipped:[{location:'Back left',reason:'Brand is not readable.'}],overflow:false};
+  let discoveryCalls=0;const discover=async input=>{discoveryCalls++;const context=JSON.parse(input.messages[1].content[0].text);const result={...discovery,language:context.responseLanguage,products:discovery.products.map(p=>({...p,groupId:context.groups[0].id}))};assert.equal(input.validate(result),true);return {result,model:input.model};};
+  const product=name=>({name,manufacturer:'Example',variant:'1000 mg',labelText:'',groupId:null,reason:'With a meal',benefit:'Possible support',review:false,existingId:null});
+  const products=['Batch C','Unreadable source','Batch magnesium'].map(product);
+  let discovery={version:'2',products:[product('manufacturer product')],skipped:[],overflow:false};
   const tracker=new TrackerApi(pool,auth,{vault,chat,discover,now:()=>now});
   const request=(session,method,path,body={},query)=>tracker.handle(method,path,body,'Bearer '+session.token,'test',query);
   const query=new URLSearchParams({timezone:'Europe/Vilnius'});
@@ -96,25 +97,39 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
   await t.test('photo batches save readable targets, preserve partial successes and compare siblings',async()=>{
    // Isolated database only: make this scenario's submission quota independent.
    await pool.query('DELETE FROM auth_rate_limits');
-   mode='batch';const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64');
+   mode='batch';discovery={version:'2',products:[...products,products[0]],skipped:[{location:'Back left',reason:'Brand is not readable.'}],overflow:false};let release;pauseResearch=new Promise(r=>release=r);const entered=new Promise(r=>enteredResearch=r);const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64');
    const body={requestId:randomUUID(),image,language:'lt'};
    const [,job]=await request(a,'POST','/supplements/jobs',body);
    await assert.rejects(request(b,'GET','/supplements/jobs/'+job.id),e=>e.status===404);
+   await entered;const early=(await request(a,'GET','/supplements/jobs/'+job.id))[1];assert.equal(early.phase,'enriching');assert.equal(early.total_count,3);assert.equal(early.processed_count,0);const beforeResearch=(await request(a,'GET','/dashboard',{},query))[1];assert.equal(beforeResearch.supplements.filter(s=>s.analysis.schemaVersion==='draft-1').length,3);assert.ok(beforeResearch.supplements.filter(s=>s.analysis.schemaVersion==='draft-1').every(s=>s.group_id===group));
+   const [,parallel]=await request(a,'POST','/supplements/jobs',{...body,requestId:randomUUID()});assert.ok(parallel.id!==job.id);let reused;for(let i=0;i<50;i++){reused=(await request(a,'GET','/supplements/jobs/'+parallel.id))[1];if(reused.status!=='running')break;await new Promise(r=>setTimeout(r,20));}assert.equal(reused.status,'complete');assert.ok(reused.result.items.every(item=>item.research==='reused'));release();pauseResearch=null;
    let done;for(let i=0;i<100;i++){done=(await request(a,'GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
-   assert.equal(done.status,'complete');assert.equal(done.total_count,3);assert.equal(done.processed_count,3);assert.equal(discoveryCalls,1);assert.equal(done.result.items.filter(i=>i.status==='added').length,2);assert.equal(done.result.items[1].error,'AI_SOURCES_UNVERIFIED');assert.equal(done.result.skipped[0].location,'Back left');
+   assert.equal(done.status,'complete');assert.equal(done.total_count,3);assert.equal(done.processed_count,3);assert.equal(discoveryCalls,3);assert.equal(done.result.items.filter(i=>i.status==='added').length,3);assert.equal(done.result.items[1].research,'failed');assert.equal(done.result.items[1].error,'AI_SOURCES_UNVERIFIED');assert.equal(done.result.skipped[0].location,'Back left');
    const context=JSON.parse(lastInput.messages[1].content[0].text);assert.equal(context.selectedTarget.name,'Batch magnesium');assert.ok(context.existingSupplements.some(s=>s.name==='Batch C'),'Later target must see earlier batch successes');
    const [stored]=await pool.query('SELECT * FROM analysis_jobs WHERE id=?',[job.id]);assert.equal(JSON.stringify(stored).includes(image),false);assert.equal(JSON.stringify(stored).includes('xai-test-only'),false);
-   const before=calls;const [,same]=await request(a,'POST','/supplements/jobs',body);assert.equal(same.id,job.id);assert.equal(calls,before);assert.equal(discoveryCalls,1);
+   const before=calls;const [,same]=await request(a,'POST','/supplements/jobs',body);assert.equal(same.id,job.id);assert.equal(calls,before);assert.equal(discoveryCalls,3);
    // No readable identities is a terminal report, not a fabricated supplement.
-   discovery={version:'1',products:[],skipped:[{location:'All bottles',reason:'Names are blurred.'}],overflow:false};
+   discovery={version:'2',products:[],skipped:[{location:'All bottles',reason:'Names are blurred.'}],overflow:false};
    const [,empty]=await request(a,'POST','/supplements/jobs',{...body,requestId:randomUUID()});
    let failed;for(let i=0;i<100;i++){failed=(await request(a,'GET','/supplements/jobs/'+empty.id))[1];if(failed.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
    assert.equal(failed.status,'failed');assert.equal(failed.result.items.length,0);assert.equal(failed.result.skipped.length,1);assert.equal(calls,before);
   });
+  await t.test('explicit language refresh uses one research call, preserves manual grouping and reuses fresh info',async()=>{
+   await pool.query('DELETE FROM auth_rate_limits');mode='valid';const records=(await request(a,'GET','/dashboard',{},query))[1];const target=records.supplements.find(s=>s.analysis.enrichment?.status==='failed');assert.ok(target);
+   let release;pauseResearch=new Promise(r=>release=r);const entered=new Promise(r=>enteredResearch=r);const previousCalls=calls,previousDiscovery=discoveryCalls;
+   const [,job]=await request(a,'POST','/supplements/'+target.id+'/research',{requestId:randomUUID(),language:'en'});await entered;
+   await assert.rejects(request(a,'POST','/supplements/'+target.id+'/research',{requestId:randomUUID(),language:'en'}),e=>e.message==='AI_BUSY');
+   const chosen=records.groups[1].id;await request(a,'PATCH','/supplements/'+target.id,{groupId:chosen});release();pauseResearch=null;
+   let done;for(let i=0;i<100;i++){done=(await request(a,'GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
+   assert.equal(done.status,'complete');assert.equal(done.result.items[0].research,'complete');assert.equal(calls,previousCalls+1);assert.equal(discoveryCalls,previousDiscovery);
+   const saved=(await request(a,'GET','/dashboard',{},query))[1].supplements.find(s=>s.id===target.id);assert.equal(saved.analysis.language,'en');assert.equal(saved.group_id,chosen);assert.equal(saved.analysis.compatibility.stale,true);
+   discovery={version:'2',products:[product('Unreadable source')],skipped:[],overflow:false};const [,reuse]=await request(a,'POST','/supplements/jobs',{requestId:randomUUID(),name:'Exact same product',language:'en'});
+   for(let i=0;i<100;i++){done=(await request(a,'GET','/supplements/jobs/'+reuse.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}assert.equal(done.result.items[0].research,'reused');assert.equal(calls,previousCalls+1);
+  });
   await t.test('photo discovery rechecks the key and serializes submissions before paid research',async()=>{
    await pool.query('DELETE FROM auth_rate_limits');let enter,release;
    const entered=new Promise(resolve=>enter=resolve),gate=new Promise(resolve=>release=resolve),original=tracker.discover;
-   tracker.discover=async()=>{enter();await gate;return {result:{version:'1',products,skipped:[],overflow:false}};};
+   tracker.discover=async input=>{enter();await gate;const context=JSON.parse(input.messages[1].content[0].text);return {result:{version:'2',language:context.responseLanguage,products:products.map(p=>({...p,groupId:context.groups[0].id})),skipped:[],overflow:false}};};
    const body={requestId:randomUUID(),image:'data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64')};
    const before=calls;const [,job]=await request(a,'POST','/supplements/jobs',body);await entered;
    const [,same]=await request(a,'POST','/supplements/jobs',body);assert.equal(same.id,job.id);

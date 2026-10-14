@@ -31,9 +31,11 @@ const pool = mysql.createPool({
 });
 await pool.query('SELECT 1');
 const api = new AuthApi(pool, config, await hashPassword(randomBytes(32).toString('hex')));
-const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),chat:createStructuredResearch(),discover:createStructuredOutput({timeout:90000}),models:(process.env.XAI_MODELS||'grok-4.7').split(',')});
+const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),chat:createStructuredResearch(),discover:createStructuredOutput({timeout:60000,reasoningEffort:'none'}),discoveryModel:process.env.XAI_DISCOVERY_MODEL||'grok-4.3',models:(process.env.XAI_MODELS||'grok-4.7').split(',')});
 // A single API instance owns in-memory photo payloads. Do not silently retry paid work after restart.
-await pool.query("UPDATE analysis_jobs SET status='failed',error_code='AI_JOB_INTERRUPTED',finished_at=UTC_TIMESTAMP(3) WHERE status='running'");
+await pool.query("UPDATE analysis_jobs SET status='failed',error_code='AI_JOB_INTERRUPTED',phase='done',finished_at=UTC_TIMESTAMP(3) WHERE status='running'");
+// Keep recognized products after restart; mark interrupted enrichment retryable.
+await pool.query("UPDATE supplements SET analysis=JSON_SET(analysis,'$.enrichment.status','failed','$.enrichment.error','AI_JOB_INTERRUPTED') WHERE JSON_UNQUOTE(JSON_EXTRACT(analysis,'$.enrichment.status')) IN ('queued','researching')");
 const transport = process.env.SMTP_HOST && process.env.SMTP_FROM ? nodemailer.createTransport({
   host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587),
   secure: process.env.SMTP_PORT === '465', requireTLS: true,
@@ -134,6 +136,6 @@ export const server = http.createServer({ requestTimeout: 105000, headersTimeout
   }
 });
 server.listen(Number(process.env.PORT || 3000), '0.0.0.0', () => console.log('Application authentication API ready'));
-async function shutdown() { clearInterval(cleanup); clearInterval(mailTimer); server.close(); await pool.end(); }
+async function shutdown() { tracker.providerQueue.close(); tracker.backgroundQueue.close(); clearInterval(cleanup); clearInterval(mailTimer); server.close(); await pool.end(); }
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
