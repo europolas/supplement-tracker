@@ -1,0 +1,16 @@
+{
+  "id": "supplement-tracker",
+  "name": "Supplement Tracker",
+  "version": "0.1.0",
+  "apiUrl": "",
+  "language": "en",
+  "theme": "dark",
+  "features": {
+    "auth": false,
+    "notifications": false
+  },
+  "interaction": {
+    "lockZoom": true,
+    "lockSelection": true
+  }
+}

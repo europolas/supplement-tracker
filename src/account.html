@@ -1,0 +1,68 @@
+<!-- Local trusted template only. Translation spans preserve entered values and native form validation. -->
+    <section class="account-card" aria-labelledby="account-title">
+      <h2 id="account-title"><span data-i18n="Your account">Your account</span></h2>
+      <p id="auth-status" role="status"><span data-i18n="Checking the server connection…">Checking the server connection…</span></p>
+      <div id="auth-guest">
+        <div class="auth-tabs" aria-label="Account actions" data-i18n-aria-label="Account actions">
+          <button type="button" data-auth-mode="login" aria-pressed="true"><span data-i18n="Sign in">Sign in</span></button>
+          <button type="button" data-auth-mode="register" aria-pressed="false"><span data-i18n="Register">Register</span></button>
+        </div>
+        <form id="login-form">
+          <label><span data-i18n="Email">Email</span><input name="email" type="email" autocomplete="username" maxlength="254" required></label>
+          <label><span data-i18n="Password">Password</span><input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
+          <button class="primary" type="submit"><span data-i18n="Sign in">Sign in</span></button>
+          <button class="text-button" type="button" data-auth-mode="forgot"><span data-i18n="Forgot password">Forgot password</span></button>
+        </form>
+        <form id="register-form" hidden>
+          <label><span data-i18n="Name">Name</span><input name="name" autocomplete="name" maxlength="80" required></label>
+          <label><span data-i18n="Email">Email</span><input name="email" type="email" autocomplete="username" maxlength="254" required></label>
+          <label><span data-i18n="Password">Password</span><input name="password" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></label>
+          <label><span data-i18n="Confirm password">Confirm password</span><input name="confirmation" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></label>
+          <p class="form-help"><span data-i18n="At least 15 characters. Use a long, memorable phrase.">At least 15 characters. Use a long, memorable phrase.</span></p>
+          <button class="primary" type="submit"><span data-i18n="Create account">Create account</span></button>
+        </form>
+        <form id="forgot-form" hidden>
+          <p><span data-i18n="We will send a recovery link to your account email.">We will send a recovery link to your account email.</span></p>
+          <label><span data-i18n="Email">Email</span><input name="email" type="email" autocomplete="username" maxlength="254" required></label>
+          <button class="primary" type="submit"><span data-i18n="Send recovery link">Send recovery link</span></button>
+          <button class="text-button" type="button" data-auth-mode="login"><span data-i18n="Back to sign-in">Back to sign-in</span></button>
+        </form>
+        <form id="reset-form" hidden>
+          <p><span data-i18n="Enter a new password. The link expires after 30 minutes.">Enter a new password. The link expires after 30 minutes.</span></p>
+          <label><span data-i18n="New password">New password</span><input name="password" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></label>
+          <label><span data-i18n="Confirm password">Confirm password</span><input name="confirmation" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></label>
+          <button class="primary" type="submit"><span data-i18n="Change password">Change password</span></button>
+        </form>
+      </div>
+      <div id="auth-profile" hidden>
+        <p id="profile-email"></p>
+        <form id="profile-form">
+          <label><span data-i18n="Name">Name</span><input name="name" autocomplete="name" maxlength="80" required></label>
+          <button class="primary" type="submit"><span data-i18n="Save name">Save name</span></button>
+        </form>
+        <details class="password-details">
+          <summary><span data-i18n="Change password">Change password</span></summary>
+          <form id="password-form">
+            <label><span data-i18n="Current password">Current password</span><input name="currentPassword" type="password" autocomplete="current-password" maxlength="128" required></label>
+            <label><span data-i18n="New password">New password</span><input name="password" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></label>
+            <label><span data-i18n="Confirm password">Confirm password</span><input name="confirmation" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></label>
+            <button class="primary" type="submit"><span data-i18n="Change password">Change password</span></button>
+          </form>
+        </details>
+        <details class="password-details">
+          <summary><span data-i18n="Delete account">Delete account</span></summary>
+          <form id="delete-account-form">
+            <p><span data-i18n="Your account and sign-in data will be deleted. This action cannot be undone.">Your account and sign-in data will be deleted. This action cannot be undone.</span></p>
+            <label><span data-i18n="Current password">Current password</span><input name="currentPassword" type="password" autocomplete="current-password" maxlength="128" required></label>
+            <label class="delete-confirm"><input name="confirmDelete" type="checkbox" value="DELETE" required><span data-i18n="I confirm account deletion">I confirm account deletion</span></label>
+            <button type="submit" class="text-button"><span data-i18n="Delete account">Delete account</span></button>
+          </form>
+        </details>
+        <div id="admin-panel" hidden>
+          <h3><span data-i18n="User management">User management</span></h3>
+          <button id="load-users" type="button" class="text-button"><span data-i18n="Show users">Show users</span></button>
+          <ul id="admin-users"></ul>
+        </div>
+        <button id="logout-button" class="text-button" type="button"><span data-i18n="Sign out">Sign out</span></button>
+      </div>
+    </section>

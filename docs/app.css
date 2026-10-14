@@ -1,0 +1,16 @@
+/* App-only presentation. Shared viewport, safe-area and masked blur rules remain in style.css. */
+.badge { color: #a8e7cb; }
+.primary { background: #a8e7cb; color: #102c22; }
+.primary:active { background: #82cfaf; }
+.tracker-date { margin: 0 0 10px; color: var(--muted, #b4bfd3); font-size: 13px; }
+#today-progress { color: #a8e7cb; font-weight: 600; }
+html[data-theme="light"] #today-progress { color: #176147; }
+.tracker-list { list-style: none; margin: 0; padding: 0; }
+.tracker-list li { padding: 18px 0; border-top: 1px solid #ffffff20; }
+.tracker-list strong { display: block; overflow-wrap: anywhere; }
+.tracker-list .item-info { font-size: 13px; line-height: 1.5; opacity: .75; overflow-wrap: anywhere; margin: 5px 0 12px; }
+.tracker-list button { width: 100%; border-radius: 12px; background: #ffffff12; color: inherit; font-size: 14px; }
+.tracker-list button[data-completed="true"] { background: #a8e7cb; color: #102c22; }
+.add-link { display: inline-block; margin-top: 18px; color: inherit; }
+#database-error { color: #ffc4c4; line-height: 1.5; }
+html[data-theme="light"] #database-error { color: #8a2525; }

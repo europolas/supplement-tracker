@@ -1,0 +1,19 @@
+{
+  "name": "supplement-tracker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/serve.mjs",
+    "test": "node --test modules/test/*.test.mjs",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@europolas/app-modules": "file:./modules"
+  },
+  "version": "0.1.0",
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "fake-indexeddb": "^6.2.5"
+  }
+}
