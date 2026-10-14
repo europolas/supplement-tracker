@@ -22,7 +22,7 @@ export async function buildStarter({ source = path.join(root, 'src'), output = p
   await writeFile(path.join(output, 'app.config.json'), JSON.stringify(config, null, 2) + '\n');
   const html = (await readFile(path.join(output, 'index.html'), 'utf8')).replace('__API_ORIGIN__', config.apiUrl ? new URL(config.apiUrl).origin : '');
   await writeFile(path.join(output, 'index.html'), html);
-  await writeFile(path.join(output, 'manifest.webmanifest'), JSON.stringify({ id: './', name: config.name, short_name: config.name.slice(0, 24), lang: config.language, start_url: './', scope: './', display: 'standalone', background_color: '#10182b', theme_color: '#10182b', icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }] }, null, 2));
+  await writeFile(path.join(output, 'manifest.webmanifest'), JSON.stringify({ id: './', name: config.name, short_name: config.name.slice(0, 24), lang: config.language, start_url: './', scope: './', display: 'standalone', background_color: '#f8f7f3', theme_color: '#f8f7f3', icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }] }, null, 2));
   const files = [];
   async function walk(dir, prefix = '') { for (const entry of (await readdir(dir, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) { const name = prefix + entry.name; if (entry.isDirectory()) await walk(path.join(dir, entry.name), name + '/'); else if (!name.startsWith('.')) files.push(name); } }
   await walk(output);

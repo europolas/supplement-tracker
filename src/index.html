@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8">
  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
- <meta name="theme-color" content="#f6f7f2">
+ <meta name="theme-color" content="#f8f7f3">
  <meta name="apple-mobile-web-app-capable" content="yes">
  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
  <meta name="referrer" content="no-referrer">
@@ -14,20 +14,17 @@
 </head>
 <body>
  <main>
-  <header class="brand"><a href="#/" class="wordmark"><span class="brand-mark" aria-hidden="true">✳</span> supplement<span class="wordmark-dot">.</span></a><a href="#/account" class="account-link" data-i18n="appAccount">Account</a></header>
+  <header class="brand"><div><a href="#/" class="wordmark">supplement.</a><p class="brand-caption" data-i18n="appBrandCaption">Small steps. A healthier you.</p></div><a href="#/account" class="account-link" aria-label="Account" data-i18n-aria-label="appAccount"><span data-icon="user" aria-hidden="true"></span></a></header>
   <nav class="app-nav" id="app-nav" aria-label="Main screens" hidden>
-   <a href="#/" data-route="/" data-i18n="appHome">Home</a><a href="#/groups" data-route="/groups" data-i18n="appGroups">Day groups</a>
+   <a href="#/" data-route="/"><span data-icon="home" aria-hidden="true"></span><span data-i18n="appHome">Home</span></a><a href="#/groups" data-route="/groups"><span data-icon="calendar" aria-hidden="true"></span><span data-i18n="appGroups">Day groups</span></a>
   </nav>
   <p id="app-error" role="alert" hidden></p><p id="network-status" role="status"></p>
   <section data-screen="/" hidden>
-   <div class="eyebrow" id="today-date"></div>
-   <h1 class="hero-title" data-i18n="appHeadline">One day,
-one small step.</h1>
-   <p class="hero-caption" data-i18n="appSubtitle">Your routine, thoughtfully organised.</p>
-   <div class="daily-summary"><div><span class="eyebrow" data-i18n="appToday">TODAY</span><p id="today-progress" role="status"></p></div><div class="progress-bloom" aria-hidden="true">✳</div></div>
-   <button id="add-supplement" class="primary add-primary" type="button"><span aria-hidden="true">＋</span> <span data-i18n="appAdd">Add supplement</span></button>
+   <div class="today-heading"><h1 data-i18n="appTodayTitle">Today</h1><span id="today-date"></span></div>
+   <div class="daily-summary"><div class="progress-ring" role="img" id="progress-ring"><svg viewBox="0 0 108 108" aria-hidden="true"><circle class="progress-track" cx="54" cy="54" r="46"></circle><circle id="progress-arc" cx="54" cy="54" r="46" pathLength="100" stroke-dasharray="0 100"></circle></svg><div class="progress-label"><strong id="progress-count">0 / 0</strong><span data-i18n="appTakenLabel">taken</span></div></div><div class="progress-copy"><strong id="progress-message"></strong><p id="progress-caption"></p></div><p id="today-progress" class="sr-only" role="status"></p></div>
+   <button id="add-supplement" class="primary add-primary" type="button"><span data-icon="plus" aria-hidden="true"></span><span data-i18n="appAdd">Add supplement</span></button>
    <p id="home-status" role="status"></p>
-   <div id="home-analysis-results" class="analysis-results" hidden></div>
+   <details id="home-report" class="home-report" hidden><summary data-i18n="appRecentAdditions">Recent additions</summary><div id="home-analysis-results" class="analysis-results" hidden></div></details>
    <p id="routine-note" class="form-help" data-i18n="appProvisional" hidden>Provisional grouping. Dose and compatibility are still being checked.</p>
    <div id="routine-groups"></div>
    <div id="home-empty" class="empty-card" hidden><span class="empty-symbol" aria-hidden="true">＋</span><h2 data-i18n="appEmptyTitle">A fresh start.</h2><p data-i18n="appEmptyText">Add your first supplement. We'll find its place in your day.</p></div>
@@ -36,12 +33,15 @@ one small step.</h1>
    <div class="eyebrow" data-i18n="appYourRhythm">YOUR DAILY RHYTHM</div><h1 data-i18n="appGroups">Day groups</h1>
    <p class="hero-caption" data-i18n="appGroupsHelp">Make room for the moments that suit your routine.</p>
    <div id="group-list"></div>
-   <div class="surface"><h2 id="group-form-title" data-i18n="appNewGroup">New group</h2>
-    <form id="group-form"><input name="id" type="hidden"><label><span data-i18n="appGroupName">Group name</span><input name="name" maxlength="120" required></label><label><span data-i18n="appGroupDescription">Description (optional)</span><textarea name="description" maxlength="500" rows="2"></textarea></label><div class="button-row"><button class="primary" type="submit" data-i18n="save">Save</button><button type="button" id="cancel-group" class="secondary" data-i18n="Cancel" hidden>Cancel</button></div></form>
-   </div>
+   <button class="primary" id="new-group" type="button"><span data-icon="plus" aria-hidden="true"></span><span data-i18n="appNewGroup">New group</span></button>
   </section>
+  <section id="update-card" class="surface" hidden><p data-i18n="update">An update is available. Save your changes before updating.</p><button id="update-button" class="primary" type="button" data-i18n="updateButton">Update</button></section>
+  <footer><span>supplement.</span><span id="app-version"></span></footer>
+ </main>
+ <dialog id="route-dialog" class="app-dialog route-dialog" aria-labelledby="route-title">
+  <div data-sheet-handle aria-hidden="true"></div><div class="sheet-toolbar"><h2 id="route-title" tabindex="-1" autofocus data-sheet-focus></h2><button type="button" class="icon-button" data-sheet-close aria-label="Close" data-i18n-aria-label="appClose"><span data-icon="close" aria-hidden="true"></span></button></div>
   <section data-screen="/detail" hidden>
-   <a href="#/" class="back-link" data-i18n="appBack">← Back to routine</a><div id="supplement-detail"></div>
+<div id="supplement-detail"></div>
   </section>
   <section data-screen="/account" id="account-screen" hidden>
    <div id="account-heading"><div class="eyebrow" data-i18n="appWelcome">A ROUTINE THAT'S YOURS</div><h1 data-i18n="appAccountTitle">A little care,
@@ -55,21 +55,23 @@ every day.</h1></div>
    <div id="account-forms"></div>
   </section>
   <div id="preferences" class="surface preferences" hidden><h2 data-i18n="settings">Settings</h2><form id="settings-form"><div class="preferences-grid"><label><span data-i18n="language">Language</span><select name="language"><option value="en">English</option><option value="lt">Lietuvių</option></select></label><label><span data-i18n="theme">Theme</span><select name="theme"><option value="light" data-i18n="light">Light</option><option value="dark" data-i18n="dark">Dark</option><option value="system" data-i18n="system">System</option></select></label></div><button class="secondary" type="submit" data-i18n="save">Save</button></form></div>
-  <section id="update-card" class="surface" hidden><p data-i18n="update">An update is available. Save your changes before updating.</p><button id="update-button" class="primary" type="button" data-i18n="updateButton">Update</button></section>
-  <footer><span>supplement.</span><span id="app-version"></span></footer>
- </main>
+ </dialog>
+ <dialog id="group-dialog" class="app-dialog" aria-labelledby="group-form-title"><div data-sheet-handle aria-hidden="true"></div><button class="icon-button group-close" type="button" data-sheet-close aria-label="Close" data-i18n-aria-label="appClose"><span data-icon="close" aria-hidden="true"></span></button>
+   <div class="group-editor"><h2 tabindex="-1" autofocus data-sheet-focus id="group-form-title" data-i18n="appNewGroup">New group</h2>
+    <form id="group-form"><input name="id" type="hidden"><label><span data-i18n="appGroupName">Group name</span><input name="name" maxlength="120" required></label><label><span data-i18n="appGroupDescription">Description (optional)</span><textarea name="description" maxlength="500" rows="2"></textarea></label><div class="button-row"><button class="primary" type="submit" data-i18n="save">Save</button><button type="button" id="cancel-group" class="secondary" data-i18n="Cancel" hidden>Cancel</button></div></form>
+   </div> </dialog>
  <dialog id="add-dialog" class="app-dialog add-dialog" aria-labelledby="add-title">
-  <div class="dialog-heading"><div><div class="eyebrow" data-i18n="appMakeSpace">MAKE A LITTLE SPACE</div><h2 id="add-title" data-i18n="appAdd">Add supplement</h2></div><button type="button" id="close-add" class="icon-button" aria-label="Close" data-i18n-aria-label="appClose">×</button></div>
+  <div data-sheet-handle aria-hidden="true"></div><div class="dialog-heading"><div><h2 tabindex="-1" autofocus data-sheet-focus id="add-title" data-i18n="appAdd">Add supplement</h2></div><button type="button" id="close-add" class="icon-button" aria-label="Close" data-i18n-aria-label="appClose"><span data-icon="close" aria-hidden="true"></span></button></div>
   <form id="analyze-form"><fieldset>
    <label><span data-i18n="appFullName">Full supplement name</span><input name="name" maxlength="250" autocomplete="off"></label>
    <div class="or-line" data-i18n="appOrPhoto">or add a photo of the label</div>
    <div class="photo-actions">
-    <label class="photo-picker"><span aria-hidden="true">⊕</span><span data-i18n="appCameraPhoto">Take photo</span><input name="camera" type="file" accept="image/*" capture="environment"></label>
-    <label class="photo-picker"><span aria-hidden="true">▧</span><span data-i18n="appLibraryPhoto">Choose from library</span><input name="photo" type="file" accept="image/*"></label>
+    <label class="photo-picker"><span data-icon="camera" aria-hidden="true"></span><span data-i18n="appCameraPhoto">Take photo</span><input name="camera" type="file" accept="image/*" capture="environment"></label>
+    <label class="photo-picker"><span data-icon="image" aria-hidden="true"></span><span data-i18n="appLibraryPhoto">Choose from library</span><input name="photo" type="file" accept="image/*"></label>
    </div>
-   <p class="form-help" data-i18n="appMultiPhotoHelp">One photo can contain several supplements. We identify and provisionally group them together, then collect missing details in the background.</p>
+   <p class="form-help photo-help" data-i18n="appMultiPhotoHelp">One photo can contain several supplements. We identify and provisionally group them together, then collect missing details in the background.</p>
    <img id="photo-preview" alt="Selected supplement label" hidden><button id="remove-photo" class="text-button" type="button" data-i18n="appRemovePhoto" hidden>Remove photo</button>
-   <p class="form-help" data-i18n="appAiConsent">One shared AI request recognizes and provisionally groups all products. Only missing or outdated details are researched separately in the background. Your name/photo, groups and existing supplements are sent to xAI using your key; additional API calls may incur charges.</p>
+   <details class="ai-consent"><summary><span data-icon="shield" aria-hidden="true"></span><span data-i18n="appSentWithKey">Sent to xAI with your key</span><span data-icon="info" aria-hidden="true"></span></summary><p class="form-help" data-i18n="appAiConsent">One shared AI request recognizes and provisionally groups all products. Only missing or outdated details are researched separately in the background. Your name/photo, groups and existing supplements are sent to xAI using your key; additional API calls may incur charges.</p></details>
    <button class="primary send-button" type="submit" data-i18n="appSend">Send</button>
   </fieldset></form>
   <p id="analysis-status" role="status"></p><section id="upload-queue" class="upload-queue" hidden><h3 data-i18n="appUploadQueue">Upload queue</h3><p id="upload-queue-count" class="form-help"></p><div id="analysis-results"></div></section><button id="view-added" class="secondary" type="button" data-i18n="appView" hidden>View supplement</button>

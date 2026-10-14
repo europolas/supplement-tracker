@@ -25,6 +25,7 @@ additional feature modules. Browser index exports do not include server/worker c
 | [router](../src/router.js) | `createRouter` | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | [forms](../src/forms.js) | `bindForm / readForm / trackDirty` | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | [validation](../src/validation.js) | `validate / validators / createValidators` | [LOCALIZATION.md](LOCALIZATION.md) |
+| [bottom-sheet](../src/bottom-sheet.js) | `createBottomSheet` | [BOTTOM-SHEET.md](BOTTOM-SHEET.md) |
 | [ui](../src/ui.js) | `element / createToast / confirmDialog / setStatus` | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | [theme](../src/theme.js) | `createTheme` | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | [i18n](../src/i18n.js) | `createI18n / dictionaries` | [LOCALIZATION.md](LOCALIZATION.md) |

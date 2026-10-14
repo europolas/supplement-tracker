@@ -329,5 +329,17 @@ export default Object.freeze({
   "appLessInfo": "Less information",
   "appNoBenefits": "Benefit information is not available yet.",
   "appNoCompatibility": "Compatibility information is not available yet.",
-  "appNoTiming": "Timing information is not available yet."
+  "appNoTiming": "Timing information is not available yet.",
+  "appBrandCaption": "Small steps. A healthier you.",
+  "appTodayTitle": "Today",
+  "appTakenLabel": "taken",
+  "appStartRoutine": "A fresh start.",
+  "appDayComplete": "All done for today!",
+  "appOnTrack": "You’re on track!",
+  "appReadyToday": "Ready for today?",
+  "appKeepGoing": "One small step at a time.",
+  "appSeeTomorrow": "See you tomorrow.",
+  "appSentWithKey": "Sent to xAI with your key",
+  "appDoseUnknown": "not determined",
+  "appRecentAdditions": "Recent additions",
 });

@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.7.1
+# Supplement Tracker · 0.8.0
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.8.1.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.9.0.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -160,7 +160,7 @@ trial regimens, upper limits and EU label NRVs must never become default doses.
 Fallback amounts do not fill label servings, ingredient amounts or NRV daily math.
 Old analyses remain readable; explicit detail refresh obtains the new dose lookup.
 
-## Compact supplement detail (0.7.1)
+## Compact supplement detail (0.8.0)
 
 The initial detail view contains dose (with qualified fallback when available),
 benefits, full compatibility and timing. A native, keyboard-accessible More/Less
@@ -170,3 +170,25 @@ group and delete actions. No saved information is discarded. Expansion survives
 redraws for the same product but resets for another product or sign-out; it is not
 persisted. A stale compatibility notice remains with compatibility so its meaning
 is clear. Draft doses stay pending until detailed research is ready.
+
+## Design A and sheets (0.8.0)
+
+The Sage mockup now drives the complete UI: warm paper, sage buttons and completion
+rows, a serif wordmark/titles, a real daily progress ring and integrated group cards.
+Benefits remain short, muted and below each product name per the later user request.
+Light/dark/system preferences still persist. Home has no fabricated streak/health
+statistics; completed upload reports collapse behind Recent additions.
+
+Home and Day groups are primary tabs. Detail and Account are routed native bottom
+sheets; Add supplement and group editing are sheets too. Close, Escape and a downward
+swipe on the grabber dismiss them. Browser Back closes routed sheets; the underlying
+tab and scroll position remain. The upload draft/history survive dismissal. Native
+focus containment, reduced motion, safe-area padding and the shared keyboard height
+are reused from app-modules/bottom-sheet. Confirmations opt into sheet presentation.
+
+Detail keeps four primary cards and More information disclosure. An unavailable or
+still-researching dose displays small italic `not determined` / `nenustatyta`; verified
+manufacturer directions and qualified adult fallback amounts retain their meaning.
+No model prompts, accounts, production API or database data changed in this release.
+Browser checks cover EN/LT, themes, drafts, navigation, focus, disclosures and unknown
+dose. Desktop/WebKit checks cannot replace a final installed-iPhone hardware review.

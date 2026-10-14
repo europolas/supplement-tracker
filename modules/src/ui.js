@@ -3,6 +3,7 @@
  * Render untrusted content as text. Allowlisted URL schemes and attributes do not replace server sanitization; pass i18n to localize dialogs.
  * Integration contracts: ../docs/MODULES.md and ../docs/ARCHITECTURE.md.
  */
+import { createBottomSheet } from './bottom-sheet.js';
 import { createI18n } from './i18n.js';
 export function element(tag, { text, className, attributes = {}, on = {}, children = [] } = {}, doc = globalThis.document) {
   const node = doc.createElement(tag);
@@ -18,15 +19,17 @@ export function createToast(container, { duration = 4000 } = {}) {
   let timer;
   return { show(message, error = false) { clearTimeout(timer); container.textContent = String(message); container.dataset.error = String(error); container.hidden = false; timer = setTimeout(() => { container.hidden = true; }, duration); }, hide() { clearTimeout(timer); container.hidden = true; } };
 }
-export function confirmDialog(message, { title, i18n = createI18n(), document: doc = globalThis.document } = {}) {
+export function confirmDialog(message, { title, presentation = 'dialog', i18n = createI18n(), document: doc = globalThis.document } = {}) {
   return new Promise(resolve => {
     const dialog = element('dialog', { className: 'app-dialog' }, doc);
-    const finish = value => { dialog.close(); dialog.remove(); resolve(value); };
+    let sheet, finishing = false;
+    const finish = async value => { if (finishing) return; finishing = true; if (sheet) { await sheet.close(); sheet.destroy(); } else dialog.close(); dialog.remove(); resolve(value); };
     const heading = element('h2', { text: title ?? i18n.t('Confirmation'), attributes: { id: 'dialog-' + crypto.randomUUID() } }, doc);
     dialog.setAttribute('aria-labelledby', heading.id);
     dialog.append(heading, element('p', { text: message }, doc), element('button', { text: i18n.t('Cancel'), on: { click: () => finish(false) } }, doc), element('button', { text: i18n.t('Confirm'), className: 'primary', on: { click: () => finish(true) } }, doc));
-    dialog.addEventListener('cancel', event => { event.preventDefault(); finish(false); });
-    doc.body.append(dialog); dialog.showModal();
+    dialog.addEventListener('cancel', event => { if (presentation !== 'sheet') { event.preventDefault(); finish(false); } });
+    doc.body.append(dialog);
+    if (presentation === 'sheet') { heading.tabIndex = -1; heading.setAttribute('data-sheet-focus', ''); heading.setAttribute('autofocus', ''); sheet = createBottomSheet(dialog, { onDismiss: () => finish(false) }); sheet.open(); } else dialog.showModal();
   });
 }
 export function setStatus(node, state, message) { node.dataset.state = state; node.textContent = message; node.setAttribute('aria-busy', String(state === 'loading')); }

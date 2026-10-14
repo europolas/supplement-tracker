@@ -4,7 +4,28 @@
  */
 import {createConfig,createStorage,createSettings,createTheme,createI18n,createRouter,createToast,
  bindForm,trackDirty,setupViewport,setupGestures,setupPwa,watchNetwork,createAuth,setupAccount,
- element,confirmDialog,prepareImage,localDay,compactText} from './modules/index.js';
+ element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet} from './modules/index.js';
+// Local presentation icons use fixed SVG paths, never server/model markup.
+const iconPaths={
+ user:'M20 21v-2a7 7 0 0 0-14 0v2 M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
+ home:'m3 10 9-7 9 7v11h-6v-7H9v7H3Z',
+ calendar:'M4 5h16v16H4Z M8 3v4 M16 3v4 M4 10h16 M8 14h2 M14 14h2 M8 17h2',
+ plus:'M12 5v14 M5 12h14',close:'m6 6 12 12 M18 6 6 18',
+ camera:'M3 7h4l2-3h6l2 3h4v14H3Z M16 14a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
+ image:'M3 3h18v18H3Z m0 14 6-6 5 5 3-3 4 4 M8 7h.01',
+ shield:'m12 3 8 4v5c0 5-8 9-8 9s-8-4-8-9V7Z M12 3v18',
+ info:'M12 11v6 M12 7h.01 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
+ meal:'M5 3v7 M2 3v5a3 3 0 0 0 6 0V3 M5 11v10 M19 3c-4 2-4 7 0 8h2 M21 3v18',
+ moon:'M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z',
+ sun:'M12 2v2 M12 20v2 M2 12h2 M20 12h2 m-3-9 1.5-1.5 M5 19l-1.5 1.5 M3 3l2 2 M19 19l2 2 M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0',
+ leaf:'M4 20c0-9 7-14 16-16 0 11-5 16-12 14 M4 20 15 9',
+ clock:'M12 6v6l4 3 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
+ dose:'M9 3h6v3H9Z M7 6h10l2 4v11H5V10Z M9 13h6 M12 10v6',
+ check:'m5 12 4 4 10-10',chevron:'m9 5 7 7-7 7'
+};
+function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');for(const[k,v]of Object.entries({viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'1.6','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',class:'icon'}))svg.setAttribute(k,v);const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',iconPaths[name]||iconPaths.leaf);svg.append(path);return svg;}
+for(const node of document.querySelectorAll('[data-icon]'))node.append(icon(node.dataset.icon));
+const confirmDialog=(message,options)=>nativeConfirmDialog(message,{...options,presentation:'sheet'});
 const config=createConfig(await(await fetch('./app.config.json')).json());
 const get=id=>document.getElementById(id),storage=createStorage(config.id);
 const settings=createSettings(storage,{language:config.language,theme:config.theme},{language:v=>['en','lt'].includes(v),theme:v=>['light','dark','system'].includes(v)});
@@ -16,6 +37,10 @@ get('account-forms').append(document.createRange().createContextualFragment(awai
 const auth=createAuth({id:config.id,baseUrl:config.apiUrl,persistence:'persistent',timeout:100000});
 setupAccount(config,{i18n,auth});
 const api=auth.api;
+let baseRoute='/';
+const addSheet=createBottomSheet(get('add-dialog'),{onDismiss:()=>closeAdd()});
+const groupSheet=createBottomSheet(get('group-dialog'));
+const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router;
 let photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,latestReport=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set(),jobHistory=[];
 const dirty=[...document.querySelectorAll('form')].map(form=>({form,tracker:trackDirty(form)}));
@@ -28,6 +53,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
+ void groupSheet.close({immediate:true});
  generation++;jobHistory=[];activeJobs=[];modalJobId=null;jobSignature='';recognitionShown.clear();watchedJob=null;sending=false;state={groups:[],supplements:[],ai:null,day:localDay()};analysisAbort?.abort();closeAdd(true);
  for(const {form} of dirty){if(form.id==='settings-form')continue;form.reset();clearDirty(form);}
  get('supplement-detail').replaceChildren();get('ai-form').elements.key.value='';
@@ -56,17 +82,22 @@ async function load(checkJobs=true){
 }
 function renderHome(){
  get('routine-note').hidden=!state.supplements.some(s=>s.analysis.schemaVersion==='draft-1');
- get('today-date').textContent=new Intl.DateTimeFormat(i18n.language,{weekday:'long',month:'long',day:'numeric'}).format(new Date());
- get('today-progress').textContent=i18n.t('trackerProgress',{done:state.supplements.filter(s=>s.completed).length,total:state.supplements.length});
+ get('today-date').textContent=new Intl.DateTimeFormat(i18n.language,{weekday:'short',month:'short',day:'numeric'}).format(new Date());
+ const done=state.supplements.filter(s=>s.completed).length,total=state.supplements.length;
+ get('today-progress').textContent=i18n.t('trackerProgress',{done,total});
+ get('progress-count').textContent=done+' / '+total;get('progress-ring').setAttribute('aria-label',get('today-progress').textContent);
+ get('progress-arc').setAttribute('stroke-dasharray',(total?100*done/total:0)+' 100');
+ get('progress-message').textContent=i18n.t(!total?'appStartRoutine':done===total?'appDayComplete':done?'appOnTrack':'appReadyToday');
+ get('progress-caption').textContent=i18n.t(done&&done===total?'appSeeTomorrow':'appKeepGoing');
  get('home-empty').hidden=state.supplements.length>0;
  const container=get('routine-groups');container.replaceChildren();
  const groups=[...state.groups];if(state.supplements.some(s=>!s.group_id))groups.push({id:null,name:i18n.t('appUnassigned'),description:i18n.t('appUnassignedHelp')});
  groups.forEach((group,index)=>{
   const rows=state.supplements.filter(item=>item.group_id===group.id);
   const section=element('section',{className:'group-block'}),head=element('div',{className:'group-heading'}),labels=element('div');
-  head.append(element('span',{text:String(index+1).padStart(2,'0'),className:'group-number'}));labels.append(heading(group.name));
+  const groupIcon=element('span',{className:'group-symbol'});groupIcon.append(icon(groupSymbol(group.name)));head.append(groupIcon);labels.append(heading(group.name));
   const benefit=compactText(group.description||[...new Set(rows.map(item=>item.analysis.benefitSummary||item.analysis.benefits?.[0]||''))].filter(Boolean).slice(0,3).join(' · ')||i18n.t('appNoGroupBenefits'),{maxWords:10,maxLength:120});
-  labels.append(element('p',{text:benefit,className:'group-benefit'}));head.append(labels);section.append(head);
+  labels.append(element('p',{text:benefit,className:'group-benefit'}));head.append(labels);if(group.id){const edit=button('',()=>openGroup(group),'group-edit');edit.setAttribute('aria-label',i18n.t('appEdit')+': '+group.name);edit.append(icon('chevron'));head.append(edit);}section.append(head);
   const list=element('table',{className:'supplement-table'}),thead=element('thead'),headRow=element('tr');
   headRow.append(element('th',{text:'✓',attributes:{scope:'col','aria-label':i18n.t('appTaken')}}),element('th',{text:i18n.t('appSupplement'),attributes:{scope:'col'}}));thead.append(headRow);list.append(thead);const body=element('tbody');list.append(body);
   if(!rows.length){const emptyRow=element('tr');emptyRow.append(element('td',{text:i18n.t('appGroupEmpty'),className:'group-empty',attributes:{colspan:'2'}}));body.append(emptyRow);}
@@ -83,16 +114,21 @@ function renderHome(){
   }section.append(list);container.append(section);
  });
 }
+// Icons are decoration only; group assignment remains the server's decision.
+function groupSymbol(name){return /evening|bed|sleep|vakar|mieg/i.test(name)?'moon':/morning|empty|ryt|tušč/i.test(name)?'sun':'meal';}
+function openGroup(group){
+ const form=get('group-form');resetGroup();
+ if(group){form.elements.id.value=group.id;form.elements.name.value=group.name;form.elements.description.value=group.description||'';get('group-form-title').textContent=i18n.t('appEditGroup');get('cancel-group').hidden=false;}
+ groupSheet.open();
+}
+get('new-group').addEventListener('click',()=>openGroup());
 function renderGroups(){
  const list=get('group-list');list.replaceChildren();
  for(const [index,group] of state.groups.entries()){
   const card=element('div',{className:'surface'});card.append(element('p',{text:String(index+1).padStart(2,'0'),className:'eyebrow'}),heading(group.name));
   if(group.description)card.append(element('p',{text:group.description,className:'muted'}));
   const actions=element('div',{className:'group-actions'});
-  actions.append(button(i18n.t('appEdit'),()=>{
-   const form=get('group-form');form.elements.id.value=group.id;form.elements.name.value=group.name;form.elements.description.value=group.description;
-   get('group-form-title').textContent=i18n.t('appEditGroup');get('cancel-group').hidden=false;form.dispatchEvent(new Event('input',{bubbles:true}));form.scrollIntoView({block:'center',behavior:'smooth'});
-  }));
+  actions.append(button(i18n.t('appEdit'),()=>openGroup(group)));
   actions.append(button(i18n.t('appDelete'),async()=>{
    if(!await confirmDialog(i18n.t('appDeleteGroupConfirm'),{i18n}))return;
    await mutate(()=>api.delete('/v1/groups/'+group.id));if(get('group-form').elements.id.value===group.id)resetGroup();
@@ -113,18 +149,21 @@ function renderDetail(){
  const analysis=item.analysis,card=element('div',{className:'surface detail-section'}),primary=element('div',{attributes:{id:'detail-primary'}}),extra=element('div',{className:'detail-extra-content',attributes:{id:'detail-extra-content'}});
  const pending=['queued','researching'].includes(analysis.enrichment?.status),draft=analysis.schemaVersion==='draft-1',fallback=analysis.doseFallback;
  const reference=fallback&&['established_adult_intake','usual_adult_supplement_range'].includes(fallback.basis)&&(!analysis.dosage?.directions||analysis.dosage?.dailyServingsMin==null);
- const section=(key,name)=>{const node=element('section',{attributes:{'data-detail-section':name}});node.append(heading(i18n.t(key),'h3'));primary.append(node);return node;};
+ const section=(key,name)=>{const node=element('section',{className:'detail-tile',attributes:{'data-detail-section':name}});node.append(icon({dose:'dose',benefits:'leaf',compatibility:'shield',timing:'clock'}[name]),heading(i18n.t(key),'h3'));primary.append(node);return node;};
  const prose=(target,value)=>{if(Array.isArray(value)){const list=element('ul');for(const text of value)list.append(element('li',{text}));target.append(list);}else target.append(element('p',{text:value}));};
- card.append(element('h1',{text:item.name,className:'detail-name'}),primary);
+ const assigned=state.groups.find(group=>group.id===item.group_id),badge=element('div',{className:'group-badge'});badge.append(icon(assigned?groupSymbol(assigned.name):'info'),element('span',{text:assigned?.name||i18n.t('appUnassigned')}));
+ card.append(badge,element('h1',{text:item.name,className:'detail-name'}),primary);
  const dose=section('appDose','dose');
- if(draft)dose.append(element('p',{text:i18n.t('appInfo_'+(analysis.enrichment?.status||'queued'))}));
+ const unknownDose=()=>dose.append(element('p',{className:'dose-unknown',children:[element('em',{text:i18n.t('appDoseUnknown')})]}));
+ if(draft)unknownDose();
  else if(reference){
   const number=value=>new Intl.NumberFormat(i18n.language,{maximumFractionDigits:2}).format(value),unit=fallback.unit==='ug'?'µg':fallback.unit;
   const range=fallback.dailyAmountMin===fallback.dailyAmountMax?number(fallback.dailyAmountMin):number(fallback.dailyAmountMin)+'–'+number(fallback.dailyAmountMax);
   dose.append(element('p',{text:fallback.ingredient+': '+range+' '+unit}),element('p',{text:i18n.t('appDoseFallback')+' · '+i18n.t(fallback.basis==='established_adult_intake'?'appDoseIntakeReference':'appDoseSupplementRange'),className:'detail-meta'}),element('p',{text:i18n.t('appDoseFallbackHelp'),className:'detail-meta'}));
- }else dose.append(element('p',{text:analysis.dosage?.directions||analysis.labelDirections||(pending?i18n.t('appInfo_'+analysis.enrichment.status):i18n.t('appNoLabel'))}));
- if(analysis.dosage?.servingSize)dose.append(element('p',{text:i18n.t('appServingSize')+': '+analysis.dosage.servingSize,className:'detail-meta'}));
- if(fallback?.basis==='unavailable')dose.append(element('p',{text:i18n.t('appDoseFallbackUnavailable'),className:'detail-meta'}));
+ }else if(analysis.dosage?.directions||analysis.labelDirections)dose.append(element('p',{text:analysis.dosage?.directions||analysis.labelDirections}));
+ else unknownDose();
+ if(!draft&&analysis.dosage?.servingSize&&(reference||analysis.dosage?.directions||analysis.labelDirections))dose.append(element('p',{text:i18n.t('appServingSize')+': '+analysis.dosage.servingSize,className:'detail-meta'}));
+ if(fallback?.basis==='unavailable')extra.append(element('p',{text:i18n.t('appDoseFallbackUnavailable'),className:'detail-meta'}));
  prose(section('appBenefits','benefits'),analysis.benefits?.length?analysis.benefits:i18n.t(pending?'appInfo_'+analysis.enrichment.status:'appNoBenefits'));
  const compatibility=section('appCompatibility','compatibility');
  if(analysis.compatibility?.stale)compatibility.append(element('p',{text:i18n.t('appCompatibilityStale'),className:'review-note'}));
@@ -191,28 +230,28 @@ function renderAi(){
 function render(){
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
- get('app-nav').hidden=!current();renderHome();renderGroups();renderDetail();renderAi();
+ get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'supplement.':i18n.t('appAccount');renderHome();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');
  renderReport('home-analysis-results',latestReport);renderUploadQueue();
 }
 /** Only server-owned account metadata is displayed; model text always uses safe
  * text nodes. Show partial successes and skipped/failed identities individually. */
 function renderReport(id,report){
- const container=get(id);container.replaceChildren();container.hidden=!report;if(!report)return;
+ const container=get(id);container.replaceChildren();container.hidden=!report;if(id==='home-analysis-results')get('home-report').hidden=!report;if(!report)return;
  const items=report.items||[],added=items.filter(item=>item.status==='added');
  container.append(heading(report.running?i18n.t('appBatchProgress',{done:items.filter(item=>['complete','reused','failed'].includes(item.research)).length,total:report.total}):i18n.t('appBatchSummary',{added:added.length,total:items.length}),'h3'));
  const list=element('ul');
  for(const item of items){const row=element('li');
-  if(item.status==='added'&&state.supplements.some(s=>s.id===item.id))row.append(button('✓ '+item.name,()=>{get('add-dialog').close();router.navigate('/detail?id='+encodeURIComponent(item.id));}));
+  if(item.status==='added'&&state.supplements.some(s=>s.id===item.id))row.append(button('✓ '+item.name,()=>{void addSheet.close({immediate:true});router.navigate('/detail?id='+encodeURIComponent(item.id));}));
   else row.textContent=item.name+(item.status==='failed'?' — '+i18n.message(item.error):'');if(item.research)row.append(element('span',{text:' · '+i18n.t('appInfo_'+item.research)+(item.error?' — '+i18n.message(item.error):''),className:'research-badge'}));list.append(row);
  }container.append(list);
  if(report.skipped?.length){container.append(heading(i18n.t('appPhotoSkipped'),'h3'));const skipped=element('ul');for(const item of report.skipped)skipped.append(element('li',{text:[item.name||item.location,item.reasonCode?i18n.message(item.reasonCode):item.reason].filter(Boolean).join(' — ')}));container.append(skipped);}
 }
 function resetGroup(){get('group-form').reset();clearDirty(get('group-form'));get('cancel-group').hidden=true;get('group-form-title').textContent=i18n.t('appNewGroup');}
-get('cancel-group').addEventListener('click',resetGroup);
+get('cancel-group').addEventListener('click',()=>{resetGroup();void groupSheet.close();});
 bindForm(get('group-form'),async(data,form)=>{
  await api.request('/v1/groups'+(data.id?'/'+data.id:''),{method:data.id?'PATCH':'POST',body:{name:data.name,description:data.description}});
- resetGroup();await load();notify(i18n.t('appSaved'));
+ resetGroup();void groupSheet.close();await load();notify(i18n.t('appSaved'));
 },{onError:failure});
 bindForm(get('settings-form'),data=>{settings.update(data);clearDirty(get('settings-form'));notify(i18n.t('saved'));},{onError:failure});
 bindForm(get('ai-form'),async(data,form)=>{
@@ -228,18 +267,18 @@ get('remove-key').addEventListener('click',async()=>{
 function clearPhoto(){imageGeneration++;photo=null;get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['camera','photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 function resetAddDraft(){get('analyze-form').reset();clearPhoto();clearDirty(get('analyze-form'));requestId=crypto.randomUUID();}
 function closeAdd(force=false){
- get('add-dialog').close();if(!force)return;
+ void addSheet.close({immediate:force});if(!force)return;
  resetAddDraft();modalJobId=null;addedId=null;get('view-added').hidden=true;get('analysis-status').textContent='';get('analyze-form').hidden=false;get('analyze-form').querySelector('fieldset').disabled=false;
 }
 get('add-supplement').addEventListener('click',()=>{
  if(!state.ai?.configured){notify(i18n.t('AI_KEY_REQUIRED'),true);router.navigate('/account');return;}
  if(!state.groups.length){notify(i18n.t('CREATE_GROUP_FIRST'),true);router.navigate('/groups');return;}
- requestId ||= crypto.randomUUID();renderUploadQueue();get('add-dialog').showModal();
+ requestId ||= crypto.randomUUID();renderUploadQueue();addSheet.open();
  // Refresh history even when no active polling survived a previous connection loss.
  void load();
 });
 get('close-add').addEventListener('click',()=>closeAdd());
-get('add-dialog').addEventListener('cancel',event=>{event.preventDefault();closeAdd();});
+
 get('remove-photo').addEventListener('click',()=>{clearPhoto();requestId=crypto.randomUUID();});
 get('analyze-form').elements.name.addEventListener('input',()=>{requestId=crypto.randomUUID();});
 for(const name of ['camera','photo'])get('analyze-form').elements[name].addEventListener('change',async event=>{
@@ -319,12 +358,23 @@ settings.state.subscribe(value=>{
  theme.set(value.theme);i18n.setLanguage(value.language);get('settings-form').elements.language.value=value.language;get('settings-form').elements.theme.value=value.theme;render();
 },true);
 network.state.subscribe(()=>render());
-router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/detail'].map(path=>[path,()=>{
+// Home/day are tab pages. Account/details are routed native sheets, so Back,
+// close and swipe reveal the same underlying tab and its retained scroll offset.
+function showRoute(path){
  if(path!=='/account'&&!current()){location.hash='/account';return;}
- for(const section of document.querySelectorAll('[data-screen]'))section.hidden=section.dataset.screen!==path;
- for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===path)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
- get('preferences').hidden=path!=='/account';renderDetail();document.querySelector('main').scrollTop=0;
-}])),onNotFound:()=>{location.hash=current()?'/':'/account';}});
+ const sheet=path==='/account'||path==='/detail';
+ if(!sheet)baseRoute=path;
+ for(const section of document.querySelectorAll('main [data-screen]'))section.hidden=section.dataset.screen!==baseRoute;
+ if(sheet)for(const section of get('route-dialog').querySelectorAll('[data-screen]'))section.hidden=section.dataset.screen!==path;
+ for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===baseRoute)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
+ if(sheet){get('preferences').hidden=path!=='/account';get('route-title').textContent=path==='/account'?i18n.t('appAccount'):'supplement.';}
+ get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();
+ if(path==='/detail')renderDetail();
+ if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open)get('supplement-detail').replaceChildren();});if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}
+}
+router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/detail'].map(path=>[path,()=>showRoute(path)])),onNotFound:()=>{location.hash=current()?'/':'/account';}});
+// The generic router ignores query-only changes; details must follow the item ID.
+window.addEventListener('hashchange',()=>{if(router.current==='/detail')renderDetail();});
 auth.state.subscribe(async({user})=>{
  const next=user?.id||null;if(next===owner)return;owner=next;resetSession();if(user)get('profile-form').elements.name.value=user.name;render();
  if(!next){router.navigate('/account');return;}

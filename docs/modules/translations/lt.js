@@ -329,5 +329,17 @@ export default Object.freeze({
   "appLessInfo": "Mažiau informacijos",
   "appNoBenefits": "Informacijos apie naudą dar nėra.",
   "appNoCompatibility": "Informacijos apie suderinamumą dar nėra.",
-  "appNoTiming": "Informacijos apie vartojimo laiką dar nėra."
+  "appNoTiming": "Informacijos apie vartojimo laiką dar nėra.",
+  "appBrandCaption": "Maži žingsniai. Daugiau sveikatos.",
+  "appTodayTitle": "Šiandien",
+  "appTakenLabel": "suvartota",
+  "appStartRoutine": "Nauja pradžia.",
+  "appDayComplete": "Šiandien viskas!",
+  "appOnTrack": "Tau puikiai sekasi!",
+  "appReadyToday": "Pasiruošęs dienai?",
+  "appKeepGoing": "Po vieną mažą žingsnį.",
+  "appSeeTomorrow": "Iki rytojaus.",
+  "appSentWithKey": "Siunčiama į xAI su tavo raktu",
+  "appDoseUnknown": "nenustatyta",
+  "appRecentAdditions": "Neseniai pridėta",
 });

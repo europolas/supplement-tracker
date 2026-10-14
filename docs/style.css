@@ -87,3 +87,10 @@ html[data-theme="light"] .app-dialog { background: #f4f6fc; color: #18233b; }
 
 .account-card .delete-confirm { display: flex; align-items: center; gap: 12px; }
 .account-card .delete-confirm input { width: 24px; min-height: 24px; flex-shrink: 0; }
+
+/* Opt-in native bottom sheet. The same viewport variable follows iPhone keyboard
+   sizing. Native modal isolation keeps the underlying main scroller stationary. */
+html .bottom-sheet { position:fixed;inset:auto 0 auto;top:var(--app-height, 100dvh);translate:0 -100%;margin:0 auto;width:100%;max-width:600px;max-height:calc(var(--app-height, 100dvh) - env(safe-area-inset-top) - 16px);border-radius:28px 28px 0 0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:12px 24px calc(env(safe-area-inset-bottom) + 24px); }
+.bottom-sheet::-webkit-scrollbar { display:none; }
+.bottom-sheet [data-sheet-handle] { height:24px;display:grid;place-items:center;touch-action:none;cursor:grab; }
+.bottom-sheet [data-sheet-handle]::before { content:'';width:36px;height:4px;border-radius:4px;background:currentColor;opacity:.2; }
