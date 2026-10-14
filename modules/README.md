@@ -1,4 +1,4 @@
-# @europolas/app-modules 1.4.0
+# @europolas/app-modules 1.5.0
 
 40 funkcinių modulių failai: 36 naršyklės moduliai, service worker ir 3 serverio moduliai.
 Be frontend framework ir be naršyklės runtime priklausomybių. Node serverio

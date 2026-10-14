@@ -13,7 +13,7 @@ theme.set(settings.state.get().theme);
 setupViewport();setupGestures(config.interaction);
 // This is a trusted bundled template; user and AI content always use textContent.
 get('account-forms').append(document.createRange().createContextualFragment(await(await fetch('./account.html')).text()));
-const auth=createAuth({id:config.id,baseUrl:config.apiUrl,timeout:100000});
+const auth=createAuth({id:config.id,baseUrl:config.apiUrl,persistence:'persistent',timeout:100000});
 setupAccount(config,{i18n,auth});
 const api=auth.api;
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router;

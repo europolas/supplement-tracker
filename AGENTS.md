@@ -38,10 +38,10 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker 0.3.0
+## Supplement Tracker 0.3.1
 
 Read README.md and server/ANALYSIS.md for research/schema 1.2, provenance, serving
-units and EU adult label NRV policy. modules/ is 1.4.0. App state is now account-scoped through the isolated
+units and EU adult label NRV policy. modules/ is 1.5.0. App state is now account-scoped through the isolated
 Node API/MariaDB in server/. Never use the production DB for regression tests:
 server/scripts/test-isolated.sh provisions a disposable database instance. Initial
 admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
@@ -62,7 +62,10 @@ Future proxy edits still require root validation/reload and a new HTTPS check. B
 iphoneTest. No automatic production/API synchronization from the canonical toolkit.
 
 Account forms share the same createAuth instance with app screens. Never cache keys,
-photos or private API responses; only opaque session tokens live in sessionStorage.
+photos or private API responses; only the opaque session token and expiresAt live in localStorage.
+The app explicitly opts into persistent auth. NULL server expiry has no clock limit;
+logout/password changes/resets/blocking/deletion still revoke it. Migration 004
+upgrades only active old sessions. Never revive expired or revoked sessions.
 Preserve dirty-form, in-flight write and open-dialog protections for worker updates.
 New shared features belong in pwa-toolkit first, with tests and usage documentation.
 

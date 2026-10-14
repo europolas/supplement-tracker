@@ -18,9 +18,9 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
  const root=await mysql.createConnection({host:process.env.DB_TEST_HOST,user:'root',password:readFileSync('/run/secrets/test_db_root','utf8').trim(),multipleStatements:true});
  const database='tracker_checks_'+randomBytes(5).toString('hex'),account='checks_'+randomBytes(5).toString('hex'),secret=randomBytes(32).toString('hex');let pool;
  try{
-  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
+  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
   pool=mysql.createPool({host:process.env.DB_TEST_HOST,user:account,password:secret,database,timezone:'Z'});
-  const config={secret:randomBytes(32).toString('hex'),mailConfigured:false,encryptionKey:randomBytes(32),appUrl:'https://app.example/'};
+  const config={persistentSessions:true,secret:randomBytes(32).toString('hex'),mailConfigured:false,encryptionKey:randomBytes(32),appUrl:'https://app.example/'};
   const auth=new AuthApi(pool,config,await hashPassword('A long dummy secret phrase'));
   const password='A long isolated testing password';
   for(const name of ['alice','bob'])await auth.register({email:name+'@example.test',name,password},name);
@@ -37,6 +37,19 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
   const query=new URLSearchParams({timezone:'Europe/Vilnius'});
   await request(a,'POST','/bootstrap',{timezone:'Europe/Vilnius',language:'en'});await request(b,'POST','/bootstrap',{timezone:'Europe/Vilnius',language:'lt'});
   let dashboard=(await request(a,'GET','/dashboard',{},query))[1];assert.equal(dashboard.groups.length,4);const group=dashboard.groups[0].id;
+  await t.test('permanent sessions have no clock expiry but remain revocable',async()=>{
+   assert.equal(a.expiresAt,null);assert.equal((await auth.authenticate('Bearer '+a.token)).expiresAt,null);
+   const [stored]=await pool.query('SELECT expires_at FROM auth_sessions WHERE user_id=?',[a.user.id]);assert.equal(stored[0].expires_at,null);
+   await pool.query("DELETE FROM auth_sessions WHERE expires_at < UTC_TIMESTAMP(3)");await auth.authenticate('Bearer '+a.token);
+   config.persistentSessions=false;const finite=await auth.login({email:'alice@example.test',password},'finite');assert.ok(Date.parse(finite.expiresAt)>Date.now());
+   await pool.query("UPDATE auth_sessions SET expires_at=DATE_SUB(UTC_TIMESTAMP(3),INTERVAL 1 SECOND) WHERE token_hash=SHA2(?,256)",[finite.token]);await assert.rejects(auth.authenticate('Bearer '+finite.token),e=>e.status===401);
+   const legacy=await auth.login({email:'alice@example.test',password},'legacy-valid');
+   await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));
+   assert.equal((await auth.authenticate('Bearer '+legacy.token)).expiresAt,null);await assert.rejects(auth.authenticate('Bearer '+finite.token),e=>e.status===401);
+   await auth.dispatch('POST','/logout',{},'Bearer '+legacy.token,'legacy-logout');
+   await auth.dispatch('POST','/logout',{},'Bearer '+a.token,'logout');await assert.rejects(auth.authenticate('Bearer '+a.token),e=>e.status===401);
+   config.persistentSessions=true;const reopened=await auth.login({email:'alice@example.test',password},'reopened');a.token=reopened.token;assert.equal(reopened.expiresAt,null);
+  });
   await t.test('recovery fails honestly when disabled and reset links are encrypted and one-use',async()=>{
    await assert.rejects(auth.forgot({email:'bob@example.test'},'disabled-recovery'),e=>e.status===503);
    config.mailConfigured=true;await auth.forgot({email:'bob@example.test'},'working-recovery');

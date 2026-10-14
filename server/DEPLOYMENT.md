@@ -61,3 +61,8 @@ MAIL_DELIVERY_READY in private configuration. Never reuse iphoneTest mail secret
 Research/dosage/NRV schema 1.2 is implemented; see ANALYSIS.md. Migration
 003_analysis_jobs adds only job metadata, never raw photos. Startup marks abandoned
 jobs failed instead of repeating a paid request; run exactly one API instance.
+
+Version 0.3.1 applies migration 004 before starting the new API: session expiry is
+nullable and currently active rows become permanent. Expired rows are never revived.
+The app runtime explicitly enables persistentSessions; generic toolkit defaults
+remain twelve hours. Tokens stay hashed in DB and all revocation paths remain.

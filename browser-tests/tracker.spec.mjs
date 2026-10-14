@@ -1,5 +1,8 @@
 /** UI contract checks use fake accounts/provider results; never touch production DB. */
-import {test,expect} from '@playwright/test';
+import {test,expect,chromium} from '@playwright/test';
+import {mkdtemp,rm} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
 async function mock(page,{waitAnalysis=false,failAnalysis=false}={}){
@@ -10,8 +13,8 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false}={}){
   let result={ok:true};
   const ai={configured,model:'grok-4.7',models:['grok-4.7']};
   if(path==='/health')result={ok:true,passwordRecoveryAvailable:false};
-  else if(path==='/v1/login')result={token:'a'.repeat(64),expiresAt:new Date(Date.now()+3600000).toISOString(),user};
-  else if(path==='/v1/me')result={user};
+  else if(path==='/v1/login')result={token:'a'.repeat(64),expiresAt:null,user};
+  else if(path==='/v1/me')result={user,expiresAt:null};
   else if(path==='/v1/settings/ai'){configured=request.method()!=='DELETE';result={...ai,configured};}
   else if(path==='/v1/supplements/jobs'&&request.method()==='POST'){started=true;result={id:'test-job',status:'running'};}
   else if(path==='/v1/supplements/jobs/test-job'){if(waitAnalysis)await gate;if(failAnalysis)result={id:'test-job',status:'failed',error_code:'AI_SOURCES_UNVERIFIED'};else{added=true;result={id:'test-job',status:'complete',supplement_id:id};}}
@@ -42,7 +45,7 @@ test('Lithuanian and light/dark/auto preferences persist and auto follows OS',as
 test('PWA caches only public assets and logout clears private screen state',async({page})=>{
  await mock(page);await login(page);await page.evaluate(()=>navigator.serviceWorker.ready);await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBe(true);
  const urls=await page.evaluate(async()=>{const all=[];for(const key of await caches.keys())for(const req of await(await caches.open(key)).keys())all.push(req.url);return all;});expect(urls.some(url=>url.includes('/supplement-api/'))).toBe(false);
- await page.locator('.account-link').click();await page.locator('#logout-button').click();await expect(page.locator('#login-form')).toBeVisible();await expect(page.locator('#app-nav')).toBeHidden();expect(await page.evaluate(()=>sessionStorage.getItem('supplement-tracker:auth'))).toBe(null);
+ await page.locator('.account-link').click();await page.locator('#logout-button').click();await expect(page.locator('#login-form')).toBeVisible();await expect(page.locator('#app-nav')).toBeHidden();expect(await page.evaluate(()=>localStorage.getItem('supplement-tracker:auth'))).toBe(null);
 });
 
 test('server job resumes after reload and the next add form is usable',async({page})=>{
@@ -55,4 +58,15 @@ test('selected photos are re-encoded and invalid files never reach AI',async({pa
  const fake=await mock(page,{waitAnalysis:true});await login(page);await page.locator('#add-supplement').click();
  await page.locator('#analyze-form [name=photo]').setInputFiles({name:'invalid.txt',mimeType:'text/plain',buffer:Buffer.from('not an image')});await expect(page.locator('#analysis-status')).toContainText('readable image');await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();expect(fake.requests.some(r=>r.path==='/v1/supplements/jobs'&&r.method==='POST')).toBe(false);
  const bytes=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=20;canvas.height=20;canvas.getContext('2d').fillRect(0,0,20,20);return canvas.toDataURL('image/png').split(',')[1];});await page.locator('#analyze-form [name=photo]').setInputFiles({name:'label.png',mimeType:'image/png',buffer:Buffer.from(bytes,'base64')});await expect(page.locator('#photo-preview')).toBeVisible();await expect(page.locator('#photo-preview')).toHaveAttribute('src',new RegExp('^data:image/jpeg;base64,'));await page.locator('#remove-photo').click();await expect(page.locator('#photo-preview')).toBeHidden();await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();
+});
+
+test('login persists after closing the browser and logout clears the saved session',async()=>{
+ const directory=await mkdtemp(path.join(os.tmpdir(),'tracker-auth-'));let context;
+ try{
+  context=await chromium.launchPersistentContext(directory,{headless:true});let page=context.pages()[0];await mock(page);await login(page);
+  const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('supplement-tracker:auth')));expect(Object.keys(stored).sort()).toEqual(['expiresAt','token']);expect(stored.expiresAt).toBe(null);
+  await context.close();context=await chromium.launchPersistentContext(directory,{headless:true});page=context.pages()[0];await mock(page);await page.goto('http://127.0.0.1:4175/');await expect(page.locator('#app-nav')).toBeVisible();await expect(page.locator('#login-form')).toBeHidden();
+  await page.locator('.account-link').click();await page.locator('#logout-button').click();expect(await page.evaluate(()=>localStorage.getItem('supplement-tracker:auth'))).toBe(null);
+  await context.close();context=await chromium.launchPersistentContext(directory,{headless:true});page=context.pages()[0];await mock(page);await page.goto('http://127.0.0.1:4175/');await expect(page.locator('#login-form')).toBeVisible();
+ }finally{await context?.close();await rm(directory,{recursive:true,force:true});}
 });

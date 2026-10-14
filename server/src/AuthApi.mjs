@@ -31,9 +31,9 @@ export class AuthApi {
   async authenticate(authorization) {
     if (typeof authorization !== 'string' || !/^Bearer [a-f0-9]{64}$/.test(authorization)) throw new ApiError(401, "Sign in to your account.");
     const sessionHash = digest(authorization.slice(7));
-    const [rows] = await this.pool.execute('SELECT u.* FROM auth_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > UTC_TIMESTAMP(3) AND u.disabled = FALSE', [sessionHash]);
+    const [rows] = await this.pool.execute('SELECT u.*, s.expires_at AS session_expires_at FROM auth_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND (s.expires_at IS NULL OR s.expires_at > UTC_TIMESTAMP(3)) AND u.disabled = FALSE', [sessionHash]);
     if (!rows.length) throw new ApiError(401, "Your session has expired. Sign in again.");
-    return { user: publicUser(rows[0]), sessionHash };
+    return { user: publicUser(rows[0]), sessionHash, expiresAt: rows[0].session_expires_at === null ? null : new Date(rows[0].session_expires_at).toISOString() };
   }
   async register(body, ip) {
     await this.limit('register-ip', ip, 5, 3600);
@@ -60,9 +60,10 @@ export class AuthApi {
       const [locked] = await connection.execute('SELECT * FROM users WHERE id = ? FOR UPDATE', [current.id]);
       if (!locked[0] || locked[0].disabled || locked[0].password_hash !== current.password_hash) throw new ApiError(401, "Incorrect sign-in credentials.");
       const session = token();
-      const expires = new Date(Date.now() + 12 * 3600 * 1000);
+      // Non-expiring sessions are an explicit app policy and require nullable expiry.
+      const expires = this.config.persistentSessions === true ? null : new Date(Date.now() + 12 * 3600 * 1000);
       await connection.execute('INSERT INTO auth_sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)', [digest(session), current.id, expires]);
-      return { token: session, expiresAt: expires.toISOString(), user: publicUser(locked[0]) };
+      return { token: session, expiresAt: expires?.toISOString() ?? null, user: publicUser(locked[0]) };
     });
   }
   async forgot(body, ip) {
@@ -140,7 +141,7 @@ export class AuthApi {
       });
       return [200, { message: "The account and its sessions have been deleted." }];
     }
-    if (method === 'GET' && path === '/me') return [200, { user: auth.user }];
+    if (method === 'GET' && path === '/me') return [200, { user: auth.user, expiresAt: auth.expiresAt }];
     if (method === 'POST' && path === '/logout') {
       await this.pool.execute('DELETE FROM auth_sessions WHERE token_hash = ?', [auth.sessionHash]);
       return [200, { message: "You have signed out." }];

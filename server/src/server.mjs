@@ -16,6 +16,7 @@ import { ApiError, hashPassword, decrypt } from './security.mjs';
 const readSecret = variable => readFileSync(process.env[variable], 'utf8').trim();
 const config = {
   secret: readSecret('API_SECRET_FILE'),
+  persistentSessions: true,
   encryptionKey: Buffer.from(readSecret('MAIL_KEY_FILE'), 'hex'),
   appUrl: process.env.APP_URL || 'http://localhost:4173/',
   mailConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM && process.env.MAIL_DELIVERY_READY === 'true')

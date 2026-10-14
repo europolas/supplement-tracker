@@ -42,5 +42,6 @@ remote operations require the API and an explicit idempotency strategy.
 Application IDs namespace local data and caches; they are not origin-level security
 isolation. Separate domains/API instances/DB users are required for separate private
 apps. Browser storage may be cleared by the OS. No secret belongs in local drafts,
-logs, an outbox payload or a public archive. The account session uses an opaque
-session token in sessionStorage, so private state is not a persistent credential vault.
+logs, an outbox payload or a public archive. Account sessions use opaque tokens in sessionStorage by default. Applications may
+explicitly opt into persistent sign-in (see BACKEND.md); only the revocable token
+and expiry enter localStorage, never profile data, passwords or provider keys.

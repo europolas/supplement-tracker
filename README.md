@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.3.0
+# Supplement Tracker · 0.3.1
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.4.0.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.5.0.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -99,3 +99,12 @@ LIVE_RESEARCH=1 PROVIDER_TEST_KEY_FILE=/private/path/to/key server/scripts/test-
 
 Browser checks build to .runtime/browser-public so they never disturb mounted
 production docs. Mail DNS records and delivery activation steps: server/mail/README.md.
+
+## Remembered sign-in
+
+Sign-in survives app/browser restart and has no server time expiry. Only the
+revocable opaque token and nullable expiry are persisted on the device, never a
+password/profile/API key. Logout, password change/reset, admin blocking or account
+deletion revoke access. Clearing site data or OS eviction still removes sign-in.
+Migration 004 upgrades only still-valid sessions; a previously lost session requires
+one new sign-in. Reusable toolkit defaults remain session-scoped and twelve hours.
