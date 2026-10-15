@@ -1,5 +1,9 @@
 /** English is the canonical default; add each new key to both dictionaries. */
 export default Object.freeze({
+  "appComposition": "Composition",
+  "appUsage": "Usage",
+  "appDoctorConsultation": "Consult a doctor before using each supplement.",
+
   "intro": "Your next app starts here.",
   "home": "Home",
   "settings": "Settings",

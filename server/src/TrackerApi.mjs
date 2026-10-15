@@ -12,6 +12,7 @@ import {randomUUID} from 'node:crypto';
 import {ApiError} from './security.mjs';
 import {ProviderError} from './structured-chat.mjs';
 import {analysisSchema,validAnalysis,analysisMessages,finalizeAnalysis} from './analysis.mjs';
+import {detailsSchema,validDetails,detailsMessages} from './product-details.mjs';
 import {photoProductsSchema,validPhotoProducts,photoProductsMessages,productRequestId,uniqueProducts,productIdentity,draftAnalysis} from './photo-products.mjs';
 const jobColumns='id,status,supplement_id,error_code,total_count,processed_count,result,phase,language,created_at,finished_at';
 const jobResult=row=>row?{...row,result:typeof row.result==='string'?JSON.parse(row.result):row.result}:null;
@@ -315,7 +316,7 @@ export class TrackerApi {
   const previous=typeof target.analysis==='string'?JSON.parse(target.analysis):target.analysis;if(previous.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
   previous.enrichment.status='researching';await this.pool.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(previous),id,owner]);
   const supplements=rows.filter(row=>row.id!==id),snapshot=JSON.stringify(rows.map(row=>[row.id,row.name,row.group_id,row.id===id?null:row.analysis]));
-  const {result,model}=await this.requestResearch(owner,{name:target.name,image:null,language,target:previous.identity||null,groups,supplements,settings,sealed},authorization);
+  const {result,model}=await this.requestResearch(owner,{name:target.name,image:null,language,target:previous.identity||{name:target.name,manufacturer:previous.manufacturer||null,variant:previous.variant||null},groups,supplements,settings,sealed},authorization);
   await this.auth.transaction(async db=>{
    const [latest]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const row=latest.find(r=>r.id===id);if(!row)throw new ApiError(404,'NOT_FOUND');
    const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;if(a.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
@@ -324,7 +325,9 @@ export class TrackerApi {
    // Planning and safety are separate: a conflict remains visible without erasing
    // the user's schedule. Concurrent/manual grouping always takes precedence.
    const [owned]=await db.execute('SELECT id FROM day_groups WHERE user_id=?',[owner]);
-   const grouping=routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
+   // Focused details cannot approve or overwrite a grouping review, including its
+   // source, explanation and a concurrent manual choice.
+   const grouping=this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
    const groupId=grouping.groupId;result.grouping=grouping;
    if(grouping.basis==='provisional'){result.needsReview=true;}
    result.identity=previous.identity;result.enrichment={status:'complete',jobId,language};
@@ -332,8 +335,9 @@ export class TrackerApi {
   });
  }
  async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){
-  const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:'xai'}),model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_4',maxTokens:Math.min(12000,4500+supplements.length*190)}));
-  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
+  const focused=this.singlePass;
+  const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:'xai'}),model:settings.model,messages:focused?detailsMessages({name,image,language,target}):analysisMessages({name,image,groups,supplements,language,target}),schema:focused?detailsSchema(groups,language):analysisSchema(groups,supplements,language),validate:value=>focused?validDetails(value,groups,language):validAnalysis(value,groups,supplements,language),name:focused?'supplement_product_details':'supplement_analysis_v1_4',maxTokens:focused?5000:Math.min(12000,4500+supplements.length*190)}));
+  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;if(focused)result.research.scope='product-details';await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
   for(const assessment of result.compatibility.assessments){const s=supplements.find(s=>s.id===assessment.supplementId),a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;assessment.supplementName=s.name;if(assessment.status==='no_known_issue'&&a.enrichment&&a.enrichment.status!=='complete')assessment.status='insufficient_information';}
   if(result.compatibility.assessments.some(a=>a.status!=='no_known_issue')){result.needsReview=true;result.compatibility.requiresReview=true;}return data;
  }

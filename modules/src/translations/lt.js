@@ -1,5 +1,9 @@
 /** Lithuanian translations; missing keys fall back to the English dictionary. */
 export default Object.freeze({
+  "appComposition": "Sudėtis",
+  "appUsage": "Vartojimas",
+  "appDoctorConsultation": "Dėl kiekvieno papildo vartojimo būtina pasitarti su gydytoju.",
+
   "intro": "Tavo naujos programėlės pradžia.",
   "home": "Pradžia",
   "settings": "Nustatymai",

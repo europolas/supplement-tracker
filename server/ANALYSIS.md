@@ -356,3 +356,17 @@ Total job 140 seconds; no changes applied without acceptance. All 35 isolated
 checks in that run passed, plus the separate malformed/foreign proposal test.
 22 browser flows and focused visual checks passed. This is a measured sample,
 not a latency or medical-correctness guarantee.
+
+## 0.12.1 — focused opt-in product details
+
+Get detailed information now researches only the selected identity in one web-backed
+request. product-details.mjs narrows the stored 1.4 contract: composition (amountNote
+is a short ingredient explanation), verified usage and 2–3 benefit sentences. Reserved
+compatibility/caution/evidence prose fields are empty. No routine contents are sent.
+The API preserves the selected group; automatic grouping review remains separate.
+Quantity/source verification and distinct adult-reference fallback remain intact;
+unknown quantities are null, never invented capsule doses. The UI shows Composition,
+Usage and Potential benefits for new and historical records, plus a localized doctor
+consultation footer. Source links and management remain in the disclosure. Existing
+records are not rewritten or billed automatically; explicitly refresh old prose.
+No DB migration or mail changes.
