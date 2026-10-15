@@ -1,5 +1,23 @@
 # Generated application: agent handoff
 
+## Current behavior: 0.10.0 (2026-10-15)
+
+The user explicitly reduced scope to one AI call per submitted name/photo. The
+production TrackerApi defaults to singlePass=true. The compact strict contract
+returns only name, manufacturer, an owned groupId, and a 2–5 word benefit for each
+readable product (plus localized skipped-label explanations). English instructions
+request the user's en/lt response language. All existing groups and product names/
+manufacturers/group IDs are supplied. No web search, per-product research, automatic
+retry, dose or compatibility analysis follows this call. basic-1 records are saved
+as complete; their detail sheet shows the brief benefit and group, with existing
+manual move/delete controls. Existing detailed records remain readable unchanged.
+The old analyze/research HTTP paths return 404 in production, and the UI no longer
+has a research refresh button. Historical research code remains only for regression
+coverage and stored-schema compatibility; tests explicitly opt into singlePass=false.
+The notes below describing progressive research document historical releases and
+must not be interpreted as current production behavior. No database migration.
+
+
 Read README.md, then modules/docs/ARCHITECTURE.md, MODULES.md and LOCALIZATION.md.
 Edit src/ for app behavior; modules/ is the copied versioned library. docs/ is
 regenerated public output, not developer documentation. server/ is optional.

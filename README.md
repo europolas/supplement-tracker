@@ -1,4 +1,22 @@
-# Supplement Tracker · 0.9.0
+# Supplement Tracker · 0.10.0
+
+## Current behavior: 0.10.0 (2026-10-15)
+
+The user explicitly reduced scope to one AI call per submitted name/photo. The
+production TrackerApi defaults to singlePass=true. The compact strict contract
+returns only name, manufacturer, an owned groupId, and a 2–5 word benefit for each
+readable product (plus localized skipped-label explanations). English instructions
+request the user's en/lt response language. All existing groups and product names/
+manufacturers/group IDs are supplied. No web search, per-product research, automatic
+retry, dose or compatibility analysis follows this call. basic-1 records are saved
+as complete; their detail sheet shows the brief benefit and group, with existing
+manual move/delete controls. Existing detailed records remain readable unchanged.
+The old analyze/research HTTP paths return 404 in production, and the UI no longer
+has a research refresh button. Historical research code remains only for regression
+coverage and stored-schema compatibility; tests explicitly opt into singlePass=false.
+The notes below describing progressive research document historical releases and
+must not be interpreted as current production behavior. No database migration.
+
 
 Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.10.1.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.

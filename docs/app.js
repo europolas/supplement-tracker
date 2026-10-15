@@ -157,6 +157,8 @@ function renderDetail(){
  card.append(element('h1',{text:productInfo.name,className:'detail-name',attributes:{id:'product-detail-title',tabindex:'-1','data-sheet-focus':'',autofocus:''}}));
  const subtitle=element('p',{className:'product-subtitle'});if(productInfo.manufacturer)subtitle.append(element('b',{text:productInfo.manufacturer}));if(productInfo.variant)subtitle.append(document.createTextNode((productInfo.manufacturer?' · ':'')+productInfo.variant));if(subtitle.textContent)card.append(subtitle);
  card.append(badge,primary);
+ const basic=analysis.schemaVersion==='basic-1';
+ if(!basic){
  const dose=section('appDose','dose');
  const unknownDose=()=>dose.append(element('p',{className:'dose-unknown',children:[element('em',{text:i18n.t('appDoseUnknown')})]}));
  if(draft)unknownDose();
@@ -210,7 +212,7 @@ function renderDetail(){
  }
  if(analysis.evidenceNote)extra.append(element('p',{text:analysis.evidenceNote,className:'detail-meta'}));
  extra.append(element('p',{text:i18n.t('appAiNote'),className:'detail-meta'}));
- const refresh=button(i18n.t('appRefreshInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});refresh.disabled=pending;extra.append(refresh);
+ }else{prose(section('appBenefits','benefits'),analysis.benefitSummary);}
  const select=element('select',{attributes:{'aria-label':i18n.t('appMoveGroup')}});
  select.append(element('option',{text:i18n.t('appUnassigned'),attributes:{value:''}}));
  for(const group of state.groups)select.append(element('option',{text:group.name,attributes:{value:group.id}}));select.value=item.group_id||'';

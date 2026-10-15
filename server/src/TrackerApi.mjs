@@ -1,3 +1,4 @@
+import {basicProductsSchema,basicProductsMessages,validBasicProducts,normalizeBasicProducts} from './photo-products.mjs';
 /** User-scoped tracker endpoints. All ownership is derived from the bearer session.
  * AI results are validated before a transaction writes a supplement. Raw photos/keys
  * are never persisted in this class's results or logs. Completion day is derived on
@@ -29,7 +30,7 @@ export function validatePhoto(image){
  if(!valid)throw new ApiError(400,'IMAGE_INVALID');return image;
 }
 export class TrackerApi {
- constructor(pool,auth,{vault,chat,discover,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
+ constructor(pool,auth,{vault,chat,discover,singlePass=true,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
  get providers(){return this.providerQueue.running;}
  async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
@@ -97,7 +98,7 @@ export class TrackerApi {
   }
   const job=/^\/supplements\/jobs\/([a-f0-9-]{36})$/.exec(path);
   if(job&&method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE id=? AND user_id=?`,[job[1],owner]);if(!rows.length)throw new ApiError(404,'NOT_FOUND');return [200,jobResult(rows[0])];}
-  if(method==='POST'&&path==='/supplements/analyze')return this.analyze(owner,body,authorization);
+  if(method==='POST'&&path==='/supplements/analyze'){if(this.singlePass)throw new ApiError(404,'NOT_FOUND');return this.analyze(owner,body,authorization);}
   const research=/^\/supplements\/([a-f0-9-]{36})\/research$/.exec(path);
   if(research&&method==='POST')return [202,await this.startResearch(owner,research[1],body,authorization)];
   const supplement=/^\/supplements\/([a-f0-9-]{36})(\/completion)?$/.exec(path);
@@ -176,7 +177,8 @@ export class TrackerApi {
    const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');sealed=keys[0].encrypted_key;
    const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
    const context=JSON.stringify(groups),started=Date.now(),language=body.language,settings=await this.settings(owner);
-   const {result,model}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel||settings.model,messages:photoProductsMessages({...body,groups,supplements}),schema:photoProductsSchema(groups,supplements,language),validate:v=>validPhotoProducts(v,groups,supplements,language),name:'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
+   let {result,model}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel||settings.model,messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
+   if(this.singlePass){if(!validBasicProducts(result,groups,language))throw new ApiError(502,'AI_INVALID_RESPONSE');result=normalizeBasicProducts(result);}
    body.image=null; // No background research request resends a photo.
    if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
    await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);
@@ -191,6 +193,7 @@ export class TrackerApi {
      const identity=productIdentity(product),matches=rows.filter(row=>{const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;return productIdentity(a.identity||{...a,name:row.name})===identity;}),existing=matches.find(row=>row.id===product.existingId)||matches.find(row=>row.group_id)||matches[0];
      if(existing){
       const a=typeof existing.analysis==='string'?JSON.parse(existing.analysis):existing.analysis;
+      if(this.singlePass){report.items.push({id:existing.id,name:existing.name,status:'added',reused:true,research:'reused'});continue;}
       const fresh=a.enrichment?.status!=='failed'&&(!a.enrichment||a.enrichment.status==='complete')&&a.language===language&&a.research?.checkedAt&&Date.now()-Date.parse(a.research.checkedAt)<30*86400000&&a.sources?.length;
       // Another live job owns this same product; reuse its queue item instead of billing twice.
       const pending=['queued','researching'].includes(a.enrichment?.status);
@@ -199,8 +202,9 @@ export class TrackerApi {
      }
      if(capacity<=0){report.skipped.push({name:product.name,reasonCode:'SUPPLEMENT_LIMIT'});continue;}capacity--;
      const draft=draftAnalysis({...product,requestedName:body.name||null},{language,jobId:id}),recordId=randomUUID();
+     if(this.singlePass){draft.schemaVersion='basic-1';draft.enrichment={status:'complete',jobId:id,language};draft.needsReview=product.review;draft.productName=product.name;}
      await db.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) VALUES (?,?,?,?,?,?,?)',[recordId,owner,product.groupId,draft.productName,JSON.stringify(draft),model,productRequestId(body.requestId,index)]);
-     report.items.push({id:recordId,name:draft.productName,status:'added',research:'queued'});
+     report.items.push({id:recordId,name:draft.productName,status:'added',research:this.singlePass?'complete':'queued'});
     }
     await db.execute('UPDATE analysis_jobs SET phase=\'enriching\',total_count=?,result=? WHERE id=? AND user_id=?',[report.items.length,JSON.stringify(report),id,owner]);
    });
@@ -220,6 +224,7 @@ export class TrackerApi {
   * It uses the selected UI language; a completed result is retained while refreshing.
   */
  async startResearch(owner,supplementId,body,authorization){
+  if(this.singlePass)throw new ApiError(404,'NOT_FOUND');
   if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');const language=body.language==='lt'?'lt':'en';
   const sealed=await this.checkKey(owner);let job;
   if(this.activeJobs.size>=8)throw new ApiError(503,'AI_BUSY');
