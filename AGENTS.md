@@ -188,3 +188,9 @@ existing Node/proxy limits; no proxy reload needed. All image parts go into ONE
 structured request, with cross-photo product deduplication. Raw images stay in
 memory and are dropped on success/error. Draft previews survive sheet closure,
 selection can append more photos, and remove clears the batch. No extra research.
+
+0.11.1 changes benefit/benefitSummary prompts to 2–3 comma-separated single-word
+keywords in the selected language, with noun forms and no support/health filler.
+Examples are formatting only; unsupported benefits must not be invented. Applies
+to both compact recognition and opt-in detailed research. Existing stored results
+are preserved; no automatic re-analysis or paid requests on opening the app.

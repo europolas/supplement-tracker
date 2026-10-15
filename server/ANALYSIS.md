@@ -325,3 +325,9 @@ selection can append more photos, and remove clears the batch. No extra research
 one provider call, seven unique products, 4,044 ms provider elapsed. All 34 isolated
 checks passed including the live test. Browser selection/re-encoding/multiple-preview
 checks passed after correcting trusted local JPEG preview assignment.
+
+0.11.1 changes benefit/benefitSummary prompts to 2–3 comma-separated single-word
+keywords in the selected language, with noun forms and no support/health filler.
+Examples are formatting only; unsupported benefits must not be invented. Applies
+to both compact recognition and opt-in detailed research. Existing stored results
+are preserved; no automatic re-analysis or paid requests on opening the app.
