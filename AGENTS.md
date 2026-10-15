@@ -317,3 +317,12 @@ Grok extraction plus bounded JEV classification, with no automatic Grok review.
 Never mark a front-label ingredient list as full composition or infer capsule dose.
 Server key TYPESAFE_KEY_FILE is private; no account key/image in diagnostic logs.
 Account AI dashboard reads existing owner-scoped job history. UI tags are EN/LT.
+
+## Current 0.13.1 — timing dimensions and recognition cache
+
+See server/ANALYSIS.md. Three JEV timing scores + group semantics + deterministic
+one-group resolver replace the long all-in-one grouping prompt. Exact reviewed
+manufacturer facts take precedence over reference screenshots; no hardcoded
+product/group table. Recognition cache is owner/key/input scoped, 15min/32 entries,
+text-only/process-local. New photos remain ~25–31s in observed tests; cache repeats
+~1.25s. Do not describe cold speed or all grouping as solved/medically verified.

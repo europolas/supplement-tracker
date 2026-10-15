@@ -447,7 +447,7 @@ function renderDiagnostics(){
   const list=element('dl',{className:'diagnostics-grid'});
   const row=(key,value)=>{list.append(element('dt',{text:i18n.t(key)}),element('dd',{text:String(value??'—')}));};
   row('appDiagPipeline',m.pipeline||job.result?.pipeline||job.result?.recognitionModel||'—');
-  row('appDiagGrok',ms(t.grokMs));row('appDiagJev',ms(t.jevMs));
+  row('appDiagGrok',ms(t.grokMs));if(m.grokCacheHit)row('appDiagCached',i18n.t('appDiagCachedYes'));row('appDiagJev',ms(t.jevMs));
   row('appDiagTotal',ms(t.totalMs));
   const from=Date.parse(job.created_at),to=job.status==='running'?Date.now():Date.parse(job.finished_at);
   row('appDiagElapsed',ms(Number.isFinite(from)&&Number.isFinite(to)?Math.max(0,to-from):undefined));

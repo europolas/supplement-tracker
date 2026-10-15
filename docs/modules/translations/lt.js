@@ -11,6 +11,8 @@ export default Object.freeze({
   "appDiagJev": "JEV užklausų grupė",
   "appDiagGrok": "Grok atsakymas",
   "appDiagPipeline": "Procesas",
+  "appDiagCached": "Atpažinimo atmintinė",
+  "appDiagCachedYes": "Panaudota (be Grok užklausos)",
   "appDiagnosticsEmpty": "Užklausų dar nėra.",
   "appDiagnosticsHelp": "Tavo paskutinės 20 užklausų. Trukmes matuoja serveris; laikas nuo pateikimo apima ir laukimą. Senesnės užklausos gali neturėti šių rodiklių.",
   "appDiagnostics": "AI diagnostika",

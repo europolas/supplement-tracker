@@ -515,3 +515,55 @@ Times exclude browser image preparation, queue delay and DB commit. They are not
 latency guarantee. This checks identity coverage/structure; no claim of 100% medical
 correctness for group or benefit assignments. Initial tests exposed unknown-brand
 rejection and JEV rounded probability/score tolerances; both have regression tests.
+
+## 0.13.1 — independent timing and repeat-input cache
+
+The user's reference schedule is a comparison target, not clinical ground truth.
+Three independent JEV Score questions now evaluate fasting, fat-meal and bedtime
+fit per product; a separate Choice reads each group's name AND description. The
+fallback Choice no longer has an instruction favoring generic meals. The resolver
+uses an expected score >=1.5 as a provisional preference, picks one owned group,
+and retains the highest-supported factor. Equal scores use a documented stable
+order, not an assertion that a particular constraint always medically wins.
+Food and bedtime can coexist. Low-evidence fasting falls back to a general meal;
+unknown composition does not produce benefit tags. Model scores are NOT calibrated
+medical confidence. Timing factors/fallback/source are persisted in classification.
+
+`product-timing-facts.mjs` supplies a small reviewed manufacturer-directions cache,
+not a product/group lookup table: exact brands/formulations only, 90-day freshness,
+no dosage or guessed complete formula. Explicit meal directions suppress fasting.
+Sources are embedded beside each fact. NOW's 600 mg ALA directions prefer a meal,
+so matching the screenshot's fasting placement is deliberately not a pass criterion.
+L Cell NAD+ Formula explicitly recommends before breakfast. KAL and Zenyth allow
+flexible timing, including evening; do not present evening as their only safe time.
+Unknown ALERTEN manufacturer/composition remains unresolved rather than silently
+asserting it is the matching Q10 registration. Never claim this reference proves
+that all the products are safe together. The screenshot also includes ashwagandha,
+which is absent from the four-photo/16-product fixture.
+
+Grok remains 4.7/low, one request for all photos. A shorter prompt and string-only
+ingredient wire format remove redundant empty quantity fields; normalized stored
+composition remains compatible. English ingredient identifiers avoid mixing JEV
+instructions and translated ingredient terminology. Visible strengths remain OCR
+and can be misread; count-based tests do not establish dose/strength accuracy.
+No lower model or paid priority tier was silently enabled. Public 4.7 has no
+non-reasoning setting; 4.7 Fast is not on the public API (xAI developer guide).
+
+A 15-minute, 32-entry process-local cache avoids repeating Grok on identical input.
+The SHA256 fingerprint includes owner scope, credential, model, language and exact
+name/photos. It stores bounded extracted text, never raw photos/keys; is not durable;
+restart/expiry/key change prevents reuse. JEV ALWAYS reruns against current groups.
+Other owners cannot hit it, and authorization/key checks still precede saving.
+Dashboard reports cache reuse and zero Grok calls. No automatic re-billing/retries.
+Existing saved/manual assignments are not silently migrated by this release.
+
+Paid benchmark (four original photos, disposable DB-free script): intermediate two
+cold runs 24.692s and 24.600s; final cold run 30.636s (Grok29.335s/JEV1.301s).
+Two exact repeats with cached extraction took 1.255s and 1.246s; each still called
+JEV, and each returned all 16 identities. Cold-call improvement is NOT established:
+provider variability still dominates. The report checks fat slots for astaxanthin,
+Q10, resveratrol, tomato extract; bedtime for both magnesiums and tryptophan;
+before breakfast for NAD; non-fasting for manufacturer-directed ALA. It does not
+assert a medically unique schedule for NAC, lysine or zinc, or identify ALERTEN's
+hidden ingredients. Results roughly match 11/16 reference slots; five differences
+are documented, not hidden by changing the fixture or assigning fixed products.

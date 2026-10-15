@@ -11,6 +11,8 @@ export default Object.freeze({
   "appDiagJev": "JEV batches",
   "appDiagGrok": "Grok response",
   "appDiagPipeline": "Pipeline",
+  "appDiagCached": "Recognition cache",
+  "appDiagCachedYes": "Reused (no Grok call)",
   "appDiagnosticsEmpty": "No requests yet.",
   "appDiagnosticsHelp": "Your latest 20 requests. Times are measured by the server; elapsed time includes waiting. Older requests may not contain these metrics.",
   "appDiagnostics": "AI dashboard",
