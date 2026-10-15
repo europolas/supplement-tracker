@@ -93,8 +93,7 @@ details,summary { color:var(--ink);border-color:var(--line); }
 .nutrient-table th { color:var(--muted);font-size:9px;font-weight:500; }.nutrient-table th:first-child { width:34%; }
 .nutrient-table strong { font-weight:550; }.nutrient-table small { display:block;color:var(--muted);font-size:9px;margin-top:3px; }
 .source-list a { color:var(--green);text-underline-offset:3px;overflow-wrap:anywhere; }
-/* A capture input forces the camera on iPhone. The separate library input must
-   keep capture absent, so the OS can offer saved photos and files. */
+/* Keep capture absent: iPhone offers both camera and photo library. */
 .photo-actions { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
 .photo-actions .photo-picker { flex-direction:column;gap:6px;padding:15px 8px;text-align:center;min-height:92px; }
 .photo-picker:focus-within { outline:2px solid #90ad82;outline-offset:2px; }
@@ -132,3 +131,5 @@ details,summary { color:var(--ink);border-color:var(--line); }
 
 [data-sheet-focus]:focus { outline:none; }
 .review-combination { color:var(--ink);font-weight:500; }
+
+.photo-actions:has(> :only-child) { grid-template-columns: 1fr; }

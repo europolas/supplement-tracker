@@ -248,3 +248,8 @@ late results from restoring deleted data. Queued recognition checks before sendi
 Already-sent provider requests cannot be recalled; their results are discarded.
 Client resets private upload/history state and invalidates outstanding reads. Test
 only isolated DB data; never invoke destructive smoke checks on production users.
+
+0.10.3: one Upload photo / Įkelti nuotrauką file input (accept=image/*, no capture).
+iPhone owns the camera/library/file chooser. Keep single-column full-width picker
+and the one-request/explicit-detail consent text. Removed forced camera input;
+photo cleanup and handlers must never reference a missing camera control.

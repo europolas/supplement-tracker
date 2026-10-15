@@ -277,7 +277,7 @@ get('remove-key').addEventListener('click',async()=>{
  await mutate(async()=>{state.ai=await api.delete('/v1/settings/ai');get('ai-form').elements.key.value='';clearDirty(get('ai-form'));});
  renderAi();
 });
-function clearPhoto(){imageGeneration++;photo=null;get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['camera','photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
+function clearPhoto(){imageGeneration++;photo=null;get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 function resetAddDraft(){get('analyze-form').reset();clearPhoto();clearDirty(get('analyze-form'));requestId=crypto.randomUUID();}
 function closeAdd(force=false){
  void addSheet.close({immediate:force});if(!force)return;
@@ -294,7 +294,7 @@ get('close-add').addEventListener('click',()=>closeAdd());
 
 get('remove-photo').addEventListener('click',()=>{clearPhoto();requestId=crypto.randomUUID();});
 get('analyze-form').elements.name.addEventListener('input',()=>{requestId=crypto.randomUUID();});
-for(const name of ['camera','photo'])get('analyze-form').elements[name].addEventListener('change',async event=>{
+for(const name of ['photo'])get('analyze-form').elements[name].addEventListener('change',async event=>{
  const selected=event.target.files[0];if(!selected)return;
  const version=++imageGeneration;get('analyze-form').querySelector('button[type="submit"]').disabled=true;
  status('analysis-status',i18n.t('appPreparingPhoto'));

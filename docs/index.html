@@ -67,12 +67,11 @@ every day.</h1></div>
    <label><span data-i18n="appFullName">Full supplement name</span><input name="name" maxlength="250" autocomplete="off"></label>
    <div class="or-line" data-i18n="appOrPhoto">or add a photo of the label</div>
    <div class="photo-actions">
-    <label class="photo-picker"><span data-icon="camera" aria-hidden="true"></span><span data-i18n="appCameraPhoto">Take photo</span><input name="camera" type="file" accept="image/*" capture="environment"></label>
-    <label class="photo-picker"><span data-icon="image" aria-hidden="true"></span><span data-i18n="appLibraryPhoto">Choose from library</span><input name="photo" type="file" accept="image/*"></label>
+    <label class="photo-picker"><span data-icon="image" aria-hidden="true"></span><span data-i18n="appLibraryPhoto">Upload photo</span><input name="photo" type="file" accept="image/*"></label>
    </div>
-   <p class="form-help photo-help" data-i18n="appMultiPhotoHelp">One photo can contain several supplements. We identify and provisionally group them together, then collect missing details in the background.</p>
+   <p class="form-help photo-help" data-i18n="appMultiPhotoHelp">One photo can contain several supplements. One AI request identifies them, assigns groups and gives brief benefits.</p>
    <img id="photo-preview" alt="Selected supplement label" hidden><button id="remove-photo" class="text-button" type="button" data-i18n="appRemovePhoto" hidden>Remove photo</button>
-   <details class="ai-consent"><summary><span data-icon="shield" aria-hidden="true"></span><span data-i18n="appSentWithKey">Sent to xAI with your key</span><span data-icon="info" aria-hidden="true"></span></summary><p class="form-help" data-i18n="appAiConsent">One shared AI request recognizes and provisionally groups all products. Only missing or outdated details are researched separately in the background. Your name/photo, groups and existing supplements are sent to xAI using your key; additional API calls may incur charges.</p></details>
+   <details class="ai-consent"><summary><span data-icon="shield" aria-hidden="true"></span><span data-i18n="appSentWithKey">Sent to xAI with your key</span><span data-icon="info" aria-hidden="true"></span></summary><p class="form-help" data-i18n="appAiConsent">Your name/photo, groups and existing supplements are sent to xAI using your key. Adding uses one AI request. Detailed information is requested only when you press Get detailed information; API calls may incur charges.</p></details>
    <button class="primary send-button" type="submit" data-i18n="appSend">Send</button>
   </fieldset></form>
   <p id="analysis-status" role="status"></p><section id="upload-queue" class="upload-queue" hidden><h3 data-i18n="appUploadQueue">Upload queue</h3><p id="upload-queue-count" class="form-help"></p><div id="analysis-results"></div></section><button id="view-added" class="secondary" type="button" data-i18n="appView" hidden>View supplement</button>
