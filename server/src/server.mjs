@@ -9,8 +9,7 @@ import nodemailer from 'nodemailer';
 import { randomBytes } from 'node:crypto';
 import { TrackerApi } from './TrackerApi.mjs';
 import { createCredentialVault } from './credential-vault.mjs';
-import { createStructuredResearch, createStructuredOutput } from './structured-research.mjs';
-import {createPhotoInventoryDiscovery} from './photo-inventory.mjs';
+import {createGrokPipeline} from './providers/grok.mjs';
 import { AuthApi } from './AuthApi.mjs';
 import { ApiError, hashPassword, decrypt } from './security.mjs';
 
@@ -32,7 +31,7 @@ const pool = mysql.createPool({
 });
 await pool.query('SELECT 1');
 const api = new AuthApi(pool, config, await hashPassword(randomBytes(32).toString('hex')));
-const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),chat:createStructuredResearch(),review:createStructuredResearch({timeout:180000,maxTurns:4,reasoningEffort:'low',parallelToolCalls:true}),discover:createPhotoInventoryDiscovery(createStructuredOutput({timeout:90000,reasoningEffort:'low'})),discoveryModel:'grok-4.7',models:(process.env.XAI_MODELS||'grok-4.7').split(',')});
+const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),...createGrokPipeline({models:(process.env.XAI_MODELS||'grok-4.7').split(',')})});
 // A single API instance owns in-memory photo payloads. Do not silently retry paid work after restart.
 await pool.query("UPDATE analysis_jobs SET result=JSON_SET(result,'$.review.status','failed') WHERE status='running' AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.review.status'))='checking'");
 await pool.query("UPDATE analysis_jobs SET result=JSON_SET(COALESCE(result,'{}'),'$.failedPhase',phase),status='failed',error_code='AI_JOB_INTERRUPTED',phase='done',finished_at=UTC_TIMESTAMP(3) WHERE status='running'");

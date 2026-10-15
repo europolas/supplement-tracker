@@ -299,3 +299,12 @@ reuses formulation sources and stops once timing is established, requesting one
 short reason per target. Keep the four-turn/180s ceiling as a safety budget, not
 a speed guarantee. No automatic retries, source-check removal or existing-data
 rewrites. Detailed information retains its separate opt-in research settings.
+
+## Experimental branch: JEV assessment (not deployed)
+
+Read server/JEV-EVALUATION.md. Production 0.12.6 is preserved at a050520.
+Grok wiring is extracted to server/src/providers/grok.mjs; it retains existing
+behavior. JEV evaluation is a separate DB-free script and must never be plugged
+into the sourced-research interface as if it returned citations/free text. It
+accepts given facts and group choices only; full photo extraction needs a separate
+solution. Live JEV validation requires the private typesafe_test_key file.
