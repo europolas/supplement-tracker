@@ -42,7 +42,7 @@ const addSheet=createBottomSheet(get('add-dialog'),{onDismiss:()=>closeAdd()});
 const groupSheet=createBottomSheet(get('group-dialog'));
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router;
-let collectionEpoch=0,photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,latestReport=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set(),jobHistory=[];
+let collectionEpoch=0,photo=[],imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,latestReport=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set(),jobHistory=[];
 const dirty=[...document.querySelectorAll('form')].map(form=>({form,tracker:trackDirty(form)}));
 const clearDirty=form=>dirty.find(item=>item.form===form)?.tracker.reset();
 for(const {form} of dirty){form.addEventListener('reset',()=>clearDirty(form));form.addEventListener('app:saved',()=>clearDirty(form));}
@@ -277,7 +277,7 @@ get('remove-key').addEventListener('click',async()=>{
  await mutate(async()=>{state.ai=await api.delete('/v1/settings/ai');get('ai-form').elements.key.value='';clearDirty(get('ai-form'));});
  renderAi();
 });
-function clearPhoto(){imageGeneration++;photo=null;get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
+function clearPhoto(){imageGeneration++;photo=[];get('more-photo-previews').replaceChildren();get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 function resetAddDraft(){get('analyze-form').reset();clearPhoto();clearDirty(get('analyze-form'));requestId=crypto.randomUUID();}
 function closeAdd(force=false){
  void addSheet.close({immediate:force});if(!force)return;
@@ -295,10 +295,16 @@ get('close-add').addEventListener('click',()=>closeAdd());
 get('remove-photo').addEventListener('click',()=>{clearPhoto();requestId=crypto.randomUUID();});
 get('analyze-form').elements.name.addEventListener('input',()=>{requestId=crypto.randomUUID();});
 for(const name of ['photo'])get('analyze-form').elements[name].addEventListener('change',async event=>{
- const selected=event.target.files[0];if(!selected)return;
+ const selected=[...event.target.files];if(!selected.length)return;
+ if(photo.length+selected.length>5){status('analysis-status',i18n.t('appPhotoLimit'),true);event.target.value='';return;}
  const version=++imageGeneration;get('analyze-form').querySelector('button[type="submit"]').disabled=true;
  status('analysis-status',i18n.t('appPreparingPhoto'));
- try{const data=await prepareImage(selected);if(version!==imageGeneration)return;photo=data;requestId=crypto.randomUUID();get('photo-preview').src=data;get('photo-preview').hidden=false;get('remove-photo').hidden=false;status('analysis-status','');}
+ try{
+  const prepared=[];
+  // Bound each compressed photo so five fit the existing server/proxy limit.
+  for(const file of selected){let data,lastError;for(const maxSide of [1800,1400,1000,700]){try{data=await prepareImage(file,{maxSide,maxBytes:600000});break;}catch(error){lastError=error;}}if(!data)throw lastError;if(version!==imageGeneration)return;prepared.push(data);}
+  if(version!==imageGeneration)return;photo.push(...prepared);requestId=crypto.randomUUID();get('photo-preview').src=photo[0];get('photo-preview').hidden=false;get('more-photo-previews').replaceChildren(...photo.slice(1).map(src=>{const img=element('img',{attributes:{alt:i18n.t('appLibraryPhoto')}});img.src=src;return img;}));get('remove-photo').hidden=false;event.target.value='';status('analysis-status','');
+ }
  catch(error){if(version===imageGeneration){clearPhoto();status('analysis-status',err(error),true);}}
  finally{if(version===imageGeneration)get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 });
@@ -365,11 +371,11 @@ get('clear-supplements').addEventListener('click',async()=>{
 get('analyze-form').addEventListener('submit',async event=>{
  event.preventDefault();if(sending||!current())return;
  const form=get('analyze-form'),name=form.elements.name.value.trim();
- if(!name&&!photo){status('analysis-status',i18n.t('NAME_OR_PHOTO_REQUIRED'),true);return;}
+ if(!name&&!photo.length){status('analysis-status',i18n.t('NAME_OR_PHOTO_REQUIRED'),true);return;}
  const session=current();sending=true;writes++;form.querySelector('fieldset').disabled=true;
  status('analysis-status',i18n.t('appUploading'));
  try{
-  const job=await api.post('/v1/supplements/jobs',{requestId:requestId||crypto.randomUUID(),name,image:photo,language:i18n.language});
+  const job=await api.post('/v1/supplements/jobs',{requestId:requestId||crypto.randomUUID(),name,images:photo,language:i18n.language});
   if(session!==current())return;resetAddDraft();modalJobId=job.id;status('analysis-status',i18n.t('appUploadAccepted'));await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);
  }catch(error){if(session===current()){status('analysis-status',err(error),true);form.querySelector('fieldset').disabled=false;}}
  finally{sending=false;writes--;form.querySelector('fieldset').disabled=false;get('close-add').disabled=false;}
@@ -411,6 +417,6 @@ function scheduleMidnight(){clearTimeout(midnightTimer);const next=new Date();ne
 scheduleMidnight();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshDay();scheduleMidnight();}});
 window.addEventListener('focus',refreshDay);
 let applyUpdate;
-await setupPwa({canReload:()=>!sending&&writes===0&&!document.querySelector('dialog[open], form[aria-busy="true"]')&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
+await setupPwa({canReload:()=>!photo.length&&!sending&&writes===0&&!document.querySelector('dialog[open], form[aria-busy="true"]')&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
  onUpdate:({apply})=>{applyUpdate=apply;get('update-card').hidden=false;},onError:()=>{}});
 get('update-button').addEventListener('click',()=>{try{applyUpdate?.();}catch(error){failure(error);}});

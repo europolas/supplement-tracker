@@ -7,7 +7,7 @@ import {readFileSync} from 'node:fs';
 import mysql from 'mysql2/promise';
 import {AuthApi} from '../src/AuthApi.mjs';
 import {hashPassword,decrypt} from '../src/security.mjs';
-import {TrackerApi,calendarDay,validatePhoto} from '../src/TrackerApi.mjs';
+import {validatePhotos,TrackerApi,calendarDay,validatePhoto} from '../src/TrackerApi.mjs';
 import {createCredentialVault} from '../src/credential-vault.mjs';
 import {validAnalysis} from '../src/analysis.mjs';
 import {ProviderError} from '../src/structured-chat.mjs';
@@ -169,8 +169,8 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
   await t.test('default single pass saves a whole photo with one discovery and zero research calls',async()=>{
    await pool.query('DELETE FROM auth_rate_limits');
    discovery={version:'2',products:[product('Quick product one'),product('Quick product two')],skipped:[],overflow:false};
-   const quick=new TrackerApi(pool,auth,{vault,discover:async input=>{discoveryCalls++;const c=JSON.parse(input.messages[1].content[0].text);const result={language:c.responseLanguage,products:discovery.products.map(p=>({name:p.name,manufacturer:p.manufacturer,groupId:c.groups[0].id,benefit:p.benefit})),skipped:[]};assert.ok(input.validate(result));return {result,model:input.model};},chat,now:()=>now});
-   const before=discoveryCalls,beforeResearch=calls,body={requestId:randomUUID(),name:'Two products',language:'lt'};
+   const quick=new TrackerApi(pool,auth,{vault,discover:async input=>{discoveryCalls++;assert.equal(input.messages[1].content.filter(p=>p.type==='image_url').length,2);const c=JSON.parse(input.messages[1].content[0].text);const result={language:c.responseLanguage,products:discovery.products.map(p=>({name:p.name,manufacturer:p.manufacturer,groupId:c.groups[0].id,benefit:p.benefit})),skipped:[]};assert.ok(input.validate(result));return {result,model:input.model};},chat,now:()=>now});
+   const before=discoveryCalls,beforeResearch=calls,body={requestId:randomUUID(),name:'Two products',images:Array(2).fill('data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64')),language:'lt'};
    const call=(method,path,data={})=>quick.handle(method,path,data,'Bearer '+a.token,'test',query);
    const [,job]=await call('POST','/supplements/jobs',body);let done;
    for(let i=0;i<100;i++){done=(await call('GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
@@ -208,4 +208,10 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    for(const table of ['tracker_preferences','provider_credentials','day_groups','supplements','supplement_completions','analysis_jobs']){const [rows]=await pool.query(`SELECT COUNT(*) AS n FROM ${table} WHERE user_id=?`,[a.user.id]);assert.equal(rows[0].n,0);}
   });
  }finally{await pool?.end();await root.query(`DROP DATABASE IF EXISTS ${database}`);await root.query("DROP USER IF EXISTS ?@'%'",[account]);await root.end();}
+});
+
+test('multi-photo validation bounds count, format and aggregate payload',()=>{
+ const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64');assert.equal(validatePhotos({images:[image,image]}).length,2);assert.equal(validatePhotos({image}).length,1);
+ for(const body of [{images:Array(6).fill(image)},{images:['bad']},{images:[null]},{images:'bad'},{image,images:[image]}])assert.throws(()=>validatePhotos(body));
+ const large='data:image/jpeg;base64,'+Buffer.concat([Buffer.from([255,216,255]),Buffer.alloc(1800000)]).toString('base64');assert.throws(()=>validatePhotos({images:[large,large]}));
 });

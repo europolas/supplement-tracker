@@ -16,7 +16,7 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
   else if(path==='/v1/login')result={token:'a'.repeat(64),expiresAt:null,user};
   else if(path==='/v1/me')result={user,expiresAt:null};
   else if(path==='/v1/settings/ai'){configured=request.method()!=='DELETE';result={...ai,configured};}
-  else if(path==='/v1/supplements/jobs'&&request.method()==='POST'){started=true;if(queue){const body=request.postDataJSON();result={id:'upload-'+(uploads.length+1),status:'running',phase:uploads.length?'queued':'recognizing',language:body.language,created_at:new Date(Date.now()+uploads.length*1000).toISOString(),result:{submission:{name:body.name,kind:body.image?'photo':'name'},items:[],skipped:[]}};uploads.push(result);}else result={id:'test-job',status:'running'};}
+  else if(path==='/v1/supplements/jobs'&&request.method()==='POST'){started=true;if(queue){const body=request.postDataJSON();result={id:'upload-'+(uploads.length+1),status:'running',phase:uploads.length?'queued':'recognizing',language:body.language,created_at:new Date(Date.now()+uploads.length*1000).toISOString(),result:{submission:{name:body.name,kind:body.images?.length||body.image?'photo':'name'},items:[],skipped:[]}};uploads.push(result);}else result={id:'test-job',status:'running'};}
   else if(queue&&path==='/v1/supplements/jobs')result={job:uploads.at(-1)||null,active:uploads.filter(job=>job.status==='running'),recent:[...uploads].reverse()};
   else if(path==='/v1/supplements/jobs'||path==='/v1/supplements/jobs/test-job'){
    const running={id:'test-job',status:'running',phase:'recognizing'};
@@ -193,4 +193,13 @@ test('assigned planning slots keep combination warnings visible on Home and deta
 test('account clear requires confirmation, removes supplements and keeps groups',async({page})=>{
  const m=await mock(page,{preloaded:true,basic:true});await login(page);await page.locator('.account-link').click();await page.locator('#clear-supplements').click();await page.getByRole('button',{name:'Cancel',exact:true}).click();expect(m.requests.filter(r=>r.method==='DELETE'&&r.path==='/v1/supplements')).toHaveLength(0);
  await page.locator('#clear-supplements').click();await page.getByRole('button',{name:'Confirm',exact:true}).click();await expect(page.locator('.supplement-open')).toHaveCount(0);expect(m.requests.filter(r=>r.method==='DELETE'&&r.path==='/v1/supplements')).toHaveLength(1);await expect(page.locator('.group-block')).toHaveCount(1);await page.screenshot({path:'.runtime/clear-account.png',animations:'disabled'});
+});
+
+test('multiple photos stay in the draft and are sent as one request',async({page})=>{
+ await mock(page,{waitAnalysis:true});await login(page);await page.locator('#add-supplement').click();const input=page.locator('[name=photo]');await expect(input).toHaveAttribute('multiple','');
+ const bytes=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=40;c.height=40;c.getContext('2d').fillRect(0,0,40,40);return c.toDataURL().split(',')[1];});const file=name=>({name,mimeType:'image/png',buffer:Buffer.from(bytes,'base64')});
+ await input.setInputFiles([file('one.png'),file('two.png')]);await expect(page.locator('#more-photo-previews img')).toHaveCount(1);await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();await page.locator('#close-add').click();await page.locator('#add-supplement').click();await expect(page.locator('#more-photo-previews img')).toHaveCount(1);
+ await input.setInputFiles(Array.from({length:4},(_,i)=>file(i+'.png')));await expect(page.locator('#analysis-status')).toContainText('up to 5');await expect(page.locator('#more-photo-previews img')).toHaveCount(1);
+ await expect.poll(()=>page.locator('#add-dialog').evaluate(d=>d.getAnimations().length)).toBe(0);await page.screenshot({path:'.runtime/multiple-photos.png',animations:'disabled'});
+ const requests=[];page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/supplements/jobs'))requests.push(r.postDataJSON());});await page.locator('#analyze-form button[type=submit]').click();await expect.poll(()=>requests.length).toBe(1);expect(requests[0].images).toHaveLength(2);expect(requests[0].image).toBeUndefined();await expect(page.locator('#photo-preview')).toBeHidden();await expect(page.locator('#more-photo-previews img')).toHaveCount(0);
 });

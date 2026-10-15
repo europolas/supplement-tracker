@@ -312,3 +312,16 @@ late results from restoring deleted data. Queued recognition checks before sendi
 Already-sent provider requests cannot be recalled; their results are discarded.
 Client resets private upload/history state and invalidates outstanding reads. Test
 only isolated DB data; never invoke destructive smoke checks on production users.
+
+0.11.0: one submission accepts images[] (up to 5) and legacy image. The browser
+prepares images sequentially with a 600,000-byte JPEG budget each, reducing longest
+side only as needed. The aggregate data URL budget is 4,300,000 characters, below
+existing Node/proxy limits; no proxy reload needed. All image parts go into ONE
+structured request, with cross-photo product deduplication. Raw images stay in
+memory and are dropped on success/error. Draft previews survive sheet closure,
+selection can append more photos, and remove clears the batch. No extra research.
+
+0.11.0 live validation: two copies of the seven-product fixture in one request;
+one provider call, seven unique products, 4,044 ms provider elapsed. All 34 isolated
+checks passed including the live test. Browser selection/re-encoding/multiple-preview
+checks passed after correcting trusted local JPEG preview assignment.

@@ -29,6 +29,13 @@ export function validatePhoto(image){
  const valid=image.startsWith('data:image/jpeg')?bytes[0]===255&&bytes[1]===216&&bytes[2]===255:bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
  if(!valid)throw new ApiError(400,'IMAGE_INVALID');return image;
 }
+/** Keep the complete batch inside the existing HTTP/proxy body budget. */
+export function validatePhotos(body){
+ if(body.images!==undefined&&body.image)throw new ApiError(400,'IMAGE_INVALID');
+ if(body.images===undefined){const image=validatePhoto(body.image);return image?[image]:[];}
+ if(!Array.isArray(body.images)||body.images.length>5)throw new ApiError(400,'IMAGE_INVALID');
+ const images=body.images.map(validatePhoto);if(images.some(x=>!x)||images.reduce((n,x)=>n+x.length,0)>4300000)throw new ApiError(400,'IMAGE_INVALID');return images;
+}
 export class TrackerApi {
  constructor(pool,auth,{vault,chat,discover,singlePass=true,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
  get providers(){return this.providerQueue.running;}
@@ -139,7 +146,7 @@ export class TrackerApi {
  }
  async startAnalysis(owner,body,authorization){
   if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');
-  const name=text(body.name||'',250,false),image=validatePhoto(body.image),language=body.language==='lt'?'lt':'en';if(!name&&!image)throw new ApiError(400,'NAME_OR_PHOTO_REQUIRED');
+  const name=text(body.name||'',250,false),images=validatePhotos(body),image=images[0]||null,language=body.language==='lt'?'lt':'en';if(!name&&!images.length)throw new ApiError(400,'NAME_OR_PHOTO_REQUIRED');
   const id=randomUUID();let result;
   if(this.activeJobs.size>=8)throw new ApiError(503,'AI_QUEUE_FULL');this.activeJobs.add(id);
   try{await this.auth.transaction(async db=>{
@@ -160,7 +167,7 @@ export class TrackerApi {
   if(result.id!==id||result.status==='complete'){this.activeJobs.delete(id);return result;}
   // The task owns a private mutable payload; it drops image bytes before enqueueing
   // any research. Waiting research contains names/IDs, never a raw photo or key.
-  void this.runProgressive(owner,{requestId:body.requestId,name,image,language},authorization,id);
+  void this.runProgressive(owner,{requestId:body.requestId,name,image,images,language},authorization,id);
   return result;
  }
  async jobProgress(owner,id,report,phase='enriching'){
@@ -190,7 +197,7 @@ export class TrackerApi {
    const context=JSON.stringify(groups),started=Date.now(),language=body.language,settings=await this.settings(owner);
    let {result,model}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel||settings.model,messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
    if(this.singlePass){if(!validBasicProducts(result,groups,language))throw new ApiError(502,'AI_INVALID_RESPONSE');result=normalizeBasicProducts(result);}
-   body.image=null; // No background research request resends a photo.
+   body.image=null;body.images=[]; // No background research request resends a photo.
    if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
    await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);
    report={submission:report.submission,items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started,recognitionModel:model};
@@ -229,8 +236,8 @@ export class TrackerApi {
     item.elapsedMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);
    }));
    await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status=?,error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[report.items.length?'complete':'failed',report.items.length?null:'SUPPLEMENT_NOT_IDENTIFIED',id,owner]);
-  }catch(error){body.image=null;report.failedPhase=failurePhase;const code=safeCode(error);for(const item of report.items){if(!['queued','researching'].includes(item.research))continue;item.research='failed';item.error=code;try{await this.markResearchFailed(owner,item.id,id,code);}catch{ /* DB may be unavailable; startup also marks interrupted drafts. */ }}try{await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,id,owner]);}catch{ /* Deleted accounts have no surviving private job metadata. */ }}
-  finally{body.image=null;this.activeJobs.delete(id);if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);const queue=this.recognitionQueues.get(owner);if(queue&&!queue.running&&!queue.size){queue.close();this.recognitionQueues.delete(owner);}}
+  }catch(error){body.image=null;body.images=[];report.failedPhase=failurePhase;const code=safeCode(error);for(const item of report.items){if(!['queued','researching'].includes(item.research))continue;item.research='failed';item.error=code;try{await this.markResearchFailed(owner,item.id,id,code);}catch{ /* DB may be unavailable; startup also marks interrupted drafts. */ }}try{await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,id,owner]);}catch{ /* Deleted accounts have no surviving private job metadata. */ }}
+  finally{body.image=null;body.images=[];this.activeJobs.delete(id);if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);const queue=this.recognitionQueues.get(owner);if(queue&&!queue.running&&!queue.size){queue.close();this.recognitionQueues.delete(owner);}}
  }
  /** Explicit refresh/retry never performs recognition and never adds a second row.
   * It uses the selected UI language; a completed result is retained while refreshing.

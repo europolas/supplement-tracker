@@ -253,3 +253,11 @@ only isolated DB data; never invoke destructive smoke checks on production users
 iPhone owns the camera/library/file chooser. Keep single-column full-width picker
 and the one-request/explicit-detail consent text. Removed forced camera input;
 photo cleanup and handlers must never reference a missing camera control.
+
+0.11.0: one submission accepts images[] (up to 5) and legacy image. The browser
+prepares images sequentially with a 600,000-byte JPEG budget each, reducing longest
+side only as needed. The aggregate data URL budget is 4,300,000 characters, below
+existing Node/proxy limits; no proxy reload needed. All image parts go into ONE
+structured request, with cross-photo product deduplication. Raw images stay in
+memory and are dropped on success/error. Draft previews survive sheet closure,
+selection can append more photos, and remove clears the batch. No extra research.
