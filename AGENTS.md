@@ -242,3 +242,19 @@ files named `1-Photo-1.jpg` through `4-Photo-4.jpg`) and `PROVIDER_TEST_KEY_FILE
 `node scripts/check-photo-inventory.mjs`. It uses real browser compression, performs
 two independent recognition calls and checks all 16 expected identities. Neither
 photos nor keys are committed; no production account/database is modified.
+
+## 0.12.3 — per-photo structured coverage
+
+The production discovery adapter now requires exactly one indexed inventory for
+every submitted photo, with a physical package position per product. This remains
+one provider call; text-only input keeps its compact contract. The server validates
+coverage (no missing/repeated/foreign photo indices), then deduplicates exact product
+identities and saves the original four-field result. Same-brand distinct formulas
+remain separate. Job metadata stores recognized/skipped counts per photo, not images.
+Malformed coverage fails rather than silently saving a partial photo set. This
+structural check cannot prove that the model saw every object in an individual
+image; it is not a guarantee of perfect visual recognition. No automatic retries.
+Regression uses actual user's group names and browser-compressed four-photo fixture:
+three independent calls returned 4+3+7+2 products (16 total), in 7.7–9.6 seconds.
+Missing production item was Bio-Zink; previous successful counts did not establish
+reliable coverage. Existing user records are preserved, not automatically re-added.

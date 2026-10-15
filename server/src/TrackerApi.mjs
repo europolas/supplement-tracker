@@ -200,12 +200,12 @@ export class TrackerApi {
    const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');sealed=keys[0].encrypted_key;
    const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
    const context=JSON.stringify(groups),started=Date.now(),language=body.language,settings=await this.settings(owner);
-   let {result,model}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel||settings.model,messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
+   let {result,model,inventory}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel||settings.model,messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
    if(this.singlePass){if(!validBasicProducts(result,groups,language))throw new ApiError(502,'AI_INVALID_RESPONSE');result=normalizeBasicProducts(result);}
    body.image=null;body.images=[]; // No background research request resends a photo.
    if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
    await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);
-   report={submission:report.submission,items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started,recognitionModel:model};
+   report={submission:report.submission,items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started,recognitionModel:model,...(inventory?{photoInventory:inventory}:{})};
    const products=uniqueProducts(result.products);if(!products.length&&!report.skipped.length)report.skipped.push({location:'',reasonCode:'SUPPLEMENT_NOT_IDENTIFIED'});if(result.overflow)report.skipped.push({location:'',reasonCode:'PHOTO_PRODUCT_LIMIT'});
    await this.auth.transaction(async db=>{
     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);

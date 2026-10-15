@@ -1,3 +1,4 @@
+import {createPhotoInventoryDiscovery} from '../src/photo-inventory.mjs';
 /** Isolated database workflow. Run only with DB_TEST_HOST and a disposable server.
  * No production compose/env/password files are accepted by this runner. */
 import {test} from 'node:test';
@@ -170,12 +171,12 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
   await t.test('default single pass saves a whole photo with one discovery and zero research calls',async()=>{
    await pool.query('DELETE FROM auth_rate_limits');
    discovery={version:'2',products:[product('Quick product one'),product('Quick product two')],skipped:[],overflow:false};
-   const quick=new TrackerApi(pool,auth,{vault,discover:async input=>{discoveryCalls++;assert.equal(input.messages[1].content.filter(p=>p.type==='image_url').length,2);const c=JSON.parse(input.messages[1].content[0].text);const result={language:c.responseLanguage,products:discovery.products.map(p=>({name:p.name,manufacturer:p.manufacturer,groupId:c.groups[0].id,benefit:p.benefit})),skipped:[]};assert.ok(input.validate(result));return {result,model:input.model};},chat,now:()=>now});
+   const quick=new TrackerApi(pool,auth,{vault,discover:createPhotoInventoryDiscovery(async input=>{discoveryCalls++;assert.equal(input.messages[1].content.filter(p=>p.type==='image_url').length,2);const c=JSON.parse(input.messages[1].content[0].text);const result={language:c.responseLanguage,photos:discovery.products.map((p,index)=>({photoIndex:index+1,products:[{name:p.name,manufacturer:p.manufacturer,groupId:c.groups[0].id,benefit:p.benefit,position:'foreground'}],skipped:[]}))};assert.ok(input.validate(result));return {result,model:input.model};}),chat,now:()=>now});
    const before=discoveryCalls,beforeResearch=calls,body={requestId:randomUUID(),name:'Two products',images:Array(2).fill('data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64')),language:'lt'};
    const call=(method,path,data={})=>quick.handle(method,path,data,'Bearer '+a.token,'test',query);
    const [,job]=await call('POST','/supplements/jobs',body);let done;
    for(let i=0;i<100;i++){done=(await call('GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
-   assert.equal(done.status,'complete');assert.equal(done.processed_count,2);assert.equal(discoveryCalls,before+1);assert.ok(done.result.items.every(x=>x.research==='complete'));
+   assert.equal(done.status,'complete');assert.equal(done.processed_count,2);assert.deepEqual(done.result.photoInventory.map(p=>p.recognized),[1,1]);assert.equal(discoveryCalls,before+1);assert.ok(done.result.items.every(x=>x.research==='complete'));
    const [,view]=await call('GET','/dashboard');for(const item of done.result.items){const saved=view.supplements.find(s=>s.id===item.id);assert.equal(saved.analysis.schemaVersion,'basic-1');assert.equal(saved.analysis.enrichment.status,'complete');assert.equal(saved.analysis.language,'lt');assert.ok(saved.group_id);assert.ok(saved.analysis.benefitSummary);}
    const [,again]=await call('POST','/supplements/jobs',body);assert.equal(again.id,job.id);assert.equal(discoveryCalls,before+1);
    assert.equal(calls,beforeResearch,'Adding never requests detailed research');
