@@ -277,7 +277,7 @@ get('remove-key').addEventListener('click',async()=>{
  await mutate(async()=>{state.ai=await api.delete('/v1/settings/ai');get('ai-form').elements.key.value='';clearDirty(get('ai-form'));});
  renderAi();
 });
-function clearPhoto(){imageGeneration++;photo=[];get('more-photo-previews').replaceChildren();get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
+function clearPhoto(){imageGeneration++;photo=[];get('photo-previews').hidden=true;get('more-photo-previews').replaceChildren();get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 function resetAddDraft(){get('analyze-form').reset();clearPhoto();clearDirty(get('analyze-form'));requestId=crypto.randomUUID();}
 function closeAdd(force=false){
  void addSheet.close({immediate:force});if(!force)return;
@@ -303,7 +303,7 @@ for(const name of ['photo'])get('analyze-form').elements[name].addEventListener(
   const prepared=[];
   // Bound each compressed photo so five fit the existing server/proxy limit.
   for(const file of selected){let data,lastError;for(const maxSide of [1800,1400,1000,700]){try{data=await prepareImage(file,{maxSide,maxBytes:600000});break;}catch(error){lastError=error;}}if(!data)throw lastError;if(version!==imageGeneration)return;prepared.push(data);}
-  if(version!==imageGeneration)return;photo.push(...prepared);requestId=crypto.randomUUID();get('photo-preview').src=photo[0];get('photo-preview').hidden=false;get('more-photo-previews').replaceChildren(...photo.slice(1).map(src=>{const img=element('img',{attributes:{alt:i18n.t('appLibraryPhoto')}});img.src=src;return img;}));get('remove-photo').hidden=false;event.target.value='';status('analysis-status','');
+  if(version!==imageGeneration)return;photo.push(...prepared);requestId=crypto.randomUUID();get('photo-previews').hidden=false;get('photo-preview').src=photo[0];get('photo-preview').hidden=false;get('more-photo-previews').replaceChildren(...photo.slice(1).map(src=>{const img=element('img',{attributes:{alt:i18n.t('appLibraryPhoto')}});img.src=src;return img;}));get('remove-photo').hidden=false;event.target.value='';status('analysis-status','');
  }
  catch(error){if(version===imageGeneration){clearPhoto();status('analysis-status',err(error),true);}}
  finally{if(version===imageGeneration)get('analyze-form').querySelector('button[type="submit"]').disabled=false;}

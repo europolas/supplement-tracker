@@ -70,7 +70,7 @@ every day.</h1></div>
     <label class="photo-picker"><span data-icon="image" aria-hidden="true"></span><span data-i18n="appLibraryPhoto">Upload photo</span><input name="photo" type="file" accept="image/*" multiple></label>
    </div>
    <p class="form-help photo-help" data-i18n="appMultiPhotoHelp">Choose up to 5 photos. One AI request identifies all supplements, assigns groups and gives brief benefits.</p>
-   <img id="photo-preview" alt="Selected supplement label" hidden><div id="more-photo-previews" class="photo-previews"></div><button id="remove-photo" class="text-button" type="button" data-i18n="appRemovePhoto" hidden>Remove photos</button>
+   <div id="photo-previews" class="photo-previews" hidden><img id="photo-preview" alt="Selected supplement label" hidden><div id="more-photo-previews"></div></div><button id="remove-photo" class="text-button" type="button" data-i18n="appRemovePhoto" hidden>Remove photos</button>
    <details class="ai-consent"><summary><span data-icon="shield" aria-hidden="true"></span><span data-i18n="appSentWithKey">Sent to xAI with your key</span><span data-icon="info" aria-hidden="true"></span></summary><p class="form-help" data-i18n="appAiConsent">Your name/photo, groups and existing supplements are sent to xAI using your key. Adding uses one AI request. Detailed information is requested only when you press Get detailed information; API calls may incur charges.</p></details>
    <button class="primary send-button" type="submit" data-i18n="appSend">Send</button>
   </fieldset></form>

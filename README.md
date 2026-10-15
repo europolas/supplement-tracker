@@ -267,3 +267,6 @@ keywords in the selected language, with noun forms and no support/health filler.
 Examples are formatting only; unsupported benefits must not be invented. Applies
 to both compact recognition and opt-in detailed research. Existing stored results
 are preserved; no automatic re-analysis or paid requests on opening the app.
+
+0.11.2 groups all selected photo previews into one padded sage grid: three equal
+square thumbnails per row, center-cropped only in CSS. AI payloads remain uncropped.

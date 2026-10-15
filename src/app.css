@@ -73,7 +73,7 @@ html .bottom-sheet { padding-left:22px;padding-right:22px;border-bottom:0; }
 .icon-button:active { background:var(--soft); }.icon-button .icon { width:23px;height:23px; }
 .or-line { display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;text-align:center; }.or-line::before,.or-line::after { content:'';height:1px;background:var(--line);flex:1; }
 .photo-picker { display:flex;position:relative;border:1px dashed #a2ad9b;border-radius:15px;background:transparent;color:var(--ink);cursor:pointer;overflow:hidden; }.photo-picker input { position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%; }.photo-picker .icon { width:29px;height:29px; }
-#photo-preview { display:block;width:100%;max-height:180px;object-fit:contain;background:var(--soft);border-radius:14px; }
+
 .ai-consent { padding:0;border:0;color:var(--muted); }.ai-consent>summary { display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--ink);padding:8px 0;list-style:none; }.ai-consent>summary::-webkit-details-marker { display:none; }.ai-consent .icon { width:18px;height:18px; }.ai-consent p { padding-top:8px; }
 #analysis-status,#home-status { font-size:12px;line-height:1.7; }[data-error="true"],#app-error { color:#ae493e; }.send-button[disabled] { opacity:.5; }.app-toast { background:var(--green);color:var(--on-green);font-size:13px;pointer-events:none; }
 html .auth-tabs button,html[data-theme="light"] .auth-tabs button { background:var(--soft);color:var(--ink);font-size:13px; }.auth-tabs { gap:6px; }
@@ -134,5 +134,7 @@ details,summary { color:var(--ink);border-color:var(--line); }
 
 .photo-actions:has(> :only-child) { grid-template-columns: 1fr; }
 
-.photo-previews { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px; }
-.photo-previews img { width:100%;height:130px;object-fit:contain;border-radius:14px;background:var(--soft); }
+/* Crop only the preview: the upload retains the complete prepared image. */
+.photo-previews { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px;margin-top:10px;background:var(--soft);border-radius:16px; }
+#more-photo-previews { display:contents; }
+.photo-previews img { display:block;width:100%;min-width:0;aspect-ratio:1;height:auto;object-fit:cover;object-position:center;border-radius:10px; }
