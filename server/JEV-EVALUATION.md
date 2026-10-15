@@ -34,8 +34,8 @@ No account writes, images, xAI calls, citation claims or automatic fallback.
 `scripts/check-jev-grouping.mjs` sends one explicit paid request with five synthetic
 label-fact fixtures (fasting/fats/bed/general meal/missing facts), prints timing,
 choices and token usage, and checks expected choices. This measures classification,
-not visual discovery or autonomous clinical research. No live result is claimed
-until a key is supplied and the command actually succeeds.
+not visual discovery or autonomous clinical research. Live results are recorded below; they do not establish photo recognition or
+medical correctness.
 
 ```bash
 TYPESAFE_TEST_KEY_FILE=/home/deploy/.secrets/supplement-tracker/typesafe_test_key \
@@ -62,3 +62,24 @@ constraints and low confidence must remain reviewable; don't force a medically
 unsupported answer to satisfy a one-group rule. Do not present experimental JEV
 results as sourced reviews or silently apply them. Final end-to-end latency includes
 OCR and evidence retrieval, not just the JEV request.
+
+## Live validation — 2026-10-15
+
+Private test key accepted; model reported `jev-1.14.0`. Four explicit requests,
+no retries, no production records read or written:
+
+| Fixture | Correct | End-to-end HTTP time | Input tokens |
+| --- | --- | --- | --- |
+| Initial five supplied directions | 5/5 | 487 ms | 1592 |
+| Five directions, matrix baseline | 5/5 | 446 ms | 1592 |
+| Same five, reversed group order | 5/5 | 196 ms | 1592 |
+| Sixteen synthetic directions, including negation/missing/conflicting facts | 16/16 | 253 ms | 4628 |
+
+Run the matrix explicitly with `JEV_TEST_MATRIX=1` plus the key-file environment
+variable shown above. It sends three separate paid requests, outputs mismatches
+and exits nonzero if any expected choice differs. This is an easy closed-set
+classification benchmark: known text directions are inputs, not facts discovered
+by JEV. Unknown is the expected result for absent/conflicting directions. The
+small sample, possible provider warm-up/caching and network variation preclude
+a latency guarantee or a direct speed ratio against Grok's web-backed research.
+The live application still uses the preserved Grok pipeline.
