@@ -224,7 +224,7 @@ export class TrackerApi {
   * It uses the selected UI language; a completed result is retained while refreshing.
   */
  async startResearch(owner,supplementId,body,authorization){
-  if(this.singlePass)throw new ApiError(404,'NOT_FOUND');
+  // Single-pass applies to adding products; this explicit action opts into research.
   if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');const language=body.language==='lt'?'lt':'en';
   const sealed=await this.checkKey(owner);let job;
   if(this.activeJobs.size>=8)throw new ApiError(503,'AI_BUSY');

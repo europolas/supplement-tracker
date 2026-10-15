@@ -213,6 +213,10 @@ function renderDetail(){
  if(analysis.evidenceNote)extra.append(element('p',{text:analysis.evidenceNote,className:'detail-meta'}));
  extra.append(element('p',{text:i18n.t('appAiNote'),className:'detail-meta'}));
  }else{prose(section('appBenefits','benefits'),analysis.benefitSummary);}
+ // Research is opt-in, never triggered by opening this sheet or adding a product.
+ const refresh=button(i18n.t('appGetDetailedInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});
+ refresh.disabled=pending;card.append(refresh);
+ if(pending||basic&&analysis.enrichment?.status==='failed')card.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status),className:'research-badge',attributes:{role:'status'}}));
  const select=element('select',{attributes:{'aria-label':i18n.t('appMoveGroup')}});
  select.append(element('option',{text:i18n.t('appUnassigned'),attributes:{value:''}}));
  for(const group of state.groups)select.append(element('option',{text:group.name,attributes:{value:group.id}}));select.value=item.group_id||'';

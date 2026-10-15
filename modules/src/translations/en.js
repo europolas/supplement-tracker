@@ -301,6 +301,7 @@ export default Object.freeze({
   "appInfo_failed": "Details unavailable — retry",
   "appInfo_reused": "Existing information reused",
   "appProvisional": "Provisional grouping. Dose and compatibility are still being checked.",
+  "appGetDetailedInfo": "Get detailed information",
   "appRefreshInfo": "Refresh information in selected language",
   "appAnalysisLanguage": "Saved analysis language: {language}. Refresh to use your selected language.",
   "appCompatibilityStale": "Your routine changed while this information was researched. Compatibility needs review.",

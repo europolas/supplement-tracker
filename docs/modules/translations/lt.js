@@ -301,6 +301,7 @@ export default Object.freeze({
   "appInfo_failed": "Informacijos gauti nepavyko — kartoti",
   "appInfo_reused": "Panaudota turima informacija",
   "appProvisional": "Preliminari grupė. Dozė ir suderinamumas dar tikrinami.",
+  "appGetDetailedInfo": "Gauti išsamią informaciją",
   "appRefreshInfo": "Atnaujinti informaciją pasirinkta kalba",
   "appAnalysisLanguage": "Išsaugotos analizės kalba: {language}. Atnaujink, kad gautum informaciją pasirinkta kalba.",
   "appCompatibilityStale": "Tavo papildų sąrašas pasikeitė tyrimo metu. Suderinamumą reikia peržiūrėti.",

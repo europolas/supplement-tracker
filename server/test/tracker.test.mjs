@@ -169,15 +169,21 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
   await t.test('default single pass saves a whole photo with one discovery and zero research calls',async()=>{
    await pool.query('DELETE FROM auth_rate_limits');
    discovery={version:'2',products:[product('Quick product one'),product('Quick product two')],skipped:[],overflow:false};
-   const quick=new TrackerApi(pool,auth,{vault,discover:async input=>{discoveryCalls++;const c=JSON.parse(input.messages[1].content[0].text);const result={language:c.responseLanguage,products:discovery.products.map(p=>({name:p.name,manufacturer:p.manufacturer,groupId:c.groups[0].id,benefit:p.benefit})),skipped:[]};assert.ok(input.validate(result));return {result,model:input.model};},chat:async()=>{throw Error('Unexpected paid research');},now:()=>now});
-   const before=discoveryCalls,body={requestId:randomUUID(),name:'Two products',language:'lt'};
+   const quick=new TrackerApi(pool,auth,{vault,discover:async input=>{discoveryCalls++;const c=JSON.parse(input.messages[1].content[0].text);const result={language:c.responseLanguage,products:discovery.products.map(p=>({name:p.name,manufacturer:p.manufacturer,groupId:c.groups[0].id,benefit:p.benefit})),skipped:[]};assert.ok(input.validate(result));return {result,model:input.model};},chat,now:()=>now});
+   const before=discoveryCalls,beforeResearch=calls,body={requestId:randomUUID(),name:'Two products',language:'lt'};
    const call=(method,path,data={})=>quick.handle(method,path,data,'Bearer '+a.token,'test',query);
    const [,job]=await call('POST','/supplements/jobs',body);let done;
    for(let i=0;i<100;i++){done=(await call('GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,20));}
    assert.equal(done.status,'complete');assert.equal(done.processed_count,2);assert.equal(discoveryCalls,before+1);assert.ok(done.result.items.every(x=>x.research==='complete'));
    const [,view]=await call('GET','/dashboard');for(const item of done.result.items){const saved=view.supplements.find(s=>s.id===item.id);assert.equal(saved.analysis.schemaVersion,'basic-1');assert.equal(saved.analysis.enrichment.status,'complete');assert.equal(saved.analysis.language,'lt');assert.ok(saved.group_id);assert.ok(saved.analysis.benefitSummary);}
    const [,again]=await call('POST','/supplements/jobs',body);assert.equal(again.id,job.id);assert.equal(discoveryCalls,before+1);
-   await assert.rejects(call('POST','/supplements/'+done.supplement_id+'/research',{requestId:randomUUID()}),e=>e.status===404);
+   assert.equal(calls,beforeResearch,'Adding never requests detailed research');
+   const requestBody={requestId:randomUUID(),language:'lt'};
+   const [,detailJob]=await call('POST','/supplements/'+done.supplement_id+'/research',requestBody);
+   for(let i=0;i<100;i++){const j=(await call('GET','/supplements/jobs/'+detailJob.id))[1];if(j.status!=='running'){assert.equal(j.result.items[0].research,'complete');break;}await new Promise(r=>setTimeout(r,20));}
+   assert.equal(calls,beforeResearch+1,'Explicit action researches only selected product');assert.equal(discoveryCalls,before+1);
+   const [,sameDetail]=await call('POST','/supplements/'+done.supplement_id+'/research',requestBody);assert.equal(sameDetail.id,detailJob.id);assert.equal(calls,beforeResearch+1);
+
    await assert.rejects(call('POST','/supplements/analyze',body),e=>e.status===404);
   });
   await t.test('group deletion keeps supplements; account deletion cascades private records',async()=>{

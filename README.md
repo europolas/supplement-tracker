@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.10.0
+# Supplement Tracker · 0.10.1
 
-## Current behavior: 0.10.0 (2026-10-15)
+## Current behavior: 0.10.1 (2026-10-15)
 
 The user explicitly reduced scope to one AI call per submitted name/photo. The
 production TrackerApi defaults to singlePass=true. The compact strict contract
@@ -11,9 +11,14 @@ manufacturers/group IDs are supplied. No web search, per-product research, autom
 retry, dose or compatibility analysis follows this call. basic-1 records are saved
 as complete; their detail sheet shows the brief benefit and group, with existing
 manual move/delete controls. Existing detailed records remain readable unchanged.
-The old analyze/research HTTP paths return 404 in production, and the UI no longer
-has a research refresh button. Historical research code remains only for regression
-coverage and stored-schema compatibility; tests explicitly opt into singlePass=false.
+The old synchronous analyze path remains disabled. The product sheet exposes an
+explicit Get detailed information action (Gauti išsamią informaciją). Only that click
+starts one selected-product research job via /research; adding and opening sheets
+never trigger it. The action disables while pending, reports progress, and uses the
+selected UI language. Closing the sheet does not cancel the server job. Existing
+records are enriched in place, with manual grouping and sourced-data validation
+preserved. No automatic retries. Tests opt into singlePass=false only to cover the
+historical automatic pipeline.
 The notes below describing progressive research document historical releases and
 must not be interpreted as current production behavior. No database migration.
 
