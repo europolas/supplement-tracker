@@ -31,7 +31,7 @@ const pool = mysql.createPool({
 });
 await pool.query('SELECT 1');
 const api = new AuthApi(pool, config, await hashPassword(randomBytes(32).toString('hex')));
-const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),chat:createStructuredResearch(),discover:createStructuredOutput({timeout:60000,reasoningEffort:'none'}),discoveryModel:process.env.XAI_DISCOVERY_MODEL||'grok-4.3',models:(process.env.XAI_MODELS||'grok-4.7').split(',')});
+const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.from(readSecret('VAULT_KEY_FILE'),'hex')),chat:createStructuredResearch(),discover:createStructuredOutput({timeout:60000,reasoningEffort:'none'}),discoveryModel:'grok-4.3',models:(process.env.XAI_MODELS||'grok-4.7').split(',')});
 // A single API instance owns in-memory photo payloads. Do not silently retry paid work after restart.
 await pool.query("UPDATE analysis_jobs SET result=JSON_SET(COALESCE(result,'{}'),'$.failedPhase',phase),status='failed',error_code='AI_JOB_INTERRUPTED',phase='done',finished_at=UTC_TIMESTAMP(3) WHERE status='running'");
 // Keep recognized products after restart; mark interrupted enrichment retryable.

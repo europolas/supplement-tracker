@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
-async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false}={}){
+async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false}={}){
  let completed=false,added=preloaded,started=false,configured=true,release,terminalJob=null,released=false,detailsReady=!progressive;
  const uploads=[],requests=[];release=()=>{released=true;};
  await page.route('https://perimove.com/supplement-api/**',async route=>{
@@ -34,6 +34,7 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
   if(path==='/v1/dashboard'&&fallback&&added){result.supplements[0].analysis.dosage={directions:null,servingSize:null,dailyServingsMin:null};result.supplements[0].analysis.doseFallback={basis:'established_adult_intake',ingredient:'Example ingredient',dailyAmountMin:25,dailyAmountMax:50,unit:'mg',sourceUrl:'https://guideline.example/reference',explanation:'General adult reference; no verified product capsule strength.'};}
   if(path==='/v1/dashboard'&&unknownDose&&added){result.supplements[0].analysis.dosage={directions:null,servingSize:null};result.supplements[0].analysis.doseFallback={basis:'unavailable',explanation:'No verified dose.'};}
   if(path==='/v1/dashboard'&&labelProduct&&added){result.supplements[0].name='Trans Resveratrolis (300 mg kapsulės, 60 vnt.)';result.supplements[0].analysis.manufacturer='L Cell';result.supplements[0].analysis.variant='300 mg kapsulės, 60 vnt.';}
+  if(path==='/v1/dashboard'&&conflict&&added)result.supplements[0].analysis.compatibility.assessments=[{supplementId:'existing',supplementName:'Other magnesium',status:'duplicate',reason:'Review total magnesium before combining.'}];
   await route.fulfill({status:httpStatus,json:result});
  });
  return {release,requests,uploads,releaseResearch:()=>{detailsReady=true;}};
@@ -171,4 +172,13 @@ test('compact labels and a real touch pull close product and upload sheets',asyn
  }
  await pull('.detail-name');await expect(page.locator('#route-dialog')).not.toBeVisible();
  await page.locator('#add-supplement').click();await pull('#add-title');await expect(page.locator('#add-dialog')).not.toBeVisible();await cdp.detach();
+});
+
+
+test('assigned planning slots keep combination warnings visible on Home and detail',async({page})=>{
+ await mock(page,{preloaded:true,conflict:true,labelProduct:true});await login(page);
+ await expect(page.locator('.group-block .supplement-row')).toHaveCount(1);await expect(page.locator('.review-combination')).toHaveText('Review combination');
+ await page.screenshot({animations:'disabled',path:'.runtime/speed-warning-home.png'});
+ await page.locator('.supplement-open').click();await expect(page.locator('[data-detail-section=compatibility]')).toContainText('not confirmation');await expect(page.locator('[data-detail-section=compatibility]')).toContainText('Review total magnesium before combining.');
+ await page.screenshot({animations:'disabled',path:'.runtime/speed-warning-detail.png'});
 });

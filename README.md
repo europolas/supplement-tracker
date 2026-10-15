@@ -1,6 +1,6 @@
-# Supplement Tracker · 0.8.1
+# Supplement Tracker · 0.9.0
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.10.0.
+Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.10.1.
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -23,8 +23,7 @@ smoothly masked blur remain in place.
   readable products: each is independently researched and saved with progress,
   partial successes and unreadable/failed explanations. All groups and existing
   supplements (including earlier batch additions) are included for compatibility review.
-  JSON Schema is checked again on the server; incompatible/duplicate products are
-  left unassigned for review. Analysis has sending/completed/error states.
+  JSON Schema is checked again on the server; compatibility warnings remain attached to their timing groups. Analysis has sending/completed/error states.
 - Supplement detail, manual group reassignment and deletion. Daily completion is
   derived using device timezone on the server; new local dates start unmarked while
   old completion records remain. No background midnight job is necessary.
@@ -48,7 +47,7 @@ and provisionally grouped in 5.8 seconds using grok-4.3 with reasoning none; thi
 one measurement, not a latency guarantee. Exact brand names remain untranslated.
 
 All recognized records are saved immediately with visible queued/researching/failed
-states. One serialized background research queue then enriches missing/stale details
+states. A bounded queue researches up to three missing/stale details concurrently
 using the selected research model (grok-4.7, low reasoning). Source/dose/NRV rules
 remain strict. Each target sees every other draft/saved product; uncertain contexts
 cannot receive blanket safe assessments. UI polling resumes after iOS suspension,
@@ -206,3 +205,14 @@ pointer scrolling. Downward pulls within an already scrolled document scroll as
 normal; inputs/buttons and upward movement never dismiss. The grabber still works
 with a mouse. Both synthetic gesture isolation and real Chromium touch input are
 covered; final installed-iPhone behavior requires the actual device.
+
+## 0.9.0 analysis performance
+
+Recognition still returns a single concise preview for every readable photo product.
+Up to three detailed research requests now run concurrently instead of serially;
+new photo recognition retains a reserved provider slot. Time groups are planning
+slots, separate from compatibility review. Potential conflicts keep a visible Home
+warning and full detail explanation; they no longer silently remove the schedule.
+Unknown manufacturer timing may retain a clearly provisional slot. Manual grouping
+is preserved, including unassign. Existing dose/source validation remains intact.
+See server/ANALYSIS.md for measured baselines and owner-scoped legacy reconciliation.

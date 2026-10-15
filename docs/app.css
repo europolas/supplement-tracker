@@ -131,3 +131,4 @@ details,summary { color:var(--ink);border-color:var(--line); }
 [data-sheet-focus]:focus:not(:focus-visible),.product-sheet #route-title:focus { outline:none; }
 
 [data-sheet-focus]:focus { outline:none; }
+.review-combination { color:var(--ink);font-weight:500; }

@@ -3,6 +3,7 @@
  * are never persisted in this class's results or logs. Completion day is derived on
  * the server using a validated device timezone; no midnight background worker is needed.
  */
+import {routineGrouping} from './grouping.mjs';
 import {createTaskQueue} from './task-queue.mjs';
 import {randomUUID} from 'node:crypto';
 import {ApiError} from './security.mjs';
@@ -28,7 +29,7 @@ export function validatePhoto(image){
  if(!valid)throw new ApiError(400,'IMAGE_INVALID');return image;
 }
 export class TrackerApi {
- constructor(pool,auth,{vault,chat,discover,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:1,maxPending:320});}
+ constructor(pool,auth,{vault,chat,discover,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
  get providers(){return this.providerQueue.running;}
  async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
@@ -119,7 +120,7 @@ export class TrackerApi {
     if(groupId!==null&&!uuid(groupId))throw new ApiError(400,'INVALID_INPUT');
     await this.auth.transaction(async db=>{
      if(groupId){const [groups]=await db.execute('SELECT id FROM day_groups WHERE id=? AND user_id=? FOR UPDATE',[groupId,owner]);if(!groups.length)throw new ApiError(404,'NOT_FOUND');}
-     const [result]=await db.execute('UPDATE supplements SET group_id=? WHERE id=? AND user_id=?',[groupId,id,owner]);if(!result.affectedRows)throw new ApiError(404,'NOT_FOUND');
+     const [result]=await db.execute("UPDATE supplements SET group_id=?,analysis=JSON_SET(analysis,'$.grouping',JSON_OBJECT('basis','manual')) WHERE id=? AND user_id=?",[groupId,id,owner]);if(!result.affectedRows)throw new ApiError(404,'NOT_FOUND');
     });return [200,{ok:true}];
    }
   }
@@ -133,20 +134,33 @@ export class TrackerApi {
   try{await this.auth.transaction(async db=>{
    const [users]=await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);if(!users.length)throw new ApiError(401,'SESSION_EXPIRED');
    const [same]=await db.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND request_id=?`,[owner,body.requestId]);if(same.length){result=jobResult(same[0]);return;}
+   // Preserve idempotency for a request previously saved by the synchronous endpoint.
+   // Identity matching alone is ambiguous when legacy records share a product name.
+   const [saved]=await db.execute('SELECT id FROM supplements WHERE user_id=? AND request_id=?',[owner,body.requestId]);
+   if(saved.length){
+    await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language,supplement_id,total_count,processed_count,finished_at) VALUES (?,?,?,'complete','done',?,?,1,1,UTC_TIMESTAMP(3))",[id,owner,body.requestId,language,saved[0].id]);
+    const [completed]=await db.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE id=? AND user_id=?`,[id,owner]);result=jobResult(completed[0]);return;
+   }
    const [active]=await db.execute("SELECT phase FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active.length>=4)throw new ApiError(409,'AI_QUEUE_FULL');
    await this.auth.limit('ai-minute',owner,4,60);await this.auth.limit('ai-day',owner,30,86400);
    const report={submission:{kind:image?'photo':'name',name},items:[],skipped:[],language};
    await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language,result) VALUES (?,?,?,'running','queued',?,?)",[id,owner,body.requestId,language,JSON.stringify(report)]);result={id,status:'running',phase:'queued',language,result:report,created_at:new Date().toISOString(),supplement_id:null,error_code:null};
   });}catch(error){this.activeJobs.delete(id);throw error;}
-  if(result.id!==id){this.activeJobs.delete(id);return result;}
+  if(result.id!==id||result.status==='complete'){this.activeJobs.delete(id);return result;}
   // The task owns a private mutable payload; it drops image bytes before enqueueing
   // any research. Waiting research contains names/IDs, never a raw photo or key.
   void this.runProgressive(owner,{requestId:body.requestId,name,image,language},authorization,id);
   return result;
  }
  async jobProgress(owner,id,report,phase='enriching'){
-  const processed=report.items.filter(item=>['complete','reused','failed'].includes(item.research)).length;
-  await this.pool.execute('UPDATE analysis_jobs SET phase=?,total_count=?,processed_count=?,result=?,supplement_id=? WHERE id=? AND user_id=?',[phase,report.items.length,processed,JSON.stringify(report),report.items[0]?.id||null,id,owner]);
+  // Parallel products share one report. Serialize writes so a slower DB response
+  // cannot overwrite a newer terminal count with an older progress snapshot.
+  const previous=this.progressWrites.get(id)||Promise.resolve();
+  const write=previous.catch(()=>{}).then(async()=>{
+   const processed=report.items.filter(item=>['complete','reused','failed'].includes(item.research)).length;
+   await this.pool.execute('UPDATE analysis_jobs SET phase=?,total_count=?,processed_count=?,result=?,supplement_id=? WHERE id=? AND user_id=?',[phase,report.items.length,processed,JSON.stringify(report),report.items[0]?.id||null,id,owner]);
+  });this.progressWrites.set(id,write);
+  try{await write;}finally{if(this.progressWrites.get(id)===write)this.progressWrites.delete(id);}
  }
  async runProgressive(owner,body,authorization,id){
   let report={submission:{kind:body.image?'photo':'name',name:body.name},items:[],skipped:[],language:body.language};
@@ -161,12 +175,12 @@ export class TrackerApi {
    const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);if(!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
    const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');sealed=keys[0].encrypted_key;
    const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
-   const context=JSON.stringify(groups),started=Date.now(),language=body.language;
-   const {result,model}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel,messages:photoProductsMessages({...body,groups,supplements}),schema:photoProductsSchema(groups,supplements,language),validate:v=>validPhotoProducts(v,groups,supplements,language),name:'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
+   const context=JSON.stringify(groups),started=Date.now(),language=body.language,settings=await this.settings(owner);
+   const {result,model}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel||settings.model,messages:photoProductsMessages({...body,groups,supplements}),schema:photoProductsSchema(groups,supplements,language),validate:v=>validPhotoProducts(v,groups,supplements,language),name:'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
    body.image=null; // No background research request resends a photo.
    if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
    await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);
-   report={submission:report.submission,items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started};
+   report={submission:report.submission,items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started,recognitionModel:model};
    const products=uniqueProducts(result.products);if(!products.length&&!report.skipped.length)report.skipped.push({location:'',reasonCode:'SUPPLEMENT_NOT_IDENTIFIED'});if(result.overflow)report.skipped.push({location:'',reasonCode:'PHOTO_PRODUCT_LIMIT'});
    await this.auth.transaction(async db=>{
     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
@@ -192,12 +206,12 @@ export class TrackerApi {
    });
    if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);await this.jobProgress(owner,id,report);
    });failurePhase='enriching';
-   for(const item of report.items){
-    if(item.research!=='queued')continue;
-    try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';await this.jobProgress(owner,id,report);await this.enrich(owner,item.id,body.language,authorization,id,sealed);});item.research='complete';}
+   await Promise.all(report.items.filter(item=>item.research==='queued').map(async item=>{
+    const queuedAt=Date.now();
+    try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';item.queueMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);await this.enrich(owner,item.id,body.language,authorization,id,sealed);});item.research='complete';}
     catch(error){item.research='failed';item.error=safeCode(error);await this.markResearchFailed(owner,item.id,id,item.error);}
-    await this.jobProgress(owner,id,report);
-   }
+    item.elapsedMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);
+   }));
    await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status=?,error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[report.items.length?'complete':'failed',report.items.length?null:'SUPPLEMENT_NOT_IDENTIFIED',id,owner]);
   }catch(error){body.image=null;report.failedPhase=failurePhase;const code=safeCode(error);for(const item of report.items){if(!['queued','researching'].includes(item.research))continue;item.research='failed';item.error=code;try{await this.markResearchFailed(owner,item.id,id,code);}catch{ /* DB may be unavailable; startup also marks interrupted drafts. */ }}try{await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,id,owner]);}catch{ /* Deleted accounts have no surviving private job metadata. */ }}
   finally{body.image=null;this.activeJobs.delete(id);if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);const queue=this.recognitionQueues.get(owner);if(queue&&!queue.running&&!queue.size){queue.close();this.recognitionQueues.delete(owner);}}
@@ -230,7 +244,8 @@ export class TrackerApi {
  async markResearchFailed(owner,id,jobId,error){
   await this.auth.transaction(async db=>{const [rows]=await db.execute('SELECT analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!rows.length)return;const a=typeof rows[0].analysis==='string'?JSON.parse(rows[0].analysis):rows[0].analysis;if(a.enrichment?.jobId!==jobId)return;a.enrichment={...a.enrichment,status:'failed',error};await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),id,owner]);});
  }
- /** One serialized background research task sees ALL drafts immediately. Concurrent
+ /** Up to three background tasks see ALL drafts immediately; reserve the fourth
+  * provider slot for recognition. Each result rechecks live collection state. Concurrent
   * user edits cannot be overwritten; collection changes retain sourced quantities
   * but explicitly invalidate any blanket compatibility clearance. */
  async enrich(owner,id,language,authorization,jobId,encrypted){
@@ -246,20 +261,19 @@ export class TrackerApi {
    const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;if(a.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
    const changed=JSON.stringify(latest.map(r=>[r.id,r.name,r.group_id,r.id===id?null:r.analysis]))!==snapshot;
    if(changed){result.compatibility.stale=true;result.compatibility.requiresReview=true;result.needsReview=true;}
-   const conflict=result.compatibility.assessments.some(a=>['potential_conflict','duplicate'].includes(a.status));
-   // Confidence includes dose/variant evidence; it is not timing confidence.
-   // Keep a clear supplied timing match while retaining all review warnings.
-   let groupId=conflict?null:result.groupId;
-   // Manual reassignment/deletion during research wins over automatic grouping.
-   if(row.group_id!==target.group_id)groupId=row.group_id;
-   const [owned]=await db.execute('SELECT id FROM day_groups WHERE id=? AND user_id=?',[groupId||'',owner]);if(!owned.length)groupId=null;
+   // Planning and safety are separate: a conflict remains visible without erasing
+   // the user's schedule. Concurrent/manual grouping always takes precedence.
+   const [owned]=await db.execute('SELECT id FROM day_groups WHERE user_id=?',[owner]);
+   const grouping=routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
+   const groupId=grouping.groupId;result.grouping=grouping;
+   if(grouping.basis==='provisional'){result.needsReview=true;}
    result.identity=previous.identity;result.enrichment={status:'complete',jobId,language};
    await db.execute('UPDATE supplements SET name=?,analysis=?,model=?,group_id=? WHERE id=? AND user_id=?',[result.productName,JSON.stringify(result),model,groupId,id,owner]);
   });
  }
  async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){
-  const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:'xai'}),model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_4',maxTokens:Math.min(12000,4500+supplements.length*190)}));
-  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
+  const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:'xai'}),model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_4',maxTokens:Math.min(12000,4500+supplements.length*190)}));
+  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
   for(const assessment of result.compatibility.assessments){const s=supplements.find(s=>s.id===assessment.supplementId),a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;assessment.supplementName=s.name;if(assessment.status==='no_known_issue'&&a.enrichment&&a.enrichment.status!=='complete')assessment.status='insufficient_information';}
   if(result.compatibility.assessments.some(a=>a.status!=='no_known_issue')){result.needsReview=true;result.compatibility.requiresReview=true;}return data;
  }
@@ -292,7 +306,7 @@ export class TrackerApi {
    if(conflicts||result.compatibility.assessments.some(a=>a.status==='insufficient_information')){result.needsReview=true;result.compatibility.requiresReview=true;}
    for(const item of result.compatibility.assessments)item.supplementName=supplements.find(s=>s.id===item.supplementId).name;
    // Missing dose evidence alone must not erase a researched timing group.
-   const id=randomUUID(),groupId=conflicts?null:result.groupId;
+   const id=randomUUID(),grouping=routineGrouping({proposed:result.groupId,ownedIds:groups.map(g=>g.id)}),groupId=grouping.groupId;result.grouping=grouping;
    await this.auth.transaction(async db=>{
     const [latestGroups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);
     const [latestSupplements]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);

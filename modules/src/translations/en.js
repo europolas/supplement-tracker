@@ -342,4 +342,6 @@ export default Object.freeze({
   "appSentWithKey": "Sent to xAI with your key",
   "appDoseUnknown": "not determined",
   "appRecentAdditions": "Recent additions",
+  "appReviewCombination": "Review combination",
+  "appTimingPlan": "This group is a timing plan, not confirmation that these supplements are safe to combine.",
 });

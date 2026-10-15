@@ -106,6 +106,7 @@ function renderHome(){
    open.append(element('strong',{text:label.name,className:'product-title'}));
    const summary=compactText(item.analysis.benefitSummary||item.analysis.benefits?.[0]||item.analysis.whenToUse);
    const meta=element('span',{className:'summary'});if(label.manufacturer)meta.append(element('b',{text:label.manufacturer,className:'product-manufacturer'}));if(summary)meta.append(document.createTextNode((label.manufacturer?' · ':'')+summary));if(meta.textContent)open.append(meta);
+   if(item.analysis.compatibility?.assessments?.some(a=>['potential_conflict','duplicate'].includes(a.status)))open.append(element('span',{text:i18n.t('appReviewCombination'),className:'research-badge review-combination'}));
    if(item.analysis.enrichment&&item.analysis.enrichment.status!=='complete')open.append(element('span',{text:i18n.t('appInfo_'+item.analysis.enrichment.status),className:'research-badge'}));
 
    const check=button('',async()=>{if(check.disabled)return;check.disabled=true;await mutate(()=>api.request('/v1/supplements/'+item.id+'/completion',{method:'PUT',body:{completed:!(state.day===localDay()&&item.completed),timezone:zone()}}));check.disabled=false;},'check-button');
@@ -172,7 +173,9 @@ function renderDetail(){
  if(analysis.compatibility?.stale)compatibility.append(element('p',{text:i18n.t('appCompatibilityStale'),className:'review-note'}));
  prose(compatibility,analysis.compatibility?.summary||i18n.t(pending?'appInfo_'+analysis.enrichment.status:'appNoCompatibility'));
  if(analysis.compatibility?.assessments?.length){const list=element('ul');for(const a of analysis.compatibility.assessments)list.append(element('li',{text:(a.supplementName||state.supplements.find(s=>s.id===a.supplementId)?.name||'')+' · '+i18n.t('compat_'+a.status)+': '+a.reason}));compatibility.append(list);}
- prose(section('appWhen','timing'),analysis.whenToUse||i18n.t(pending?'appInfo_'+analysis.enrichment.status:'appNoTiming'));
+ prose(section('appWhen','timing'),analysis.grouping?.explanation||analysis.whenToUse||i18n.t(pending?'appInfo_'+analysis.enrichment.status:'appNoTiming'));
+ if(analysis.compatibility?.assessments?.some(a=>['potential_conflict','duplicate'].includes(a.status)))compatibility.prepend(element('p',{text:i18n.t('appTimingPlan'),className:'review-note'}));
+ if(analysis.grouping?.previousWhenToUse){extra.append(heading(i18n.t('appWhen'),'h3'));prose(extra,analysis.grouping.previousWhenToUse);}
  if(analysis.needsReview)extra.append(element('p',{text:i18n.t('appReview')+(analysis.reviewReason?' '+analysis.reviewReason:''),className:'review-note'}));
  if(analysis.manufacturer)extra.append(element('p',{text:[analysis.manufacturer,analysis.variant].filter(Boolean).join(' · '),className:'muted'}));
  if(analysis.enrichment&&analysis.enrichment.status!=='complete')extra.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status)+(analysis.enrichment.error?' '+i18n.message(analysis.enrichment.error):''),className:'review-note'}));

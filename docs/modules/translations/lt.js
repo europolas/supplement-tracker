@@ -342,4 +342,6 @@ export default Object.freeze({
   "appSentWithKey": "Siunčiama į xAI su tavo raktu",
   "appDoseUnknown": "nenustatyta",
   "appRecentAdditions": "Neseniai pridėta",
+  "appReviewCombination": "Peržiūrėk suderinamumą",
+  "appTimingPlan": "Ši grupė nurodo planuojamą laiką, o ne patvirtina, kad papildus saugu derinti.",
 });

@@ -38,10 +38,10 @@ and release rules. Adding an example does not automatically upgrade other apps.
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
 
-## Supplement Tracker 0.8.1
+## Supplement Tracker 0.9.0
 
 Read README.md and server/ANALYSIS.md for research/schema 1.4, provenance, serving
-units and EU adult label NRV policy. modules/ is 1.10.0. App state is now account-scoped through the isolated
+units and EU adult label NRV policy. modules/ is 1.10.1. App state is now account-scoped through the isolated
 Node API/MariaDB in server/. Never use the production DB for regression tests:
 server/scripts/test-isolated.sh provisions a disposable database instance. Initial
 admin and xAI keys live in private /home/deploy/.secrets/supplement-tracker files;
@@ -82,7 +82,7 @@ language en/lt. Migration 006 adds job phase/language; all drafts are committed
 before enrichment. Raw photo is cleared before queueing background research.
 Detailed schema 1.4 has a language enum constrained to that submission's preference.
 Each target sees all other records including drafts; incomplete context is never
-blanket safe. A serialized background queue + prioritized provider queue comes from
+blanket safe. A three-concurrent background queue + prioritized provider queue comes from
 canonical task-queue.mjs (library 1.8.0). No automatic paid retries. On restart mark
 jobs and queued/researching drafts failed but keep records. Retry from details is
 explicit, localized, owner-scoped and does not repeat recognition/add another row.
@@ -109,7 +109,7 @@ UI state. Startup records failedPhase before failing abandoned jobs; no paid ret
 Schema 1.4 adds benefitSummary (nonempty, <=6 words / 80 characters) and a separate
 source-verified doseFallback. Prefer strict timing matches to owned groups; low
 confidence or unknown dosage alone must not unassign a clear timing group. Actual
-potential_conflict/duplicate assessments still unassign. Never conflate a general
+potential_conflict/duplicate assessments require review but do not erase time slots. Never conflate a general
 adult intake/supplement range with manufacturer directions, a personal prescription,
 a clinical treatment dose, label NRV or capsule count. Unknown fallback stays null
 with an explanation. Clinical/regulatory-only research can retain identification
@@ -137,3 +137,9 @@ nutrient/serving data. Home has no group-benefit or table-heading row. Keep each
 product's manufacturer bold and benefit regular in the same muted metadata line.
 Touch dismissal is handled through non-passive touchmove in bottom-sheet; do not
 regress to handle-only pointerup (Safari cancels pointers during native scrolling).
+
+0.9.0: inspect server/ANALYSIS.md before changing AI execution. Three background
+research tasks run concurrently; provider concurrency is four to reserve preview
+capacity. jobProgress serializes writes per job. Day grouping is scheduling, never
+compatibility clearance. Keep warnings on Home/detail, preserve manual JSON markers,
+foreign/deleted group checks, source validation and no automatic paid retries.

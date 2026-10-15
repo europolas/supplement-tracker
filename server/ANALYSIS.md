@@ -40,7 +40,7 @@ claims require a manufacturer source or an actual supplied readable label photo;
 otherwise dose and amounts stay unknown. This proves encountered URL provenance,
 not independent clinical truth or correctness of every AI statement. Ambiguous
 variants, insufficient information and potential interactions require review;
-duplicates/conflicts are not automatically assigned to a routine group.
+duplicates/conflicts keep their planning slot, with compatibility review prominently visible. A time slot is not a safety approval.
 
 Before insert, recheck session, unchanged encrypted key and collection snapshot in
 a transaction. Logout/key deletion/routine changes during research cannot silently
@@ -237,3 +237,41 @@ adult norm were unavailable; the fallback correctly stayed unavailable rather th
 copying a regional capsule count or a disease-treatment trial regimen. This tests
 provider contract/provenance, not clinical truth. Group specificity follows the
 returned source-supported timing; a fat-specific assignment requires that evidence.
+
+## 0.9.0 latency and grouping correction
+
+Observed legacy jobs took 224–843 seconds for 2–7 products while initial recognition
+was 4.4–9.0 seconds. Full research was serial, and later results erased initial groups
+for missing exact label timing or any overlap/interaction. These are separate concerns.
+
+Use the measured fast grok-4.3/none recognition path; detailed research still uses the
+account-selected model (grok-4.7/low). A same-photo A/B measured 8.6 s vs 22.5 s and
+7/7 assigned for both models, so substituting 4.7 for preview was not a speed fix.
+All drafts commit before research starts. Schedule the whole batch into an existing
+bounded queue with concurrency 3, leaving provider slot 4 available for recognition.
+No extra paid calls/retries are introduced. Report writes are serialized per job to
+avoid regressing progress under concurrent completion. Each research result still
+invalidates compatibility if its collection snapshot changed while it was running.
+
+routineGrouping preserves an owned detailed recommendation, or an owned provisional
+slot if research cannot establish timing. Conflicts and duplicate ingredients retain
+review warnings independently. Explicit manual grouping (including unassign) has a
+persisted JSON marker and always wins. Removed/foreign groups cannot be restored.
+Prompts distinguish optional ingredient-based planning from verified manufacturer
+instructions and request concise explanations; source/dose validation is unchanged.
+
+The explicit scripts/reconcile-groups.mjs maintenance command repairs only the chosen
+owner's legacy automatic omissions (null group, readable saved preliminary group,
+no manual marker). It asks one structured 4.7/low call about the full stored routine,
+backs up rows/proposals to a required private mount, then rechecks key, owner, groups
+and every row snapshot. Already assigned/manual/concurrently edited rows are skipped.
+It preserves manufacturer quantities, sources and warnings; historical timing text
+remains in grouping.previousWhenToUse and secondary details. Never run on startup.
+
+Validation (2026-10-15): real seven-product photo completed recognition/grouping in
+7,245 ms; all seven sourced detail records finished in 210 seconds, no failures,
+each with six sibling assessments and 2–4 sources. This is a single measured run,
+not a latency guarantee. Isolated regression: 29 passed, paid test skipped on the
+subsequent offline run; the paid photo test passed separately. Browser: 17 passed.
+Legacy owner-scoped reconciliation restored five automatically removed group slots
+in 25 seconds with private before/proposal backups; no source or dose edits.
