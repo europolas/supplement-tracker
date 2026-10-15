@@ -42,7 +42,7 @@ const addSheet=createBottomSheet(get('add-dialog'),{onDismiss:()=>closeAdd()});
 const groupSheet=createBottomSheet(get('group-dialog'));
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router;
-let photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,latestReport=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set(),jobHistory=[];
+let collectionEpoch=0,photo=null,imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,latestReport=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set(),jobHistory=[];
 const dirty=[...document.querySelectorAll('form')].map(form=>({form,tracker:trackDirty(form)}));
 const clearDirty=form=>dirty.find(item=>item.form===form)?.tracker.reset();
 for(const {form} of dirty){form.addEventListener('reset',()=>clearDirty(form));form.addEventListener('app:saved',()=>clearDirty(form));}
@@ -53,6 +53,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
+ collectionEpoch++;
  void groupSheet.close({immediate:true});
  generation++;jobHistory=[];activeJobs=[];modalJobId=null;jobSignature='';recognitionShown.clear();watchedJob=null;sending=false;state={groups:[],supplements:[],ai:null,day:localDay()};analysisAbort?.abort();closeAdd(true);
  for(const {form} of dirty){if(form.id==='settings-form')continue;form.reset();clearDirty(form);}
@@ -77,7 +78,7 @@ async function load(checkJobs=true){
   const result=await api.get('/v1/dashboard?timezone='+encodeURIComponent(zone()));
   if(session!==current()||version!==generation)return;
   state=result;get('app-error').hidden=true;status('home-status','');render();
-  if(checkJobs){const latest=await api.get('/v1/supplements/jobs');await observeJobs(latest,session);}
+  if(checkJobs){const latest=await api.get('/v1/supplements/jobs');if(version!==generation)return;await observeJobs(latest,session);}
  }catch(error){if(session===current()&&version===generation){status('home-status','');get('app-error').hidden=false;get('app-error').textContent=err(error);}}
 }
 function renderHome(){
@@ -232,7 +233,7 @@ function renderDetail(){
  disclosure.append(toggle,extra);card.append(disclosure);container.append(card);
 }
 function renderAi(){
- get('ai-settings').hidden=!current();if(!state.ai)return;
+ get('clear-data-panel').hidden=!current();get('ai-settings').hidden=!current();if(!state.ai)return;
  status('ai-key-status',i18n.t(state.ai.configured?'appKeySaved':'appKeyMissing'));
  get('remove-key').disabled=!state.ai.configured;
  const select=get('ai-form').elements.model;
@@ -326,9 +327,10 @@ function renderUploadQueue(){
 }
 /** One loop observes every job; closing the upload dialog never aborts it. */
 async function observeJobs(data,session,refresh=false){
+ const epoch=collectionEpoch;
  if(session!==current())return;
  const active=data.active||((data.job?.status==='running')?[data.job]:[]),signature=JSON.stringify([data.job,active,data.recent]);
- if(refresh&&signature!==jobSignature)await load(false);if(session!==current())return;jobSignature=signature;activeJobs=active;
+ if(refresh&&signature!==jobSignature)await load(false);if(session!==current()||epoch!==collectionEpoch)return;jobSignature=signature;activeJobs=active;
  const history=new Map(jobHistory.map(job=>[job.id,job]));for(const job of [...(data.recent||[]),...(data.job?[data.job]:[]),...active])history.set(job.id,job);
  jobHistory=[...history.values()].sort((a,b)=>Date.parse(b.finished_at||b.created_at||0)-Date.parse(a.finished_at||a.created_at||0)).filter((job,index)=>job.status==='running'||index<20);
  const recognizing=active.some(job=>!job.phase||job.phase==='recognizing'),queued=active.some(job=>job.phase==='queued');
@@ -349,10 +351,17 @@ async function observeJobs(data,session,refresh=false){
 async function watchJobs(session){
  const marker={};watchedJob=marker;analysisAbort=new AbortController();const signal=analysisAbort.signal;
  const wait=()=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},1200);function abort(){clearTimeout(timer);reject(new Error('AI_JOB_INTERRUPTED'));}signal.addEventListener('abort',abort,{once:true});});
- try{while(session===current()&&activeJobs.length){await wait();const data=await api.get('/v1/supplements/jobs',{signal});await observeJobs(data,session,true);}}
+ try{while(session===current()&&activeJobs.length){await wait();const data=await api.get('/v1/supplements/jobs',{signal});if(signal.aborted)return;await observeJobs(data,session,true);}}
  catch(error){if(session===current()&&!signal.aborted)status('home-status',err(error),true);}
  finally{if(watchedJob===marker)watchedJob=null;}
 }
+get('clear-supplements').addEventListener('click',async()=>{
+ if(writes||!current())return;
+ if(!await confirmDialog(i18n.t('appClearSupplementsConfirm'),{i18n}))return;
+ const session=current(),control=get('clear-supplements');control.disabled=true;writes++;
+ try{await api.delete('/v1/supplements',{body:{confirm:true}});if(session!==current())return;resetSession();await load();notify(i18n.t('appClearSupplementsDone'));}
+ catch(error){if(session===current())failure(error);}finally{writes--;control.disabled=false;}
+});
 get('analyze-form').addEventListener('submit',async event=>{
  event.preventDefault();if(sending||!current())return;
  const form=get('analyze-form'),name=form.elements.name.value.trim();

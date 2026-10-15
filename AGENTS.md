@@ -1,6 +1,6 @@
 # Generated application: agent handoff
 
-## Current behavior: 0.10.1 (2026-10-15)
+## Current behavior: 0.10.2 (2026-10-15)
 
 The user explicitly reduced scope to one AI call per submitted name/photo. The
 production TrackerApi defaults to singlePass=true. The compact strict contract
@@ -166,3 +166,12 @@ research tasks run concurrently; provider concurrency is four to reserve preview
 capacity. jobProgress serializes writes per job. Day grouping is scheduling, never
 compatibility clearance. Keep warnings on Home/detail, preserve manual JSON markers,
 foreign/deleted group checks, source validation and no automatic paid retries.
+
+0.10.2 adds confirmed account-scoped DELETE /supplements with {confirm:true}.
+It deletes supplements/completions and analysis jobs only; groups, API credentials,
+preferences and account/session remain. The owner row lock serializes recognition
+commits; recognition checks its job still exists inside that transaction, preventing
+late results from restoring deleted data. Queued recognition checks before sending.
+Already-sent provider requests cannot be recalled; their results are discarded.
+Client resets private upload/history state and invalidates outstanding reads. Test
+only isolated DB data; never invoke destructive smoke checks on production users.

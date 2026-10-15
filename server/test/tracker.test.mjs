@@ -186,6 +186,22 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
 
    await assert.rejects(call('POST','/supplements/analyze',body),e=>e.status===404);
   });
+  await t.test('clear keeps groups/key/other accounts and rejects late recognition results',async()=>{
+   await pool.query('DELETE FROM auth_rate_limits');
+   await request(b,'PUT','/settings/ai',{key:'xai-test-only-private-key-for-bob',model:'grok-4.7'});
+   const beforeA=(await request(a,'GET','/dashboard',{},query))[1],beforeB=(await request(b,'GET','/dashboard',{},query))[1];
+   const savedId=randomUUID();await pool.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) SELECT ?,?,?,name,analysis,model,? FROM supplements WHERE id=?',[savedId,b.user.id,beforeB.groups[0].id,randomUUID(),first]);
+   await request(b,'PUT','/supplements/'+savedId+'/completion',{completed:true,timezone:'Europe/Vilnius'});
+   let release,entered;const gate=new Promise(r=>release=r),started=new Promise(r=>entered=r);
+   const slow=new TrackerApi(pool,auth,{vault,chat,discover:async input=>{entered();await gate;const c=JSON.parse(input.messages[1].content[0].text);return {model:input.model,result:{language:'en',products:[{name:'Delayed vitamin',manufacturer:'Example',groupId:c.groups[0].id,benefit:'Possible support'}],skipped:[]}};}});
+   const [,job]=await slow.handle('POST','/supplements/jobs',{requestId:randomUUID(),name:'Delayed vitamin'},'Bearer '+b.token,'test');await started;
+   await assert.rejects(request(b,'DELETE','/supplements'),e=>e.status===400);
+   await request(b,'DELETE','/supplements',{confirm:true,user_id:a.user.id});release();
+   for(let i=0;i<100&&slow.activeJobs.size;i++)await new Promise(r=>setTimeout(r,10));assert.equal(slow.activeJobs.size,0);
+   const after=(await request(b,'GET','/dashboard',{},query))[1];assert.deepEqual(after.groups,beforeB.groups);assert.equal(after.supplements.length,0);assert.equal(after.ai.configured,true);
+   assert.equal((await request(a,'GET','/dashboard',{},query))[1].supplements.length,beforeA.supplements.length);
+   await assert.rejects(request(b,'GET','/supplements/jobs/'+job.id),e=>e.status===404);assert.equal((await request(b,'GET','/supplements/jobs'))[1].recent.length,0);
+  });
   await t.test('group deletion keeps supplements; account deletion cascades private records',async()=>{
    await request(a,'DELETE','/groups/'+group);assert.equal((await request(a,'GET','/dashboard',{},query))[1].supplements.find(s=>s.id===first).group_id,null);
    await auth.dispatch('DELETE','/me',{password,confirmation:'DELETE'},'Bearer '+a.token,'delete');

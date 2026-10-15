@@ -1,6 +1,6 @@
 # Supplement analysis 1.4
 
-## Current behavior: 0.10.1 (2026-10-15)
+## Current behavior: 0.10.2 (2026-10-15)
 
 The user explicitly reduced scope to one AI call per submitted name/photo. The
 production TrackerApi defaults to singlePass=true. The compact strict contract
@@ -303,3 +303,12 @@ in 25 seconds with private before/proposal backups; no source or dose edits.
 10,177 ms; all seven saved as complete basic-1 with groups and Lithuanian benefits.
 31 isolated tests passed in the real run; 3 compact/identity contract tests and
 18 browser tests passed. No production supplement records changed by testing.
+
+0.10.2 adds confirmed account-scoped DELETE /supplements with {confirm:true}.
+It deletes supplements/completions and analysis jobs only; groups, API credentials,
+preferences and account/session remain. The owner row lock serializes recognition
+commits; recognition checks its job still exists inside that transaction, preventing
+late results from restoring deleted data. Queued recognition checks before sending.
+Already-sent provider requests cannot be recalled; their results are discarded.
+Client resets private upload/history state and invalidates outstanding reads. Test
+only isolated DB data; never invoke destructive smoke checks on production users.

@@ -53,6 +53,16 @@ export class TrackerApi {
  async handle(method,path,body,authorization,ip,query=new URLSearchParams()){
   const {user}=await this.auth.authenticate(authorization);const owner=user.id;
   await this.auth.limit('tracker',owner,180,60);
+  if(method==='DELETE'&&path==='/supplements'){
+   if(body.confirm!==true)throw new ApiError(400,'INVALID_INPUT');
+   // Serialize against recognition's commit; deleting jobs invalidates in-flight
+   // results without touching groups, credentials, preferences or other accounts.
+   await this.auth.transaction(async db=>{
+    await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+    await db.execute('DELETE FROM analysis_jobs WHERE user_id=?',[owner]);
+    await db.execute('DELETE FROM supplements WHERE user_id=?',[owner]);
+   });return [200,{ok:true}];
+  }
   if(method==='POST'&&path==='/bootstrap')return [200,await this.bootstrap(owner,body)];
   if(path==='/settings/ai'){
    if(method==='GET')return [200,await this.settings(owner)];
@@ -173,6 +183,7 @@ export class TrackerApi {
    await recognition.enqueue(async()=>{
    failurePhase='recognizing';await this.auth.authenticate(authorization);this.jobOwners.set(owner,id);
    await this.pool.execute("UPDATE analysis_jobs SET phase='recognizing' WHERE id=? AND user_id=?",[id,owner]);
+   const [liveJob]=await this.pool.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=?',[id,owner]);if(!liveJob.length)throw new ApiError(409,'COLLECTION_CHANGED');
    const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);if(!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
    const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');sealed=keys[0].encrypted_key;
    const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
@@ -186,6 +197,7 @@ export class TrackerApi {
    const products=uniqueProducts(result.products);if(!products.length&&!report.skipped.length)report.skipped.push({location:'',reasonCode:'SUPPLEMENT_NOT_IDENTIFIED'});if(result.overflow)report.skipped.push({location:'',reasonCode:'PHOTO_PRODUCT_LIMIT'});
    await this.auth.transaction(async db=>{
     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+    const [liveJob]=await db.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!liveJob.length)throw new ApiError(409,'COLLECTION_CHANGED');
     const [latestGroups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);if(JSON.stringify(latestGroups)!==context)throw new ApiError(409,'COLLECTION_CHANGED');
     const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);
     let capacity=40-rows.length;
