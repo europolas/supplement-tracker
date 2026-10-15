@@ -36,7 +36,7 @@ services:
       SMTP_PASSWORD_FILE: /run/secrets/smtp_password
       VAULT_KEY_FILE: /run/secrets/vault_key
       TYPESAFE_KEY_FILE: /run/secrets/typesafe_key
-      AI_PIPELINE: ${AI_PIPELINE:-grok-jev}
+      AI_PIPELINE: ${AI_PIPELINE:-gemini}
       TRUST_PROXY: "true"
     secrets: [db_app, api_secret, mail_key, smtp_password, vault_key, smtp_ca, dkim_private, typesafe_key]
     networks: [database, outbound, mail]

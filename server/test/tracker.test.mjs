@@ -11,6 +11,7 @@ import {hashPassword,decrypt} from '../src/security.mjs';
 import {validatePhotos,TrackerApi,calendarDay,validatePhoto} from '../src/TrackerApi.mjs';
 import {createCredentialVault} from '../src/credential-vault.mjs';
 import {validAnalysis} from '../src/analysis.mjs';
+import {createGeminiPipeline} from '../src/providers/gemini.mjs';
 import {ProviderError} from '../src/structured-chat.mjs';
 test('calendar boundary and image validation',()=>{
  assert.equal(calendarDay('Europe/Vilnius',new Date('2026-10-14T20:59:59Z')),'2026-10-14');assert.equal(calendarDay('Europe/Vilnius',new Date('2026-10-14T21:00:00Z')),'2026-10-15');assert.throws(()=>validatePhoto('https://example.com/label.jpg'));assert.throws(()=>validatePhoto('data:image/jpeg;base64,YWJjZGVmZ2g='));
@@ -20,7 +21,7 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
  const root=await mysql.createConnection({host:process.env.DB_TEST_HOST,user:'root',password:readFileSync('/run/secrets/test_db_root','utf8').trim(),multipleStatements:true});
  const database='tracker_checks_'+randomBytes(5).toString('hex'),account='checks_'+randomBytes(5).toString('hex'),secret=randomBytes(32).toString('hex');let pool;
  try{
-  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));await root.query(readFileSync('/app/migrations/005_photo_batches.sql','utf8'));await root.query(readFileSync('/app/migrations/006_progressive_analysis.sql','utf8'));await root.query(readFileSync('/app/migrations/007_account_group_cascade.sql','utf8'));await root.query(readFileSync('/app/migrations/008_upload_queue.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
+  await root.query(`CREATE DATABASE ${database} CHARACTER SET utf8mb4`);await root.query(`USE ${database}`);await root.query(readFileSync('/app/schema.sql','utf8'));await root.query(readFileSync('/app/migrations/002_tracker.sql','utf8'));await root.query(readFileSync('/app/migrations/003_analysis_jobs.sql','utf8'));await root.query(readFileSync('/app/migrations/004_persistent_sessions.sql','utf8'));await root.query(readFileSync('/app/migrations/005_photo_batches.sql','utf8'));await root.query(readFileSync('/app/migrations/006_progressive_analysis.sql','utf8'));await root.query(readFileSync('/app/migrations/007_account_group_cascade.sql','utf8'));await root.query(readFileSync('/app/migrations/008_upload_queue.sql','utf8'));await root.query(readFileSync('/app/migrations/009_google_credentials.sql','utf8'));await root.query("CREATE USER ?@'%' IDENTIFIED BY ?",[account,secret]);await root.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${database}.* TO ?@'%'`,[account]);
   pool=mysql.createPool({host:process.env.DB_TEST_HOST,user:account,password:secret,database,timezone:'Z'});
   const config={persistentSessions:true,secret:randomBytes(32).toString('hex'),mailConfigured:false,encryptionKey:randomBytes(32),appUrl:'https://app.example/'};
   const auth=new AuthApi(pool,config,await hashPassword('A long dummy secret phrase'));
@@ -48,6 +49,14 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
   const query=new URLSearchParams({timezone:'Europe/Vilnius'});
   await request(a,'POST','/bootstrap',{timezone:'Europe/Vilnius',language:'en'});await request(b,'POST','/bootstrap',{timezone:'Europe/Vilnius',language:'lt'});
   let dashboard=(await request(a,'GET','/dashboard',{},query))[1];assert.equal(dashboard.groups.length,4);const group=dashboard.groups[0].id;
+  await t.test('Google credentials remain isolated from legacy xAI and other owners',async()=>{
+   const google=new TrackerApi(pool,auth,{vault,chat,discover,credentialProvider:'google',models:['gemini-3.8-flash']});
+   assert.equal((await google.settings(a.user.id)).configured,false);
+   await google.handle('PUT','/settings/ai',{key:'google-private-testing-key',model:'gemini-3.8-flash'},'Bearer '+a.token,'test');
+   assert.equal((await google.settings(a.user.id)).configured,true);assert.equal((await tracker.settings(a.user.id)).configured,false);assert.equal((await google.settings(b.user.id)).configured,false);
+   const [rows]=await pool.execute('SELECT encrypted_key FROM google_provider_credentials WHERE user_id=?',[a.user.id]);assert.equal(vault.open(rows[0].encrypted_key,{owner:a.user.id,provider:'google'}),'google-private-testing-key');assert.throws(()=>vault.open(rows[0].encrypted_key,{owner:a.user.id,provider:'xai'}));
+   await google.handle('DELETE','/settings/ai',{},'Bearer '+a.token,'test');assert.equal((await google.settings(a.user.id)).configured,false);
+  });
   await t.test('permanent sessions have no clock expiry but remain revocable',async()=>{
    assert.equal(a.expiresAt,null);assert.equal((await auth.authenticate('Bearer '+a.token)).expiresAt,null);
    const [stored]=await pool.query('SELECT expires_at FROM auth_sessions WHERE user_id=?',[a.user.id]);assert.equal(stored[0].expires_at,null);
@@ -237,6 +246,15 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    for(let i=0;i<100&&hybrid.activeJobs.size;i++)await new Promise(r=>setTimeout(r,10));
    const [,again]=await call('GET','/dashboard');assert.equal(again.supplements.length,1);assert.equal(again.supplements[0].group_id,originalGroup);assert.equal(again.supplements[0].analysis.benefitTags[0].id,'immunity');
 
+  });
+  await t.test('Gemini single call saves composition, metrics and one group without research',async()=>{
+   await auth.register({email:'gemini@example.test',name:'Gemini',password},'gemini');const session=await auth.login({email:'gemini@example.test',password},'gemini');let n=0;
+   const pipeline=createGeminiPipeline({provider:async input=>{n++;const c=JSON.parse(input.messages[1].content[0].text);return {model:'gemini-3.8-flash',result:{products:[{name:'Vitamin C',manufacturer:'Example',ingredients:['Vitamin C'],groupId:c.groups[0].id,benefit:'Immunity, collagen'}]}};},research:async()=>{throw Error('No automatic research allowed');}});
+   const api=new TrackerApi(pool,auth,{vault,...pipeline});const call=(m,p,b={})=>api.handle(m,p,b,'Bearer '+session.token,'gemini');
+   await call('POST','/bootstrap',{});await call('PUT','/settings/ai',{key:'google-private-gemini-test',model:'gemini-3.8-flash'});const [,job]=await call('POST','/supplements/jobs',{name:'Vitamin C',requestId:randomUUID()});
+   for(let i=0;i<100&&api.activeJobs.size;i++)await new Promise(r=>setTimeout(r,10));
+   const [,done]=await call('GET','/supplements/jobs/'+job.id);assert.equal(done.status,'complete');assert.equal(n,1);assert.equal(done.result.monitor.calls,1);assert.equal(done.result.monitor.pipeline,'gemini-single');assert.equal(done.result.review,undefined);
+   const [,dash]=await call('GET','/dashboard');assert.equal(dash.supplements.length,1);assert.equal(dash.supplements[0].analysis.composition.ingredients[0].name,'Vitamin C');assert.equal(dash.supplements[0].analysis.classification.provider,'google');assert.ok(dash.groups.some(g=>g.id===dash.supplements[0].group_id));
   });
   await t.test('group deletion keeps supplements; account deletion cascades private records',async()=>{
    await request(a,'DELETE','/groups/'+group);assert.equal((await request(a,'GET','/dashboard',{},query))[1].supplements.find(s=>s.id===first).group_id,null);

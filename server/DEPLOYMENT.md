@@ -66,3 +66,13 @@ Version 0.3.1 applies migration 004 before starting the new API: session expiry 
 nullable and currently active rows become permanent. Expired rows are never revived.
 The app runtime explicitly enables persistentSessions; generic toolkit defaults
 remain twelve hours. Tokens stay hashed in DB and all revocation paths remain.
+
+### Gemini 0.14.0 migration
+
+Build API and tools images explicitly (`docker compose --env-file .runtime/compose.env -f server/compose.yml build api web migrate`), run migration 009 before restarting, then recreate API/web. The migrate service has the tools profile and is not rebuilt by an unqualified default build.
+`AI_PIPELINE` defaults to `gemini`; no JEV key is read on this path. Each account
+needs its own Google AI key via `/v1/settings/ai`, model `gemini-3.8-flash`. Never
+copy the legacy encrypted xAI key into the Google table or use a shared fallback.
+The owner’s private Google test key may be installed through their authenticated
+settings endpoint as authorized; never log request bodies or responses containing
+session tokens. Verify public health, selected model, manifest and service worker.

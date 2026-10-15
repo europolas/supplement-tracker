@@ -1,3 +1,25 @@
+## Current production design: 0.14.0 — Gemini TEST2
+
+Gemini 3.8 Flash / LOW is the default (`AI_PIPELINE=gemini`). Adding calls
+Gemini exactly once for identity, partial composition, one owned group and
+2–4 localized benefit words. No JEV, automatic review, search, cache or research
+follows adding. Instructions are English, response language follows en/lt.
+Grouping instructions are universal; no fixture product list or desired count
+is included. After identification, the existing reviewed exact-manufacturer
+food constraint cache prevents a known required-food product staying in fasting.
+This is a local guard, not another AI call or a reference-table override. Existing manual routines are preserved.
+
+Google keys are encrypted per owner in `google_provider_credentials` (migration
+009), with provider-bound encryption. Legacy xAI keys are not sent to Google.
+Legacy factories remain for explicit rollback; switching server pipeline also
+requires matching UI provider labels. Google is the only active UI model.
+
+The explicit details button uses two Gemini calls: grounded lookup, then strict
+JSON extraction; grounded citations are validated by the existing source policy.
+This is separate from the single-request adding path. No silent retries.
+See `reports/gemini-release.md` and `reports/gemini-request-example.json`.
+Historical sections below describe earlier versions, not the active pipeline.
+
 # Supplement analysis 1.4
 
 ## Current: 0.12.0 — automatic grouping review

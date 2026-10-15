@@ -5,13 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
-async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false}={}){
- let completed=false,added=preloaded,started=hybrid,configured=true,release,terminalJob=null,researchRequested=false,reviewApplied=false,released=false,detailsReady=!progressive;
+async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false}={}){
+ let completed=false,added=preloaded,started=hybrid||gemini,configured=true,release,terminalJob=null,researchRequested=false,reviewApplied=false,released=false,detailsReady=!progressive;
  const uploads=[],requests=[];release=()=>{released=true;};
  await page.route('https://perimove.com/supplement-api/**',async route=>{
   const request=route.request(),path=new URL(request.url()).pathname.replace('/supplement-api','');requests.push({path,method:request.method()});
   let result={ok:true},httpStatus=200;
-  const ai={configured,model:'grok-4.7',models:['grok-4.7']};
+  const ai={configured,model:gemini?'gemini-3.8-flash':'grok-4.7',models:[gemini?'gemini-3.8-flash':'grok-4.7']};
   if(path==='/health')result={ok:true,passwordRecoveryAvailable:false};
   else if(path==='/v1/login')result={token:'a'.repeat(64),expiresAt:null,user};
   else if(path==='/v1/me')result={user,expiresAt:null};
@@ -42,6 +42,7 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
   if(groupReview&&path==='/v1/dashboard'){result.groups.push({id:'55555555-5555-4555-8555-555555555555',name:'With fats'});if(reviewApplied&&result.supplements.length)result.supplements[0].group_id=result.groups[1].id;}
   if(groupReview&&result.job?.status==='complete'){result.job.total_count=1;result.job.result={items:[{id,name:'Vitamin',status:'added',research:'complete'}],review:{status:reviewApplied?'applied':'ready',groups:[{id:group,name:'With a meal'},{id:'55555555-5555-4555-8555-555555555555',name:'With fats'}],changes:[{id}],assessments:[{id,name:'Vitamin',from:group,to:'55555555-5555-4555-8555-555555555555',reason:'Manufacturer recommends a fat-containing meal.',sourceUrl:'https://manufacturer.example/timing'}]}};}
   if(hybrid&&path==='/v1/dashboard'&&added){const a=result.supplements[0].analysis;a.schemaVersion='basic-1';a.composition={ingredients:[{name:'Vitamin C',labelAmount:''}],complete:false};a.benefitTags=[{id:'immunity',en:'Immunity',lt:'Imunitetas'},{id:'antioxidant',en:'Antioxidant',lt:'Antioksidantas'}];}
+  if(gemini&&result.job){Object.assign(result.job,{created_at:'2026-10-16T10:00:00Z',finished_at:'2026-10-16T10:00:10Z',total_count:16,result:{items:[],monitor:{pipeline:'gemini-single',model:'gemini-3.8-flash',geminiMs:10000,totalMs:10000,recognized:16,calls:1,inputTokens:4000,outputTokens:1000,thinkingTokens:100}}});result.recent=[result.job];}
   if(hybrid&&result.job){Object.assign(result.job,{created_at:'2026-10-15T10:00:00Z',finished_at:'2026-10-15T10:00:15Z',total_count:16,result:{items:[],monitor:{pipeline:'grok-jev',grokModel:'grok-4.7',jevModel:'jev-1.14.0',grokCacheHit:true,grokMs:12000,jevMs:1000,totalMs:13000,recognized:16,grokCalls:1,jevCompleted:4,jevBatches:4,questions:1616,jevInputTokens:12345,completeComposition:0,partialComposition:15,unknownComposition:1}}});result.recent=[result.job];}
   await route.fulfill({status:httpStatus,json:result});
  });
@@ -245,4 +246,10 @@ test('hybrid composition, localized tags and owner diagnostics fit the Sage shee
  expect(await page.locator('#ai-dashboard').evaluate(n=>n.scrollWidth<=n.clientWidth)).toBe(true);await page.screenshot({path:'.runtime/hybrid-dashboard.png'});
  await page.evaluate(()=>location.hash='/account');await page.locator('#settings-form select[name="language"]').selectOption('lt');await page.locator('#settings-form button').click();await page.locator('#diagnostics-link').click();await expect(page.locator('#route-title')).toHaveText('AI diagnostika');await expect(page.locator('#ai-dashboard')).toContainText('Atpažinti produktai');
  await page.evaluate(()=>location.hash='/');await page.locator('.supplement-open').click();await expect(page.locator('[data-detail-section="benefits"]')).toContainText('Imunitetas');
+});
+
+test('Gemini account and diagnostic screen show one request without JEV',async({page})=>{
+ await mock(page,{preloaded:true,gemini:true});await login(page);
+ await page.goto('/#/diagnostics');await expect(page.locator('#ai-dashboard')).toContainText('gemini-3.8-flash');await expect(page.locator('#ai-dashboard')).toContainText('AI requests');await expect(page.locator('#ai-dashboard')).not.toContainText('JEV classification');
+ await page.screenshot({path:'.runtime/gemini-dashboard.png'});
 });

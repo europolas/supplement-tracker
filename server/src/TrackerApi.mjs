@@ -40,13 +40,13 @@ export function validatePhotos(body){
  const images=body.images.map(validatePhoto);if(images.some(x=>!x)||images.reduce((n,x)=>n+x.length,0)>4300000)throw new ApiError(400,'IMAGE_INVALID');return images;
 }
 export class TrackerApi {
- constructor(pool,auth,{vault,chat,discover,review=null,singlePass=true,discoveryModel='grok-4.7',models=['grok-4.7'],now=()=>new Date()}){this.review=review;this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
+ constructor(pool,auth,{vault,chat,discover,credentialProvider='xai',review=null,singlePass=true,discoveryModel='grok-4.7',models=['grok-4.7'],now=()=>new Date()}){if(!['xai','google'].includes(credentialProvider))throw TypeError('Invalid credential provider');this.credentialProvider=credentialProvider;this.credentialTable=credentialProvider==='google'?'google_provider_credentials':'provider_credentials';this.review=review;this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
  get providers(){return this.providerQueue.running;}
  async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
-  const [keys]=await this.pool.execute('SELECT updated_at FROM provider_credentials WHERE user_id=?',[user]);
+  const [keys]=await this.pool.execute(`SELECT updated_at FROM ${this.credentialTable} WHERE user_id=?`,[user]);
   const [prefs]=await this.pool.execute('SELECT model,timezone FROM tracker_preferences WHERE user_id=?',[user]);
-  return {configured:keys.length>0,updatedAt:keys[0]?.updated_at||null,model:prefs[0]?.model||this.models[0],timezone:prefs[0]?.timezone||'UTC',models:this.models};
+  return {configured:keys.length>0,updatedAt:keys[0]?.updated_at||null,provider:this.credentialProvider,model:this.models.includes(prefs[0]?.model)?prefs[0].model:this.models[0],timezone:prefs[0]?.timezone||'UTC',models:this.models};
  }
  async bootstrap(user,body){
   const zone=timezone(body.timezone||'UTC');const lt=body.language==='lt';
@@ -81,12 +81,12 @@ export class TrackerApi {
     if(!this.models.includes(body.model))throw new ApiError(400,'INVALID_MODEL');
     if(body.key!==undefined&&body.key!==''){
      const key=text(body.key,500);if(!/^[A-Za-z0-9_.-]{16,500}$/.test(key))throw new ApiError(400,'AI_KEY_INVALID');
-     const sealed=this.vault.seal(key,{owner,provider:'xai'});
-     await this.pool.execute('INSERT INTO provider_credentials(user_id,encrypted_key) VALUES (?,?) ON DUPLICATE KEY UPDATE encrypted_key=VALUES(encrypted_key),updated_at=UTC_TIMESTAMP(3)',[owner,sealed]);
+     const sealed=this.vault.seal(key,{owner,provider:this.credentialProvider});
+     await this.pool.execute(`INSERT INTO ${this.credentialTable}(user_id,encrypted_key) VALUES (?,?) ON DUPLICATE KEY UPDATE encrypted_key=VALUES(encrypted_key),updated_at=UTC_TIMESTAMP(3)`,[owner,sealed]);
     }
     await this.pool.execute('UPDATE tracker_preferences SET model=? WHERE user_id=?',[body.model,owner]);return [200,await this.settings(owner)];
    }
-   if(method==='DELETE'){await this.pool.execute('DELETE FROM provider_credentials WHERE user_id=?',[owner]);return [200,await this.settings(owner)];}
+   if(method==='DELETE'){await this.pool.execute(`DELETE FROM ${this.credentialTable} WHERE user_id=?`,[owner]);return [200,await this.settings(owner)];}
   }
   if(method==='GET'&&path==='/dashboard'){
    const zone=timezone(query.get('timezone')||'UTC'),day=calendarDay(zone,this.now());
@@ -197,10 +197,10 @@ export class TrackerApi {
    await this.pool.execute("UPDATE analysis_jobs SET phase='recognizing' WHERE id=? AND user_id=?",[id,owner]);
    const [liveJob]=await this.pool.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=?',[id,owner]);if(!liveJob.length)throw new ApiError(409,'COLLECTION_CHANGED');
    const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);if(!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
-   const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');sealed=keys[0].encrypted_key;
+   const [keys]=await this.pool.execute(`SELECT encrypted_key FROM ${this.credentialTable} WHERE user_id=?`,[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');sealed=keys[0].encrypted_key;
    const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
    const context=JSON.stringify(groups),started=Date.now(),language=body.language,settings=await this.settings(owner);
-   let {result,model,inventory,productMetadata,timings,pipeline}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel||settings.model,cacheScope:owner,onMetrics:async update=>{report.monitor={...(report.monitor||{}),...update};await this.jobProgress(owner,id,report,update.stage==='grok'?'recognizing':'enriching');},compositionCache:supplements.map(r=>{const a=typeof r.analysis==='string'?JSON.parse(r.analysis):r.analysis;return {name:r.name,manufacturer:a.manufacturer,composition:a.composition||(a.research?.checkedAt&&a.nutrients?.length?{complete:false,basis:'verified_research',checkedAt:a.research.checkedAt,ingredients:a.nutrients.filter(n=>['manufacturer','label_photo'].includes(n.evidence)).map(n=>({name:n.name,labelAmount:''}))}:null)};}),beforeClassification:async()=>{await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);const [jobs]=await this.pool.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=?',[id,owner]);if(!jobs.length)throw new ApiError(409,'COLLECTION_CHANGED');await this.pool.execute("UPDATE analysis_jobs SET phase='enriching' WHERE id=? AND user_id=?",[id,owner]);},messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
+   let {result,model,inventory,productMetadata,timings,pipeline}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:this.credentialProvider}),model:this.discoveryModel||settings.model,cacheScope:owner,onMetrics:async update=>{report.monitor={...(report.monitor||{}),...update};await this.jobProgress(owner,id,report,['grok','gemini'].includes(update.stage)?'recognizing':'enriching');},compositionCache:supplements.map(r=>{const a=typeof r.analysis==='string'?JSON.parse(r.analysis):r.analysis;return {name:r.name,manufacturer:a.manufacturer,composition:a.composition||(a.research?.checkedAt&&a.nutrients?.length?{complete:false,basis:'verified_research',checkedAt:a.research.checkedAt,ingredients:a.nutrients.filter(n=>['manufacturer','label_photo'].includes(n.evidence)).map(n=>({name:n.name,labelAmount:''}))}:null)};}),beforeClassification:async()=>{await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);const [jobs]=await this.pool.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=?',[id,owner]);if(!jobs.length)throw new ApiError(409,'COLLECTION_CHANGED');await this.pool.execute("UPDATE analysis_jobs SET phase='enriching' WHERE id=? AND user_id=?",[id,owner]);},messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
    if(this.singlePass){if(!validBasicProducts(result,groups,language))throw new ApiError(502,'AI_INVALID_RESPONSE');result=normalizeBasicProducts(result);}
    body.image=null;body.images=[]; // No background research request resends a photo.
    if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
@@ -237,7 +237,7 @@ export class TrackerApi {
      if(capacity<=0){report.skipped.push({name:product.name,reasonCode:'SUPPLEMENT_LIMIT'});continue;}capacity--;
      const draft=draftAnalysis({...product,requestedName:body.name||null},{language,jobId:id}),recordId=randomUUID();
      if(productMetadata?.[identity])Object.assign(draft,productMetadata[identity]);
-     if(this.singlePass){draft.schemaVersion='basic-1';draft.enrichment={status:'complete',jobId:id,language};draft.needsReview=productMetadata?.[identity]?productMetadata[identity].classification.groupConfidence<.65:product.review;draft.productName=product.name;}
+     if(this.singlePass){draft.schemaVersion='basic-1';draft.enrichment={status:'complete',jobId:id,language};draft.needsReview=productMetadata?.[identity]?typeof productMetadata[identity].classification.groupConfidence==='number'&&productMetadata[identity].classification.groupConfidence<.65:product.review;draft.productName=product.name;}
      await db.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) VALUES (?,?,?,?,?,?,?)',[recordId,owner,product.groupId,draft.productName,JSON.stringify(draft),model,productRequestId(body.requestId,index)]);
      report.items.push({id:recordId,name:draft.productName,status:'added',research:this.singlePass?'complete':'queued'});
     }
@@ -266,7 +266,7 @@ export class TrackerApi {
    const [rows]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
    const targets=rows.filter(r=>report.items.some(i=>i.id===r.id));if(!targets.length)return;
    const snapshot=reviewSnapshot(rows),started=Date.now();
-   const response=await this.provider(()=>this.review({key:this.vault.open(sealed,{owner,provider:'xai'}),model:'grok-4.7',messages:groupReviewMessages({groups,rows,targets,language:report.language}),schema:groupReviewSchema(groups,targets),validate:v=>validGroupReview(v,groups,targets),name:'supplement_group_review',maxTokens:Math.min(10000,1000+targets.length*280)}));
+   const response=await this.provider(()=>this.review({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:'grok-4.7',messages:groupReviewMessages({groups,rows,targets,language:report.language}),schema:groupReviewSchema(groups,targets),validate:v=>validGroupReview(v,groups,targets),name:'supplement_group_review',maxTokens:Math.min(10000,1000+targets.length*280)}));
    if(!validGroupReview(response.result,groups,targets))throw new ApiError(502,'AI_INVALID_RESPONSE');
    await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
    const citations=new Set((response.citations||[]).map(citationUrl));
@@ -312,7 +312,7 @@ export class TrackerApi {
    finally{try{await this.jobProgress(owner,job.id,job.result,'done');await this.pool.execute("UPDATE analysis_jobs SET status='complete',finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[job.id,owner]);}catch{ /* Deleted account. */ }this.activeJobs.delete(job.id);}
   })().catch(()=>{this.activeJobs.delete(job.id);});return job;
  }
- async checkKey(owner,encrypted){const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');if(encrypted&&keys[0].encrypted_key!==encrypted)throw new ApiError(409,'AI_KEY_CHANGED');return keys[0].encrypted_key;}
+ async checkKey(owner,encrypted){const [keys]=await this.pool.execute(`SELECT encrypted_key FROM ${this.credentialTable} WHERE user_id=?`,[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');if(encrypted&&keys[0].encrypted_key!==encrypted)throw new ApiError(409,'AI_KEY_CHANGED');return keys[0].encrypted_key;}
  async markResearchFailed(owner,id,jobId,error){
   await this.auth.transaction(async db=>{const [rows]=await db.execute('SELECT analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!rows.length)return;const a=typeof rows[0].analysis==='string'?JSON.parse(rows[0].analysis):rows[0].analysis;if(a.enrichment?.jobId!==jobId)return;a.enrichment={...a.enrichment,status:'failed',error};await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),id,owner]);});
  }
@@ -347,7 +347,7 @@ export class TrackerApi {
  }
  async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){
   const focused=this.singlePass;
-  const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:'xai'}),model:settings.model,messages:focused?detailsMessages({name,image,language,target}):analysisMessages({name,image,groups,supplements,language,target}),schema:focused?detailsSchema(groups,language):analysisSchema(groups,supplements,language),validate:value=>focused?validDetails(value,groups,language):validAnalysis(value,groups,supplements,language),name:focused?'supplement_product_details':'supplement_analysis_v1_4',maxTokens:focused?5000:Math.min(12000,4500+supplements.length*190)}));
+  const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:settings.model,messages:focused?detailsMessages({name,image,language,target}):analysisMessages({name,image,groups,supplements,language,target}),schema:focused?detailsSchema(groups,language):analysisSchema(groups,supplements,language),validate:value=>focused?validDetails(value,groups,language):validAnalysis(value,groups,supplements,language),name:focused?'supplement_product_details':'supplement_analysis_v1_4',maxTokens:focused?5000:Math.min(12000,4500+supplements.length*190)}));
   const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;if(focused)result.research.scope='product-details';await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
   for(const assessment of result.compatibility.assessments){const s=supplements.find(s=>s.id===assessment.supplementId),a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;assessment.supplementName=s.name;if(assessment.status==='no_known_issue'&&a.enrichment&&a.enrichment.status!=='complete')assessment.status='insufficient_information';}
   if(result.compatibility.assessments.some(a=>a.status!=='no_known_issue')){result.needsReview=true;result.compatibility.requiresReview=true;}return data;
@@ -362,7 +362,7 @@ export class TrackerApi {
   if(!skipRateLimit){await this.auth.limit('ai-minute',owner,4,60);await this.auth.limit('ai-day',owner,30,86400);}
   const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);
   if(!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
-  const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');
+  const [keys]=await this.pool.execute(`SELECT encrypted_key FROM ${this.credentialTable} WHERE user_id=?`,[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');
   const settings=await this.settings(owner);if(!this.models.includes(settings.model))throw new ApiError(400,'INVALID_MODEL');
   const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
   if(supplements.length>=40)throw new ApiError(400,'SUPPLEMENT_LIMIT');
@@ -370,12 +370,12 @@ export class TrackerApi {
   if(this.running.size>=4)throw new ApiError(503,'AI_BUSY');
   this.running.add(owner);
   try{
-   const key=this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'});
+   const key=this.vault.open(keys[0].encrypted_key,{owner,provider:this.credentialProvider});
    const {result,model,citations}=await this.provider(()=>this.chat({key,model:settings.model,messages:analysisMessages({name,image,groups,supplements,language,target}),schema:analysisSchema(groups,supplements,language),validate:value=>validAnalysis(value,groups,supplements,language),name:'supplement_analysis_v1_4',maxTokens:Math.min(12000,4500+supplements.length*190)}));
    if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');
    finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});
    await this.auth.authenticate(authorization);
-   const [current]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);
+   const [current]=await this.pool.execute(`SELECT encrypted_key FROM ${this.credentialTable} WHERE user_id=?`,[owner]);
    if(current[0]?.encrypted_key!==keys[0].encrypted_key)throw new ApiError(409,'AI_KEY_CHANGED');
    const conflicts=result.compatibility.assessments.some(a=>['potential_conflict','duplicate'].includes(a.status));
    if(conflicts||result.compatibility.assessments.some(a=>a.status==='insufficient_information')){result.needsReview=true;result.compatibility.requiresReview=true;}

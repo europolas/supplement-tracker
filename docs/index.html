@@ -47,9 +47,9 @@
    <div id="account-heading"><div class="eyebrow" data-i18n="appWelcome">A ROUTINE THAT'S YOURS</div><h1 data-i18n="appAccountTitle">A little care,
 every day.</h1></div>
    <div class="surface" id="ai-settings" hidden>
-    <h2 data-i18n="appAiTitle">Your AI connection</h2><p class="muted" data-i18n="appAiHelp">Use your own xAI key to recognise supplements. It stays encrypted on the server.</p>
+    <h2 data-i18n="appAiTitle">Your AI connection</h2><p class="muted" data-i18n="appAiHelp">Use your own Google AI key to recognise supplements. It stays encrypted on the server.</p>
     <p id="ai-key-status" role="status"></p>
-    <form id="ai-form"><label><span data-i18n="appApiKey">xAI API key</span><input name="key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="500"></label><label><span data-i18n="appModel">Model</span><select name="model"></select></label><button class="primary" type="submit" data-i18n="appSaveKey">Save connection</button></form>
+    <form id="ai-form"><label><span data-i18n="appApiKey">Google AI API key</span><input name="key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="500"></label><label><span data-i18n="appModel">Model</span><select name="model"></select></label><button class="primary" type="submit" data-i18n="appSaveKey">Save connection</button></form>
     <button id="remove-key" class="danger-link" type="button" data-i18n="appRemoveKey">Remove saved key</button>
    </div>
    <a id="diagnostics-link" class="secondary diagnostics-link" href="#/diagnostics" data-i18n="appDiagnostics" hidden>AI dashboard</a>
@@ -71,9 +71,9 @@ every day.</h1></div>
    <div class="photo-actions">
     <label class="photo-picker"><span data-icon="image" aria-hidden="true"></span><span data-i18n="appLibraryPhoto">Upload photo</span><input name="photo" type="file" accept="image/*" multiple></label>
    </div>
-   <p class="form-help photo-help" data-i18n="appMultiPhotoHelp">Choose up to 5 photos. AI identifies supplements first; Grok 4.7 then checks grouping and suggests changes for your review.</p>
+   <p class="form-help photo-help" data-i18n="appMultiPhotoHelp">Choose up to 5 photos. One Gemini request identifies products, composition, groups and brief benefits.</p>
    <div id="photo-previews" class="photo-previews" hidden><img id="photo-preview" alt="Selected supplement label" hidden><div id="more-photo-previews"></div></div><button id="remove-photo" class="text-button" type="button" data-i18n="appRemovePhoto" hidden>Remove photos</button>
-   <details class="ai-consent"><summary><span data-icon="shield" aria-hidden="true"></span><span data-i18n="appSentWithKey">Sent to xAI with your key</span><span data-icon="info" aria-hidden="true"></span></summary><p class="form-help" data-i18n="appAiConsent">Your name/photos, groups and existing supplements are sent to xAI using your key. Adding uses one identification request and one automatic grouping verification request. Group changes require your acceptance. Full detailed information is requested separately only when you ask. API calls may incur charges.</p></details>
+   <details class="ai-consent"><summary><span data-icon="shield" aria-hidden="true"></span><span data-i18n="appSentWithKey">Sent to Google AI with your key</span><span data-icon="info" aria-hidden="true"></span></summary><p class="form-help" data-i18n="appAiConsent">Your name/photos, groups and existing supplements are sent to Google AI using your key. Adding uses one Gemini request for identification, composition, grouping and brief benefits. Full detailed information is requested separately only when you ask. API calls may incur charges.</p></details>
    <button class="primary send-button" type="submit" data-i18n="appSend">Send</button>
   </fieldset></form>
   <p id="analysis-status" role="status"></p><section id="upload-queue" class="upload-queue" hidden><h3 data-i18n="appUploadQueue">Upload queue</h3><p id="upload-queue-count" class="form-help"></p><div id="analysis-results"></div></section><button id="view-added" class="secondary" type="button" data-i18n="appView" hidden>View supplement</button>

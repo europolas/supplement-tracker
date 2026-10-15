@@ -335,7 +335,7 @@ function renderUploadQueue(){
   if(job.created_at){const date=new Date(job.created_at);if(Number.isFinite(date.getTime()))labels.append(element('time',{text:new Intl.DateTimeFormat(i18n.language,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date),attributes:{datetime:date.toISOString()},className:'upload-job-time'}));}
   summary.append(element('span',{text:failed?'!':job.status==='complete'?'✓':'…',className:'upload-job-icon',attributes:{'aria-hidden':'true'}}),labels);card.append(summary);
   const step=job.status==='complete'?3:failed?({queued:0,recognizing:1,enriching:2}[job.result?.failedPhase]??(job.result?.items?.length?2:1)):({queued:0,recognizing:1,enriching:2,done:3}[phase]??1),steps=element('ol',{className:'upload-steps'});
-  ['appUpload_queued','appUpload_recognizing',job.result?.review?'appGroupReview':job.result?.monitor?.pipeline==='grok-jev'?'appJevClassifying':'appUpload_enriching','appUploadDone'].forEach((key,index)=>{const row=element('li',{text:i18n.t(key),className:index<step||job.status==='complete'?'is-complete':index===step?'is-current':''});if(index===step&&job.status==='running')row.setAttribute('aria-current','step');if(index===step&&failed)row.dataset.error='true';steps.append(row);});card.append(steps);
+  ['appUpload_queued','appUpload_recognizing',job.result?.review?'appGroupReview':job.result?.monitor?.pipeline==='grok-jev'?'appJevClassifying':job.result?.monitor?.pipeline==='gemini-single'?'appSavingRecords':'appUpload_enriching','appUploadDone'].forEach((key,index)=>{const row=element('li',{text:i18n.t(key),className:index<step||job.status==='complete'?'is-complete':index===step?'is-current':''});if(index===step&&job.status==='running')row.setAttribute('aria-current','step');if(index===step&&failed)row.dataset.error='true';steps.append(row);});card.append(steps);
   if(job.total_count>0){const progress=element('progress',{attributes:{max:String(job.total_count),value:String(job.processed_count||0),'aria-label':i18n.t('appUpload_enriching')}});card.append(progress,element('p',{text:job.result?.review?i18n.t('appGroupReview'):i18n.t('appUploadDetailsProgress',{done:job.processed_count||0,total:job.total_count}),className:'form-help'}));}
   if(failed)card.append(element('p',{text:err(new Error(job.error_code||'REQUEST_FAILED')),attributes:{'data-error':'true'}}));
   if(job.result?.items?.length||job.result?.skipped?.length){const result=element('div',{attributes:{id:'upload-result-'+job.id},className:'upload-job-result'});card.append(result);container.append(card);renderReport(result.id,{...job.result,jobId:job.id,running:job.status==='running',total:job.total_count});}else container.append(card);
@@ -441,20 +441,22 @@ function renderDiagnostics(){
  for(const job of jobHistory){
   const m=job.result?.monitor||{},t=job.result?.timings||m,card=element('article',{className:'surface diagnostics-card',attributes:{'data-diagnostic-job-id':job.id}});
   const title=job.result?.submission?.name||i18n.t('appUploadPhoto');card.append(heading(title,'h2'));
-  const label=job.status==='running'?i18n.t(m.pipeline==='grok-jev'&&job.phase==='enriching'?'appJevClassifying':'appUpload_'+(job.phase||'recognizing')):i18n.t(job.status==='complete'?'appUploadDone':'appUploadFailed');
+  const label=job.status==='running'?i18n.t(m.pipeline==='grok-jev'&&job.phase==='enriching'?'appJevClassifying':(job.result?.monitor?.pipeline==='gemini-single'&&job.phase==='enriching'?'appSavingRecords':'appUpload_'+(job.phase||'recognizing'))):i18n.t(job.status==='complete'?'appUploadDone':'appUploadFailed');
   card.append(element('p',{className:'research-badge',text:label}));
   if(job.created_at){const date=new Date(job.created_at);if(Number.isFinite(date.getTime()))card.append(element('time',{className:'muted',text:date.toLocaleString(i18n.language)}));}
   const list=element('dl',{className:'diagnostics-grid'});
   const row=(key,value)=>{list.append(element('dt',{text:i18n.t(key)}),element('dd',{text:String(value??'—')}));};
   row('appDiagPipeline',m.pipeline||job.result?.pipeline||job.result?.recognitionModel||'—');
-  row('appDiagGrok',ms(t.grokMs));if(m.grokCacheHit)row('appDiagCached',i18n.t('appDiagCachedYes'));row('appDiagJev',ms(t.jevMs));
+  const gemini=m.pipeline==='gemini-single'||job.result?.pipeline==='gemini-single';
+  if(gemini){row('appDiagGemini',ms(t.geminiMs));row('appDiagSingleCalls',m.calls);row('appDiagUsage',[m.inputTokens,m.outputTokens,m.thinkingTokens].map(v=>v??'—').join(' / '));}
+  else {row('appDiagGrok',ms(t.grokMs));if(m.grokCacheHit)row('appDiagCached',i18n.t('appDiagCachedYes'));row('appDiagJev',ms(t.jevMs));}
   row('appDiagTotal',ms(t.totalMs));
   const from=Date.parse(job.created_at),to=job.status==='running'?Date.now():Date.parse(job.finished_at);
   row('appDiagElapsed',ms(Number.isFinite(from)&&Number.isFinite(to)?Math.max(0,to-from):undefined));
-  row('appDiagModels',[m.grokModel,m.jevModel].filter(Boolean).join(' / ')||'—');
+  row('appDiagModels',[m.model,m.grokModel,m.jevModel].filter(Boolean).join(' / ')||'—');
   row('appDiagProducts',m.recognized??job.total_count);
-  row('appDiagCalls',m.grokCalls==null?'—':`${m.grokCalls} / ${m.jevCompleted||0} / ${m.jevBatches||0}`);
-  row('appDiagQuestions',m.questions);row('appDiagTokens',m.jevInputTokens);
+  if(!gemini)row('appDiagCalls',m.grokCalls==null?'—':`${m.grokCalls} / ${m.jevCompleted||0} / ${m.jevBatches||0}`);
+  if(!gemini){row('appDiagQuestions',m.questions);row('appDiagTokens',m.jevInputTokens);}
   row('appDiagComposition',m.completeComposition==null?'—':`${m.completeComposition} / ${m.partialComposition} / ${m.unknownComposition}`);
   card.append(list);
   if(job.error_code)card.append(element('p',{className:'status-error',text:err(new Error(job.error_code))+' · '+job.error_code}));
