@@ -1,3 +1,5 @@
+> Historical evaluation. Version 0.13.0 implements the hybrid pipeline described in [ANALYSIS.md](ANALYSIS.md).
+
 # JEV experiment — 2026-10-15
 
 Branch `codex/jev-evaluation` starts from production commit `a050520` (0.12.6).

@@ -52,9 +52,11 @@ every day.</h1></div>
     <form id="ai-form"><label><span data-i18n="appApiKey">xAI API key</span><input name="key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="500"></label><label><span data-i18n="appModel">Model</span><select name="model"></select></label><button class="primary" type="submit" data-i18n="appSaveKey">Save connection</button></form>
     <button id="remove-key" class="danger-link" type="button" data-i18n="appRemoveKey">Remove saved key</button>
    </div>
+   <a id="diagnostics-link" class="secondary diagnostics-link" href="#/diagnostics" data-i18n="appDiagnostics" hidden>AI dashboard</a>
    <div id="account-forms"></div>
    <div id="clear-data-panel" class="surface" hidden><button id="clear-supplements" type="button" class="danger-link" data-i18n="appClearSupplements">Clear all supplements and requests</button></div>
   </section>
+  <section data-screen="/diagnostics" hidden><div id="ai-dashboard"></div></section>
   <div id="preferences" class="surface preferences" hidden><h2 data-i18n="settings">Settings</h2><form id="settings-form"><div class="preferences-grid"><label><span data-i18n="language">Language</span><select name="language"><option value="en">English</option><option value="lt">Lietuvių</option></select></label><label><span data-i18n="theme">Theme</span><select name="theme"><option value="light" data-i18n="light">Light</option><option value="dark" data-i18n="dark">Dark</option><option value="system" data-i18n="system">System</option></select></label></div><button class="secondary" type="submit" data-i18n="save">Save</button></form></div>
  </dialog>
  <dialog id="group-dialog" class="app-dialog" aria-labelledby="group-form-title"><div data-sheet-handle aria-hidden="true"></div><button class="icon-button group-close" type="button" data-sheet-close aria-label="Close" data-i18n-aria-label="appClose"><span data-icon="close" aria-hidden="true"></span></button>

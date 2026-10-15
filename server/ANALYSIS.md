@@ -466,3 +466,52 @@ from uncertain regulatory classification without asserting permission to use it.
 The follow-up returned all 16 expected identities in 37.1s. A three-target sourced
 review took 21.2s versus the earlier 30.5s sample; this is not a controlled latency
 benchmark or a guarantee. First-stage 4.7 may be slower than previous 4.3.
+
+## 0.13.0 — Grok identity/composition, JEV grouping/tags
+
+Production selects `AI_PIPELINE=grok-jev`; `grok` preserves the old 0.12.6 factory.
+One Grok 4.7/low request inventories every photo, extracting product names, visible
+brands and active ingredient names only. Amounts are deliberately empty: printed
+capsule counts can be mistaken for strength. A missing manufacturer is explicit
+Unknown, not a whole-batch failure or an invented manufacturer. Every readable
+product survives even when its ingredients are unknown.
+
+Composition method: read visible label/name first, reuse exact owner-scoped fresh
+composition (30 days) second, including verified nutrients from opt-in research.
+Only a fully legible ingredients panel may be called complete. Back-panel photos
+are the fastest reliable way to fill gaps without searches. No inferred full formula
+or guessed amounts; no automatic per-product web searches. Optional existing detailed
+research still obtains manufacturer information on explicit user action. Cache matches
+include product/brand/visible strength; cached partial composition stays partial.
+
+JEV 1.14.0 receives identified text/ingredients and groups, never photos or keys.
+Four products/request, at most three requests globally at a time. Each product has
+one Choice over owned group IDs and 100 independent Score questions. No Grok grouping
+review follows. Scores are purpose-label relevance, not efficacy/probability of
+health improvement. Thresholds (score >=2, confidence >=.5) are provisional, not
+clinically calibrated. Up to five tags survive, one per near-synonym family; no
+known ingredients means no benefit tags. Composition-only grouping is a provisional
+recommendation, not a verified manufacturer schedule; manual moving remains available.
+
+BENEFITS.md and src/benefits.json define the 100 EN/LT labels. Some accurate concepts
+need multiple words. UI localizes tags without another paid request. Metadata is
+persisted alongside the legacy basic-1 format, atomically with the product. Ownership,
+clear-all races, group snapshot checks and no automatic retry remain in TrackerApi.
+The TypeSafe service key is mounted from private .runtime/typesafe_key; existing user
+xAI keys remain encrypted. Consent text names both providers and the shared JEV
+connection. Existing records are not re-analyzed or moved automatically.
+
+Account -> AI dashboard uses existing owner-filtered last-20 job history. It shows
+stage, queue-inclusive elapsed time, Grok/JEV/total processing time, model IDs, calls,
+questions, JEV input tokens, composition completeness and failures. In-flight metrics
+persist before the next stage; partial/failed runs retain available values. Missing
+legacy metrics show a dash. No raw photos/keys/prompts are persisted in diagnostics.
+The clock refresh is local, not a new polling loop or API call each second.
+
+Live regression after transport/schema fixes: two separate four-photo runs each
+returned all 16 expected names, with 15 partial compositions and 1 unknown. Run 1:
+Grok 22,816ms + JEV 1,611ms = 24,427ms. Run 2: 34,449ms + 1,544ms = 35,993ms.
+Times exclude browser image preparation, queue delay and DB commit. They are not a
+latency guarantee. This checks identity coverage/structure; no claim of 100% medical
+correctness for group or benefit assignments. Initial tests exposed unknown-brand
+rejection and JEV rounded probability/score tolerances; both have regression tests.

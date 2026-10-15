@@ -225,6 +225,19 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    assert.equal((await request(a,'GET','/dashboard',{},query))[1].supplements.length,beforeA.supplements.length);
    await assert.rejects(request(b,'GET','/supplements/jobs/'+job.id),e=>e.status===404);assert.equal((await request(b,'GET','/supplements/jobs'))[1].recent.length,0);
   });
+  await t.test('hybrid stores composition and bilingual tags with owner-only diagnostics',async()=>{
+   await auth.register({email:'hybrid@example.test',name:'Hybrid',password},'hybrid');const h=await auth.login({email:'hybrid@example.test',password},'hybrid');
+   const hybrid=new TrackerApi(pool,auth,{vault,chat,discover:async input=>{const c=JSON.parse(input.messages[1].content[0].text);await input.onMetrics({pipeline:'grok-jev',stage:'grok',grokCalls:1});await input.beforeClassification();await input.onMetrics({stage:'jev',grokMs:12,jevCalls:1});return {model:'grok-4.7',pipeline:'grok-jev',timings:{grokMs:12,jevMs:5,totalMs:17},productMetadata:{'example|hybrid vitamin|':{composition:{ingredients:[{name:'Vitamin C',labelAmount:''}],complete:false,basis:'label'},benefitTags:[{id:'immunity',en:'Immunity',lt:'Imunitetas',score:3,confidence:1}],classification:{groupConfidence:.9,model:'jev-1.14.0'}}},result:{language:'en',products:[{name:'Hybrid vitamin',manufacturer:'Example',groupId:c.groups[0].id,benefit:'Immunity'}],skipped:[]}};}});
+   const call=(m,p,b={})=>hybrid.handle(m,p,b,'Bearer '+h.token,'hybrid');await call('POST','/bootstrap',{});await call('PUT','/settings/ai',{key:'fake-hybrid-key-123456',model:'grok-4.7'});const [,job]=await call('POST','/supplements/jobs',{name:'Hybrid vitamin',requestId:randomUUID()});
+   for(let i=0;i<100&&hybrid.activeJobs.size;i++)await new Promise(r=>setTimeout(r,10));const [,done]=await call('GET','/supplements/jobs/'+job.id);assert.equal(done.status,'complete');assert.equal(done.result.monitor.grokCalls,1);assert.equal(done.result.timings.totalMs,17);
+   const [,dash]=await call('GET','/dashboard');assert.equal(dash.supplements.length,1);assert.equal(dash.supplements[0].analysis.composition.ingredients[0].name,'Vitamin C');assert.equal(dash.supplements[0].analysis.benefitTags[0].lt,'Imunitetas');await assert.rejects(hybrid.handle('GET','/supplements/jobs/'+job.id,{},'Bearer '+b.token,'other'),e=>e.status===404);
+   // Repeat identification refreshes metadata without inserting another row or moving the group.
+   const originalGroup=dash.supplements[0].group_id;
+   await call('POST','/supplements/jobs',{name:'Hybrid vitamin',requestId:randomUUID()});
+   for(let i=0;i<100&&hybrid.activeJobs.size;i++)await new Promise(r=>setTimeout(r,10));
+   const [,again]=await call('GET','/dashboard');assert.equal(again.supplements.length,1);assert.equal(again.supplements[0].group_id,originalGroup);assert.equal(again.supplements[0].analysis.benefitTags[0].id,'immunity');
+
+  });
   await t.test('group deletion keeps supplements; account deletion cascades private records',async()=>{
    await request(a,'DELETE','/groups/'+group);assert.equal((await request(a,'GET','/dashboard',{},query))[1].supplements.find(s=>s.id===first).group_id,null);
    await auth.dispatch('DELETE','/me',{password,confirmation:'DELETE'},'Bearer '+a.token,'delete');

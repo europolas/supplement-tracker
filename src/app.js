@@ -108,7 +108,7 @@ function renderHome(){
    const open=button('',()=>router.navigate('/detail?id='+encodeURIComponent(item.id)),'supplement-open');
    const label=productLabel({name:item.name,manufacturer:item.analysis.manufacturer,variant:item.analysis.variant});
    open.append(element('strong',{text:label.name,className:'product-title'}));
-   const summary=compactText(item.analysis.benefitSummary||item.analysis.benefits?.[0]||item.analysis.whenToUse);
+   const summary=item.analysis.benefitTags?.length?item.analysis.benefitTags.slice(0,3).map(b=>b[i18n.language]||b.en).join(', '):compactText(item.analysis.benefitSummary||item.analysis.benefits?.[0]||item.analysis.whenToUse);
    const meta=element('span',{className:'summary'});if(label.manufacturer)meta.append(element('b',{text:label.manufacturer,className:'product-manufacturer'}));if(summary)meta.append(document.createTextNode((label.manufacturer?' · ':'')+summary));if(meta.textContent)open.append(meta);
    if(item.analysis.compatibility?.assessments?.some(a=>['potential_conflict','duplicate'].includes(a.status)))open.append(element('span',{text:i18n.t('appReviewCombination'),className:'research-badge review-combination'}));
    if(item.analysis.enrichment&&item.analysis.enrichment.status!=='complete')open.append(element('span',{text:i18n.t('appInfo_'+item.analysis.enrichment.status),className:'research-badge'}));
@@ -193,7 +193,10 @@ function renderDetail(){
   extra.append(heading(i18n.t('appSources'),'h3'));const list=element('ul',{className:'source-list'});
   for(const source of analysis.sources){const row=element('li');row.append(element('a',{text:source.title,attributes:{href:source.url,target:'_blank',rel:'noopener noreferrer'}}));list.append(row);}extra.append(list);
  }
- }else{prose(section('appBenefits','benefits'),analysis.benefitSummary);}
+ }else{
+  if(analysis.composition){const node=section('appComposition','composition');if(analysis.composition.ingredients.length)prose(node,analysis.composition.ingredients.map(n=>n.name+(n.labelAmount?' · '+n.labelAmount:'')));else prose(node,i18n.t('appDoseUnknown'));if(!analysis.composition.complete)node.append(element('p',{className:'detail-meta',text:i18n.t('appCompositionPartial')}));}
+  prose(section('appBenefits','benefits'),analysis.benefitTags?.length?analysis.benefitTags.map(b=>b[i18n.language]||b.en):analysis.benefitSummary);
+ }
  // Research is opt-in, never triggered by opening this sheet or adding a product.
  const refresh=button(i18n.t('appGetDetailedInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});
  refresh.disabled=pending;card.append(refresh);
@@ -221,9 +224,10 @@ function renderAi(){
  if(!editing){select.replaceChildren(...state.ai.models.map(model=>element('option',{text:model,attributes:{value:model}})));select.value=state.ai.model;}
 }
 function render(){
+ get('diagnostics-link').hidden=!current();renderDiagnostics();
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
- get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t('appAccount');renderHome();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
+ get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');renderHome();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');
  renderReport('home-analysis-results',latestReport);renderUploadQueue();
 }
@@ -317,6 +321,7 @@ for(const name of ['photo'])get('analyze-form').elements[name].addEventListener(
  * polling must never clear a newly selected photo or typed next supplement. No
  * private history/photo enters browser persistence; API history restores reloads. */
 function renderUploadQueue(){
+ renderDiagnostics();
  const container=get('analysis-results'),previous=new Map([...container.querySelectorAll('details[data-job-id]')].map(node=>[node.dataset.jobId,node.open]));
  container.replaceChildren();get('upload-queue').hidden=!jobHistory.length;
  const running=jobHistory.filter(job=>job.status==='running');get('upload-queue-count').textContent=i18n.t('appUploadQueueCount',{count:running.length});
@@ -325,12 +330,12 @@ function renderUploadQueue(){
   const card=element('details',{className:'upload-job',attributes:{'data-job-id':job.id,'data-phase':job.phase||'recognizing'}});card.open=previous.has(job.id)?previous.get(job.id):job.status==='running'||job.id===modalJobId;
   const submission=job.result?.submission,title=submission?.name||i18n.t(submission?.kind==='photo'?'appUploadPhoto':'appUploadSupplement');
   const failed=job.status==='failed',issues=job.result?.items?.some(item=>item.research==='failed'||item.status==='failed');
-  const phase=job.phase||'recognizing',label=failed?'appUploadFailed':job.status==='complete'?(issues?'appUploadDoneIssues':'appUploadDone'):'appUpload_'+phase;
+  const phase=job.phase||'recognizing',label=failed?'appUploadFailed':job.status==='complete'?(issues?'appUploadDoneIssues':'appUploadDone'):job.result?.monitor?.pipeline==='grok-jev'&&phase==='enriching'?'appJevClassifying':'appUpload_'+phase;
   const summary=element('summary'),labels=element('div',{className:'upload-job-labels'});labels.append(element('strong',{text:title}),element('span',{text:i18n.t(job.result?.review?.status==='checking'?'appGroupReview_checking':label),className:'upload-job-phase'}));
   if(job.created_at){const date=new Date(job.created_at);if(Number.isFinite(date.getTime()))labels.append(element('time',{text:new Intl.DateTimeFormat(i18n.language,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date),attributes:{datetime:date.toISOString()},className:'upload-job-time'}));}
   summary.append(element('span',{text:failed?'!':job.status==='complete'?'✓':'…',className:'upload-job-icon',attributes:{'aria-hidden':'true'}}),labels);card.append(summary);
   const step=job.status==='complete'?3:failed?({queued:0,recognizing:1,enriching:2}[job.result?.failedPhase]??(job.result?.items?.length?2:1)):({queued:0,recognizing:1,enriching:2,done:3}[phase]??1),steps=element('ol',{className:'upload-steps'});
-  ['appUpload_queued','appUpload_recognizing',job.result?.review?'appGroupReview':'appUpload_enriching','appUploadDone'].forEach((key,index)=>{const row=element('li',{text:i18n.t(key),className:index<step||job.status==='complete'?'is-complete':index===step?'is-current':''});if(index===step&&job.status==='running')row.setAttribute('aria-current','step');if(index===step&&failed)row.dataset.error='true';steps.append(row);});card.append(steps);
+  ['appUpload_queued','appUpload_recognizing',job.result?.review?'appGroupReview':job.result?.monitor?.pipeline==='grok-jev'?'appJevClassifying':'appUpload_enriching','appUploadDone'].forEach((key,index)=>{const row=element('li',{text:i18n.t(key),className:index<step||job.status==='complete'?'is-complete':index===step?'is-current':''});if(index===step&&job.status==='running')row.setAttribute('aria-current','step');if(index===step&&failed)row.dataset.error='true';steps.append(row);});card.append(steps);
   if(job.total_count>0){const progress=element('progress',{attributes:{max:String(job.total_count),value:String(job.processed_count||0),'aria-label':i18n.t('appUpload_enriching')}});card.append(progress,element('p',{text:job.result?.review?i18n.t('appGroupReview'):i18n.t('appUploadDetailsProgress',{done:job.processed_count||0,total:job.total_count}),className:'form-help'}));}
   if(failed)card.append(element('p',{text:err(new Error(job.error_code||'REQUEST_FAILED')),attributes:{'data-error':'true'}}));
   if(job.result?.items?.length||job.result?.skipped?.length){const result=element('div',{attributes:{id:'upload-result-'+job.id},className:'upload-job-result'});card.append(result);container.append(card);renderReport(result.id,{...job.result,jobId:job.id,running:job.status==='running',total:job.total_count});}else container.append(card);
@@ -346,7 +351,7 @@ async function observeJobs(data,session,refresh=false){
  jobHistory=[...history.values()].sort((a,b)=>Date.parse(b.finished_at||b.created_at||0)-Date.parse(a.finished_at||a.created_at||0)).filter((job,index)=>job.status==='running'||index<20);
  const recognizing=active.some(job=>!job.phase||job.phase==='recognizing'),queued=active.some(job=>job.phase==='queued');
  const progress=active.reduce((sum,job)=>({done:sum.done+(job.processed_count||0),total:sum.total+(job.total_count||0)}),{done:0,total:0});
- status('home-status',active.some(j=>j.result?.review?.status==='checking')?i18n.t('appGroupReview_checking'):recognizing?i18n.t('appRecognizing'):queued?i18n.t('appUpload_queued'):active.length?i18n.t('appEnrichingProgress',progress):data.job?.status==='failed'?err(new Error(data.job.error_code||'REQUEST_FAILED')):'',data.job?.status==='failed');
+ status('home-status',active.some(j=>j.result?.review?.status==='checking')?i18n.t('appGroupReview_checking'):recognizing?i18n.t('appRecognizing'):queued?i18n.t('appUpload_queued'):active.length?i18n.t(active.some(j=>j.result?.monitor?.pipeline==='grok-jev')?'appJevClassifying':'appEnrichingProgress',progress):data.job?.status==='failed'?err(new Error(data.job.error_code||'REQUEST_FAILED')):'',data.job?.status==='failed');
  if(data.job?.result?.items?.length){latestReport={...data.job.result,jobId:data.job.id,running:data.job.status==='running',total:data.job.total_count};renderReport('home-analysis-results',latestReport);}
  const job=history.get(modalJobId);
  if(job&&!sending){
@@ -394,17 +399,17 @@ network.state.subscribe(()=>render());
 // close and swipe reveal the same underlying tab and its retained scroll offset.
 function showRoute(path){
  if(path!=='/account'&&!current()){location.hash='/account';return;}
- const sheet=path==='/account'||path==='/detail';
+ const sheet=['/account','/detail','/diagnostics'].includes(path);
  if(!sheet)baseRoute=path;
  for(const section of document.querySelectorAll('main [data-screen]'))section.hidden=section.dataset.screen!==baseRoute;
  if(sheet)for(const section of get('route-dialog').querySelectorAll('[data-screen]'))section.hidden=section.dataset.screen!==path;
  for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===baseRoute)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
- if(sheet){get('preferences').hidden=path!=='/account';get('route-title').textContent=path==='/account'?i18n.t('appAccount'):'';get('route-dialog').classList.toggle('product-sheet',path==='/detail');get('route-dialog').setAttribute('aria-labelledby',path==='/detail'?'product-detail-title':'route-title');}
+ if(sheet){get('preferences').hidden=path!=='/account';get('route-title').textContent=path==='/account'?i18n.t('appAccount'):path==='/diagnostics'?i18n.t('appDiagnostics'):'';get('route-dialog').classList.toggle('product-sheet',path==='/detail');get('route-dialog').setAttribute('aria-labelledby',path==='/detail'?'product-detail-title':'route-title');}
  get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();
- if(path==='/detail')renderDetail();
+ if(path==='/detail')renderDetail();if(path==='/diagnostics')renderDiagnostics();
  if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open)get('supplement-detail').replaceChildren();});if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}
 }
-router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/detail'].map(path=>[path,()=>showRoute(path)])),onNotFound:()=>{location.hash=current()?'/':'/account';}});
+router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/detail','/diagnostics'].map(path=>[path,()=>showRoute(path)])),onNotFound:()=>{location.hash=current()?'/':'/account';}});
 // The generic router ignores query-only changes; details must follow the item ID.
 window.addEventListener('hashchange',()=>{if(router.current==='/detail')renderDetail();});
 auth.state.subscribe(async({user})=>{
@@ -425,3 +430,35 @@ let applyUpdate;
 await setupPwa({canReload:()=>!photo.length&&!sending&&writes===0&&!document.querySelector('dialog[open], form[aria-busy="true"]')&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
  onUpdate:({apply})=>{applyUpdate=apply;get('update-card').hidden=false;},onError:()=>{}});
 get('update-button').addEventListener('click',()=>{try{applyUpdate?.();}catch(error){failure(error);}});
+
+/** Read-only owner history, refreshed by the existing polling loop. No extra API
+ * requests per clock tick; all provider/model/error text is rendered as text. */
+function renderDiagnostics(){
+ const root=get('ai-dashboard');if(!root)return;root.replaceChildren();if(!current())return;
+ const ms=value=>Number.isFinite(value)?(value/1000).toLocaleString(i18n.language,{maximumFractionDigits:2})+' s':'—';
+ root.append(element('p',{className:'muted',text:i18n.t('appDiagnosticsHelp')}));
+ if(!jobHistory.length){root.append(element('p',{text:i18n.t('appDiagnosticsEmpty')}));return;}
+ for(const job of jobHistory){
+  const m=job.result?.monitor||{},t=job.result?.timings||m,card=element('article',{className:'surface diagnostics-card',attributes:{'data-diagnostic-job-id':job.id}});
+  const title=job.result?.submission?.name||i18n.t('appUploadPhoto');card.append(heading(title,'h2'));
+  const label=job.status==='running'?i18n.t(m.pipeline==='grok-jev'&&job.phase==='enriching'?'appJevClassifying':'appUpload_'+(job.phase||'recognizing')):i18n.t(job.status==='complete'?'appUploadDone':'appUploadFailed');
+  card.append(element('p',{className:'research-badge',text:label}));
+  if(job.created_at){const date=new Date(job.created_at);if(Number.isFinite(date.getTime()))card.append(element('time',{className:'muted',text:date.toLocaleString(i18n.language)}));}
+  const list=element('dl',{className:'diagnostics-grid'});
+  const row=(key,value)=>{list.append(element('dt',{text:i18n.t(key)}),element('dd',{text:String(value??'—')}));};
+  row('appDiagPipeline',m.pipeline||job.result?.pipeline||job.result?.recognitionModel||'—');
+  row('appDiagGrok',ms(t.grokMs));row('appDiagJev',ms(t.jevMs));
+  row('appDiagTotal',ms(t.totalMs));
+  const from=Date.parse(job.created_at),to=job.status==='running'?Date.now():Date.parse(job.finished_at);
+  row('appDiagElapsed',ms(Number.isFinite(from)&&Number.isFinite(to)?Math.max(0,to-from):undefined));
+  row('appDiagModels',[m.grokModel,m.jevModel].filter(Boolean).join(' / ')||'—');
+  row('appDiagProducts',m.recognized??job.total_count);
+  row('appDiagCalls',m.grokCalls==null?'—':`${m.grokCalls} / ${m.jevCompleted||0} / ${m.jevBatches||0}`);
+  row('appDiagQuestions',m.questions);row('appDiagTokens',m.jevInputTokens);
+  row('appDiagComposition',m.completeComposition==null?'—':`${m.completeComposition} / ${m.partialComposition} / ${m.unknownComposition}`);
+  card.append(list);
+  if(job.error_code)card.append(element('p',{className:'status-error',text:err(new Error(job.error_code))+' · '+job.error_code}));
+  root.append(card);
+ }
+}
+setInterval(()=>{if(current()&&router?.current==='/diagnostics'&&document.visibilityState==='visible')renderDiagnostics();},1000);

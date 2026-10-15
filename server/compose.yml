@@ -35,8 +35,10 @@ services:
       MAIL_KEY_FILE: /run/secrets/mail_key
       SMTP_PASSWORD_FILE: /run/secrets/smtp_password
       VAULT_KEY_FILE: /run/secrets/vault_key
+      TYPESAFE_KEY_FILE: /run/secrets/typesafe_key
+      AI_PIPELINE: ${AI_PIPELINE:-grok-jev}
       TRUST_PROXY: "true"
-    secrets: [db_app, api_secret, mail_key, smtp_password, vault_key, smtp_ca, dkim_private]
+    secrets: [db_app, api_secret, mail_key, smtp_password, vault_key, smtp_ca, dkim_private, typesafe_key]
     networks: [database, outbound, mail]
     read_only: true
     tmpfs: [/tmp]
@@ -128,3 +130,4 @@ secrets:
   smtp_cert: {file: ../.runtime/mailtls/server.crt}
   smtp_key: {file: ../.runtime/mailtls/server.key}
   dkim_private: {file: ../.runtime/dkim_private}
+  typesafe_key: {file: ../.runtime/typesafe_key}

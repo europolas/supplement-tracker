@@ -200,12 +200,12 @@ export class TrackerApi {
    const [keys]=await this.pool.execute('SELECT encrypted_key FROM provider_credentials WHERE user_id=?',[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');sealed=keys[0].encrypted_key;
    const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
    const context=JSON.stringify(groups),started=Date.now(),language=body.language,settings=await this.settings(owner);
-   let {result,model,inventory}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel||settings.model,messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
+   let {result,model,inventory,productMetadata,timings,pipeline}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:'xai'}),model:this.discoveryModel||settings.model,onMetrics:async update=>{report.monitor={...(report.monitor||{}),...update};await this.jobProgress(owner,id,report,update.stage==='grok'?'recognizing':'enriching');},compositionCache:supplements.map(r=>{const a=typeof r.analysis==='string'?JSON.parse(r.analysis):r.analysis;return {name:r.name,manufacturer:a.manufacturer,composition:a.composition||(a.research?.checkedAt&&a.nutrients?.length?{complete:false,basis:'verified_research',checkedAt:a.research.checkedAt,ingredients:a.nutrients.filter(n=>['manufacturer','label_photo'].includes(n.evidence)).map(n=>({name:n.name,labelAmount:''}))}:null)};}),beforeClassification:async()=>{await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);const [jobs]=await this.pool.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=?',[id,owner]);if(!jobs.length)throw new ApiError(409,'COLLECTION_CHANGED');await this.pool.execute("UPDATE analysis_jobs SET phase='enriching' WHERE id=? AND user_id=?",[id,owner]);},messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
    if(this.singlePass){if(!validBasicProducts(result,groups,language))throw new ApiError(502,'AI_INVALID_RESPONSE');result=normalizeBasicProducts(result);}
    body.image=null;body.images=[]; // No background research request resends a photo.
    if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
    await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);
-   report={submission:report.submission,items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started,recognitionModel:model,...(inventory?{photoInventory:inventory}:{})};
+   report={submission:report.submission,...(report.monitor?{monitor:report.monitor}:{}),items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started,recognitionModel:model,...(timings?{timings,pipeline}:{}),...(inventory?{photoInventory:inventory}:{})};
    const products=uniqueProducts(result.products);if(!products.length&&!report.skipped.length)report.skipped.push({location:'',reasonCode:'SUPPLEMENT_NOT_IDENTIFIED'});if(result.overflow)report.skipped.push({location:'',reasonCode:'PHOTO_PRODUCT_LIMIT'});
    await this.auth.transaction(async db=>{
     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
@@ -217,7 +217,17 @@ export class TrackerApi {
      const identity=productIdentity(product),matches=rows.filter(row=>{const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;return productIdentity(a.identity||{...a,name:row.name})===identity;}),existing=matches.find(row=>row.id===product.existingId)||matches.find(row=>row.group_id)||matches[0];
      if(existing){
       const a=typeof existing.analysis==='string'?JSON.parse(existing.analysis):existing.analysis;
-      if(this.singlePass){report.items.push({id:existing.id,name:existing.name,status:'added',reused:true,research:'reused'});continue;}
+      if(this.singlePass){
+       // A second label photo can improve composition without duplicating the
+       // supplement or moving an existing (possibly manually chosen) group.
+       const metadata=productMetadata?.[identity];
+       if(metadata){
+        if(!a.composition?.complete||metadata.composition?.complete)a.composition=metadata.composition;
+        a.benefitTags=metadata.benefitTags;
+        await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),existing.id,owner]);
+       }
+       report.items.push({id:existing.id,name:existing.name,status:'added',reused:true,research:'reused'});continue;
+      }
       const fresh=a.enrichment?.status!=='failed'&&(!a.enrichment||a.enrichment.status==='complete')&&a.language===language&&a.research?.checkedAt&&Date.now()-Date.parse(a.research.checkedAt)<30*86400000&&a.sources?.length;
       // Another live job owns this same product; reuse its queue item instead of billing twice.
       const pending=['queued','researching'].includes(a.enrichment?.status);
@@ -226,7 +236,8 @@ export class TrackerApi {
      }
      if(capacity<=0){report.skipped.push({name:product.name,reasonCode:'SUPPLEMENT_LIMIT'});continue;}capacity--;
      const draft=draftAnalysis({...product,requestedName:body.name||null},{language,jobId:id}),recordId=randomUUID();
-     if(this.singlePass){draft.schemaVersion='basic-1';draft.enrichment={status:'complete',jobId:id,language};draft.needsReview=product.review;draft.productName=product.name;}
+     if(productMetadata?.[identity])Object.assign(draft,productMetadata[identity]);
+     if(this.singlePass){draft.schemaVersion='basic-1';draft.enrichment={status:'complete',jobId:id,language};draft.needsReview=productMetadata?.[identity]?productMetadata[identity].classification.groupConfidence<.65:product.review;draft.productName=product.name;}
      await db.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) VALUES (?,?,?,?,?,?,?)',[recordId,owner,product.groupId,draft.productName,JSON.stringify(draft),model,productRequestId(body.requestId,index)]);
      report.items.push({id:recordId,name:draft.productName,status:'added',research:this.singlePass?'complete':'queued'});
     }
@@ -330,7 +341,7 @@ export class TrackerApi {
    const grouping=this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
    const groupId=grouping.groupId;result.grouping=grouping;
    if(grouping.basis==='provisional'){result.needsReview=true;}
-   result.identity=previous.identity;result.enrichment={status:'complete',jobId,language};
+   result.identity=previous.identity;for(const key of ['composition','benefitTags','classification'])if(a[key])result[key]=a[key];result.enrichment={status:'complete',jobId,language};
    await db.execute('UPDATE supplements SET name=?,analysis=?,model=?,group_id=? WHERE id=? AND user_id=?',[result.productName,JSON.stringify(result),model,groupId,id,owner]);
   });
  }

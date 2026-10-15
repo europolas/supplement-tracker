@@ -306,3 +306,15 @@ Usage and Potential benefits for new and historical records, plus a localized do
 consultation footer. Source links and management remain in the disclosure. Existing
 records are not rewritten or billed automatically; explicitly refresh old prose.
 No DB migration or mail changes.
+
+## AI pipeline and diagnostics (0.13.0)
+
+Grok extracts identities and visible ingredients; JEV assigns one group and up to
+five localized benefit categories. The previous Grok pipeline remains selectable
+through `AI_PIPELINE=grok`. See [analysis contracts](server/ANALYSIS.md) and the
+[100 English/Lithuanian benefit categories](server/BENEFITS.md).
+
+Open **Account → AI dashboard** for the latest 20 requests: persisted stages,
+provider timings, queue-inclusive elapsed time, models, calls, product counts,
+composition coverage and errors. Older jobs may have no detailed metrics. This
+is owner-only diagnostic data; credentials and images are never shown.

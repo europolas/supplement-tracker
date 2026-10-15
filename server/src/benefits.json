@@ -1,0 +1,602 @@
+[
+  {
+    "id": "sleep",
+    "en": "Sleep",
+    "lt": "Miegas",
+    "family": "sleep"
+  },
+  {
+    "id": "relaxation",
+    "en": "Relaxation",
+    "lt": "Atsipalaidavimas",
+    "family": "relaxation"
+  },
+  {
+    "id": "mood",
+    "en": "Mood",
+    "lt": "Nuotaika",
+    "family": "mood"
+  },
+  {
+    "id": "stress",
+    "en": "Stress",
+    "lt": "Stresas",
+    "family": "stress"
+  },
+  {
+    "id": "energy",
+    "en": "Energy",
+    "lt": "Energija",
+    "family": "energy"
+  },
+  {
+    "id": "fatigue",
+    "en": "Fatigue",
+    "lt": "Nuovargis",
+    "family": "fatigue"
+  },
+  {
+    "id": "focus",
+    "en": "Focus",
+    "lt": "Dėmesys",
+    "family": "mental"
+  },
+  {
+    "id": "memory",
+    "en": "Memory",
+    "lt": "Atmintis",
+    "family": "memory"
+  },
+  {
+    "id": "cognition",
+    "en": "Cognition",
+    "lt": "Pažinimas",
+    "family": "mental"
+  },
+  {
+    "id": "alertness",
+    "en": "Alertness",
+    "lt": "Budrumas",
+    "family": "mental"
+  },
+  {
+    "id": "heart",
+    "en": "Heart",
+    "lt": "Širdis",
+    "family": "cardiovascular"
+  },
+  {
+    "id": "circulation",
+    "en": "Circulation",
+    "lt": "Kraujotaka",
+    "family": "cardiovascular"
+  },
+  {
+    "id": "vessels",
+    "en": "Vessels",
+    "lt": "Kraujagyslės",
+    "family": "cardiovascular"
+  },
+  {
+    "id": "cholesterol",
+    "en": "Cholesterol",
+    "lt": "Cholesterolis",
+    "family": "cholesterol"
+  },
+  {
+    "id": "triglycerides",
+    "en": "Triglycerides",
+    "lt": "Trigliceridai",
+    "family": "triglycerides"
+  },
+  {
+    "id": "blood_pressure",
+    "en": "Blood pressure",
+    "lt": "Kraujospūdis",
+    "family": "blood_pressure"
+  },
+  {
+    "id": "blood_formation",
+    "en": "Blood formation",
+    "lt": "Kraujodara",
+    "family": "blood_formation"
+  },
+  {
+    "id": "hemoglobin",
+    "en": "Hemoglobin",
+    "lt": "Hemoglobinas",
+    "family": "hemoglobin"
+  },
+  {
+    "id": "oxygen_transport",
+    "en": "Oxygen transport",
+    "lt": "Deguonies pernaša",
+    "family": "oxygen_transport"
+  },
+  {
+    "id": "clotting",
+    "en": "Clotting",
+    "lt": "Krešėjimas",
+    "family": "clotting"
+  },
+  {
+    "id": "immunity",
+    "en": "Immunity",
+    "lt": "Imunitetas",
+    "family": "immunity"
+  },
+  {
+    "id": "antioxidant",
+    "en": "Antioxidant",
+    "lt": "Antioksidantas",
+    "family": "antioxidant"
+  },
+  {
+    "id": "cells",
+    "en": "Cells",
+    "lt": "Ląstelės",
+    "family": "cells"
+  },
+  {
+    "id": "mitochondria",
+    "en": "Mitochondria",
+    "lt": "Mitochondrijos",
+    "family": "cells"
+  },
+  {
+    "id": "metabolism",
+    "en": "Metabolism",
+    "lt": "Metabolizmas",
+    "family": "metabolism"
+  },
+  {
+    "id": "glucose",
+    "en": "Glucose",
+    "lt": "Gliukozė",
+    "family": "glucose"
+  },
+  {
+    "id": "insulin",
+    "en": "Insulin",
+    "lt": "Insulinas",
+    "family": "insulin"
+  },
+  {
+    "id": "thyroid",
+    "en": "Thyroid",
+    "lt": "Skydliaukė",
+    "family": "thyroid"
+  },
+  {
+    "id": "hormones",
+    "en": "Hormones",
+    "lt": "Hormonai",
+    "family": "hormones"
+  },
+  {
+    "id": "thermoregulation",
+    "en": "Thermoregulation",
+    "lt": "Termoreguliacija",
+    "family": "thermoregulation"
+  },
+  {
+    "id": "skin",
+    "en": "Skin",
+    "lt": "Oda",
+    "family": "skin"
+  },
+  {
+    "id": "collagen",
+    "en": "Collagen",
+    "lt": "Kolagenas",
+    "family": "collagen"
+  },
+  {
+    "id": "elasticity",
+    "en": "Elasticity",
+    "lt": "Elastingumas",
+    "family": "skin"
+  },
+  {
+    "id": "hydration",
+    "en": "Hydration",
+    "lt": "Drėkinimas",
+    "family": "skin"
+  },
+  {
+    "id": "barrier",
+    "en": "Skin barrier",
+    "lt": "Odos barjeras",
+    "family": "skin"
+  },
+  {
+    "id": "hair",
+    "en": "Hair",
+    "lt": "Plaukai",
+    "family": "hair"
+  },
+  {
+    "id": "nails",
+    "en": "Nails",
+    "lt": "Nagai",
+    "family": "nails"
+  },
+  {
+    "id": "eyes",
+    "en": "Eyes",
+    "lt": "Akys",
+    "family": "eyes"
+  },
+  {
+    "id": "vision",
+    "en": "Vision",
+    "lt": "Rega",
+    "family": "eyes"
+  },
+  {
+    "id": "retina",
+    "en": "Retina",
+    "lt": "Tinklainė",
+    "family": "eyes"
+  },
+  {
+    "id": "bones",
+    "en": "Bones",
+    "lt": "Kaulai",
+    "family": "bones"
+  },
+  {
+    "id": "teeth",
+    "en": "Teeth",
+    "lt": "Dantys",
+    "family": "teeth"
+  },
+  {
+    "id": "gums",
+    "en": "Gums",
+    "lt": "Dantenos",
+    "family": "gums"
+  },
+  {
+    "id": "joints",
+    "en": "Joints",
+    "lt": "Sąnariai",
+    "family": "joints"
+  },
+  {
+    "id": "cartilage",
+    "en": "Cartilage",
+    "lt": "Kremzlės",
+    "family": "cartilage"
+  },
+  {
+    "id": "tendons",
+    "en": "Tendons",
+    "lt": "Sausgyslės",
+    "family": "tendons"
+  },
+  {
+    "id": "ligaments",
+    "en": "Ligaments",
+    "lt": "Raiščiai",
+    "family": "ligaments"
+  },
+  {
+    "id": "muscles",
+    "en": "Muscles",
+    "lt": "Raumenys",
+    "family": "muscles"
+  },
+  {
+    "id": "strength",
+    "en": "Strength",
+    "lt": "Jėga",
+    "family": "strength"
+  },
+  {
+    "id": "endurance",
+    "en": "Endurance",
+    "lt": "Ištvermė",
+    "family": "endurance"
+  },
+  {
+    "id": "recovery",
+    "en": "Recovery",
+    "lt": "Atsigavimas",
+    "family": "recovery"
+  },
+  {
+    "id": "performance",
+    "en": "Performance",
+    "lt": "Pajėgumas",
+    "family": "performance"
+  },
+  {
+    "id": "coordination",
+    "en": "Coordination",
+    "lt": "Koordinacija",
+    "family": "coordination"
+  },
+  {
+    "id": "mobility",
+    "en": "Mobility",
+    "lt": "Judrumas",
+    "family": "mobility"
+  },
+  {
+    "id": "flexibility",
+    "en": "Flexibility",
+    "lt": "Lankstumas",
+    "family": "flexibility"
+  },
+  {
+    "id": "nerves",
+    "en": "Nerves",
+    "lt": "Nervai",
+    "family": "nerves"
+  },
+  {
+    "id": "neurotransmission",
+    "en": "Neurotransmission",
+    "lt": "Neurotransmisija",
+    "family": "neurotransmission"
+  },
+  {
+    "id": "digestion",
+    "en": "Digestion",
+    "lt": "Virškinimas",
+    "family": "digestion"
+  },
+  {
+    "id": "stomach",
+    "en": "Stomach",
+    "lt": "Skrandis",
+    "family": "digestion"
+  },
+  {
+    "id": "intestines",
+    "en": "Intestines",
+    "lt": "Žarnynas",
+    "family": "digestion"
+  },
+  {
+    "id": "microbiome",
+    "en": "Microbiome",
+    "lt": "Mikrobiota",
+    "family": "microbiome"
+  },
+  {
+    "id": "regularity",
+    "en": "Regularity",
+    "lt": "Tuštinimasis",
+    "family": "regularity"
+  },
+  {
+    "id": "fiber",
+    "en": "Fiber",
+    "lt": "Skaidulos",
+    "family": "fiber"
+  },
+  {
+    "id": "bloating",
+    "en": "Bloating",
+    "lt": "Pūtimas",
+    "family": "bloating"
+  },
+  {
+    "id": "liver",
+    "en": "Liver",
+    "lt": "Kepenys",
+    "family": "liver"
+  },
+  {
+    "id": "bile",
+    "en": "Bile",
+    "lt": "Tulžis",
+    "family": "bile"
+  },
+  {
+    "id": "appetite",
+    "en": "Appetite",
+    "lt": "Apetitas",
+    "family": "appetite"
+  },
+  {
+    "id": "satiety",
+    "en": "Satiety",
+    "lt": "Sotumas",
+    "family": "satiety"
+  },
+  {
+    "id": "weight",
+    "en": "Weight",
+    "lt": "Svoris",
+    "family": "weight"
+  },
+  {
+    "id": "protein_metabolism",
+    "en": "Protein metabolism",
+    "lt": "Baltymų apykaita",
+    "family": "metabolism"
+  },
+  {
+    "id": "fat_metabolism",
+    "en": "Fat metabolism",
+    "lt": "Riebalų apykaita",
+    "family": "metabolism"
+  },
+  {
+    "id": "carbohydrate_metabolism",
+    "en": "Carbohydrate metabolism",
+    "lt": "Angliavandenių apykaita",
+    "family": "metabolism"
+  },
+  {
+    "id": "electrolytes",
+    "en": "Electrolytes",
+    "lt": "Elektrolitai",
+    "family": "fluid"
+  },
+  {
+    "id": "fluid_balance",
+    "en": "Fluid balance",
+    "lt": "Skysčių pusiausvyra",
+    "family": "fluid"
+  },
+  {
+    "id": "mineral_balance",
+    "en": "Mineral balance",
+    "lt": "Mineralų pusiausvyra",
+    "family": "fluid"
+  },
+  {
+    "id": "calcium_absorption",
+    "en": "Calcium absorption",
+    "lt": "Kalcio įsisavinimas",
+    "family": "calcium_absorption"
+  },
+  {
+    "id": "iron_absorption",
+    "en": "Iron absorption",
+    "lt": "Geležies įsisavinimas",
+    "family": "iron_absorption"
+  },
+  {
+    "id": "nutrient_absorption",
+    "en": "Nutrient absorption",
+    "lt": "Maistinių medžiagų įsisavinimas",
+    "family": "nutrient_absorption"
+  },
+  {
+    "id": "respiration",
+    "en": "Respiration",
+    "lt": "Kvėpavimas",
+    "family": "respiration"
+  },
+  {
+    "id": "mucosa",
+    "en": "Mucosa",
+    "lt": "Gleivinės",
+    "family": "mucosa"
+  },
+  {
+    "id": "throat",
+    "en": "Throat",
+    "lt": "Gerklė",
+    "family": "throat"
+  },
+  {
+    "id": "oral_health",
+    "en": "Oral health",
+    "lt": "Burnos sveikata",
+    "family": "oral_health"
+  },
+  {
+    "id": "urinary_tract",
+    "en": "Urinary tract",
+    "lt": "Šlapimo takai",
+    "family": "urinary_tract"
+  },
+  {
+    "id": "bladder",
+    "en": "Bladder",
+    "lt": "Šlapimo pūslė",
+    "family": "bladder"
+  },
+  {
+    "id": "kidneys",
+    "en": "Kidneys",
+    "lt": "Inkstai",
+    "family": "kidneys"
+  },
+  {
+    "id": "prostate",
+    "en": "Prostate",
+    "lt": "Prostata",
+    "family": "prostate"
+  },
+  {
+    "id": "fertility",
+    "en": "Fertility",
+    "lt": "Vaisingumas",
+    "family": "reproductive"
+  },
+  {
+    "id": "reproduction",
+    "en": "Reproduction",
+    "lt": "Reprodukcija",
+    "family": "reproductive"
+  },
+  {
+    "id": "libido",
+    "en": "Libido",
+    "lt": "Libido",
+    "family": "libido"
+  },
+  {
+    "id": "menopause",
+    "en": "Menopause",
+    "lt": "Menopauzė",
+    "family": "menopause"
+  },
+  {
+    "id": "menstruation",
+    "en": "Menstruation",
+    "lt": "Menstruacijos",
+    "family": "menstruation"
+  },
+  {
+    "id": "pregnancy",
+    "en": "Pregnancy",
+    "lt": "Nėštumas",
+    "family": "pregnancy"
+  },
+  {
+    "id": "lactation",
+    "en": "Lactation",
+    "lt": "Žindymas",
+    "family": "lactation"
+  },
+  {
+    "id": "growth",
+    "en": "Growth",
+    "lt": "Augimas",
+    "family": "growth"
+  },
+  {
+    "id": "development",
+    "en": "Development",
+    "lt": "Vystymasis",
+    "family": "development"
+  },
+  {
+    "id": "cell_division",
+    "en": "Cell division",
+    "lt": "Ląstelių dalijimasis",
+    "family": "cells"
+  },
+  {
+    "id": "dna_synthesis",
+    "en": "DNA synthesis",
+    "lt": "DNR sintezė",
+    "family": "cells"
+  },
+  {
+    "id": "protein_synthesis",
+    "en": "Protein synthesis",
+    "lt": "Baltymų sintezė",
+    "family": "protein_synthesis"
+  },
+  {
+    "id": "acid_base_balance",
+    "en": "Acid-base balance",
+    "lt": "Rūgščių ir šarmų pusiausvyra",
+    "family": "acid_base_balance"
+  },
+  {
+    "id": "connective_tissue",
+    "en": "Connective tissue",
+    "lt": "Jungiamasis audinys",
+    "family": "connective_tissue"
+  }
+]

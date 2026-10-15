@@ -151,3 +151,10 @@ html .photo-thumb .photo-zoom { bottom:0;right:0; }
 
 .group-review { margin-top:16px;padding:14px;border-radius:12px;background:var(--soft); }
 .group-review li { margin:12px 0; }.group-review p { margin:6px 0; }.group-review button { width:100%; }
+
+/* Same Sage surfaces and routed bottom sheet as account/product views. */
+.diagnostics-link{display:block;text-align:center;margin:1rem 0;}
+.diagnostics-card{margin:1rem 0;padding:1.25rem;}
+.diagnostics-card h2{font-size:1.15rem;overflow-wrap:anywhere;}
+.diagnostics-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.65rem 1rem;font-size:.875rem;}
+.diagnostics-grid dt{opacity:.7;}.diagnostics-grid dd{margin:0;text-align:right;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}

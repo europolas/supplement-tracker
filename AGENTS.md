@@ -308,3 +308,12 @@ behavior. JEV evaluation is a separate DB-free script and must never be plugged
 into the sourced-research interface as if it returned citations/free text. It
 accepts given facts and group choices only; full photo extraction needs a separate
 solution. Live JEV validation requires the private typesafe_test_key file.
+
+## Current 0.13.0 — hybrid pipeline and diagnostics
+
+Supersedes prior experimental-only status: see server/ANALYSIS.md 0.13.0 and
+server/BENEFITS.md. Keep legacy Grok factory intact for rollback. New adds use one
+Grok extraction plus bounded JEV classification, with no automatic Grok review.
+Never mark a front-label ingredient list as full composition or infer capsule dose.
+Server key TYPESAFE_KEY_FILE is private; no account key/image in diagnostic logs.
+Account AI dashboard reads existing owner-scoped job history. UI tags are EN/LT.
