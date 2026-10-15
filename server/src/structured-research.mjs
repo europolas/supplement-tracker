@@ -2,18 +2,20 @@
  * in returned tool metadata, not inferred from prose. Citations attest encountered
  * URLs, not truth/medical validity. Caller validates every domain claim and schema.
  * No automatic retries/storage/redirects; errors never expose provider bodies/keys.
+ * parallelToolCalls is opt-in for independent review lookups; it is not a tool-call
+ * budget and never bypasses source validation.
  * maxTurns bounds agent turns (not individual billable tool invocations).
  */
 import {ProviderError} from './structured-chat.mjs';
 export function citationUrl(value){
  try{const url=new URL(value);if(url.protocol!=='https:'||url.username||url.password||url.port&&url.port!=='443'||url.hostname==='localhost'||/^(?:\d+\.){3}\d+$/.test(url.hostname)||url.hostname.includes(':')||!url.hostname.includes('.'))return null;url.hash='';return url.href.replace(/\/$/,'');}catch{return null;}
 }
-export function createStructuredResearch({baseUrl='https://api.x.ai/v1',fetch:send=globalThis.fetch,timeout=300000,maxTurns=4,reasoningEffort='low',requireSearch=true}={}){
+export function createStructuredResearch({baseUrl='https://api.x.ai/v1',fetch:send=globalThis.fetch,timeout=300000,maxTurns=4,reasoningEffort='low',parallelToolCalls=false,requireSearch=true}={}){
  const base=new URL(baseUrl);if(base.protocol!=='https:'||base.username||base.password||base.hash||base.search)throw TypeError('Invalid provider URL');
  return async({key,model,messages,schema,validate,name='research_response',maxTokens=6000})=>{
   const input=messages.map(message=>({role:message.role,content:typeof message.content==='string'?message.content:message.content.map(part=>part.type==='image_url'?{type:'input_image',image_url:part.image_url.url,detail:'high'}:{type:'input_text',text:part.text})}));
   let response;
-  try{response=await send(base.href.replace(/\/$/,'')+'/responses',{method:'POST',redirect:'error',signal:AbortSignal.timeout(timeout),headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model,input,store:false,reasoning:{effort:reasoningEffort},max_output_tokens:maxTokens,...(requireSearch?{max_turns:maxTurns,parallel_tool_calls:false,tool_choice:'required',tools:[{type:'web_search'}],include:['no_inline_citations','web_search_call.action.sources']}:{}),text:{format:{type:'json_schema',name,strict:true,schema}}})});}
+  try{response=await send(base.href.replace(/\/$/,'')+'/responses',{method:'POST',redirect:'error',signal:AbortSignal.timeout(timeout),headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model,input,store:false,reasoning:{effort:reasoningEffort},max_output_tokens:maxTokens,...(requireSearch?{max_turns:maxTurns,parallel_tool_calls:parallelToolCalls,tool_choice:'required',tools:[{type:'web_search'}],include:['no_inline_citations','web_search_call.action.sources']}:{}),text:{format:{type:'json_schema',name,strict:true,schema}}})});}
   catch{throw new ProviderError('AI_CONNECTION_FAILED');}
   if(!response.ok){await response.body?.cancel();throw new ProviderError(response.status===401||response.status===403?'AI_KEY_REJECTED':response.status===429?'AI_RATE_LIMITED':'AI_PROVIDER_FAILED');}
   const chunks=[];let size=0;const reader=response.body.getReader();

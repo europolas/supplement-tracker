@@ -288,3 +288,14 @@ deduplication; conflicting choices fail closed without a paid retry. Review sche
 requires one non-null owned group ID per target and rejects repeated target IDs or
 group arrays. This validates structural consistency, not medical correctness or
 fuzzy identity equivalence. Existing data is not automatically rewritten.
+
+## 0.12.6 — Grok 4.7 in both adding stages
+
+Recognition now uses grok-4.7 with reasoning low (the API rejects none), preserving one all-photo request
+and the per-photo inventory contract. Review still uses grok-4.7/low with mandatory
+web sources and explicit acceptance. Only review opts into parallel tool calls;
+independent product searches can overlap. Its prompt limits research to targets,
+reuses formulation sources and stops once timing is established, requesting one
+short reason per target. Keep the four-turn/180s ceiling as a safety budget, not
+a speed guarantee. No automatic retries, source-check removal or existing-data
+rewrites. Detailed information retains its separate opt-in research settings.

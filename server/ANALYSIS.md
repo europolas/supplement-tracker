@@ -446,3 +446,23 @@ after removing duplicated prompt instructions. A separate real sourced review
 assigned one test target each to the supplied fats, empty-stomach and before-bed
 groups with supporting manufacturer links. These are observed tests, not a
 guarantee of clinical correctness or perfect recognition on future uploads.
+
+## 0.12.6 — Grok 4.7 in both adding stages
+
+Recognition now uses grok-4.7 with reasoning low (the API rejects none), preserving one all-photo request
+and the per-photo inventory contract. Review still uses grok-4.7/low with mandatory
+web sources and explicit acceptance. Only review opts into parallel tool calls;
+independent product searches can overlap. Its prompt limits research to targets,
+reuses formulation sources and stops once timing is established, requesting one
+short reason per target. Keep the four-turn/180s ceiling as a safety budget, not
+a speed guarantee. No automatic retries, source-check removal or existing-data
+rewrites. Detailed information retains its separate opt-in research settings.
+
+Validation: 43 isolated checks passed (2 paid tests skipped), 40 shared unit checks
+passed; 22/23 browser checks passed initially and the login-timeout case passed
+a focused rerun. A real four-photo 4.7 run initially omitted a readable package
+because of its inferred category; inventory now separates visual identification
+from uncertain regulatory classification without asserting permission to use it.
+The follow-up returned all 16 expected identities in 37.1s. A three-target sourced
+review took 21.2s versus the earlier 30.5s sample; this is not a controlled latency
+benchmark or a guarantee. First-stage 4.7 may be slower than previous 4.3.
