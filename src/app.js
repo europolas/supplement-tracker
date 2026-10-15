@@ -258,7 +258,19 @@ function renderReport(id,report){
   if(item.status==='added'&&state.supplements.some(s=>s.id===item.id))row.append(button('✓ '+item.name,()=>{void addSheet.close({immediate:true});router.navigate('/detail?id='+encodeURIComponent(item.id));}));
   else row.textContent=item.name+(item.status==='failed'?' — '+i18n.message(item.error):'');if(item.research)row.append(element('span',{text:' · '+i18n.t('appInfo_'+item.research)+(item.error?' — '+i18n.message(item.error):''),className:'research-badge'}));list.append(row);
  }container.append(list);
+ renderGroupReview(container,report);
  if(report.skipped?.length){container.append(heading(i18n.t('appPhotoSkipped'),'h3'));const skipped=element('ul');for(const item of report.skipped)skipped.append(element('li',{text:[item.name||item.location,item.reasonCode?i18n.message(item.reasonCode):item.reason].filter(Boolean).join(' — ')}));container.append(skipped);}
+}
+function renderGroupReview(container,report){
+ const review=report.review;if(!review)return;
+ const section=element('section',{className:'group-review'});section.append(heading(i18n.t('appGroupReview'),'h3'));
+ if(review.status==='checking'||review.status==='failed'||review.status==='applied'){section.append(element('p',{text:i18n.t('appGroupReview_'+review.status),attributes:{role:'status'}}));}
+ if(review.status==='ready'){
+  section.append(element('p',{text:i18n.t(review.changes.length?'appGroupReviewProposal':'appGroupReviewNoChanges')}));
+  const list=element('ul');for(const a of review.assessments){const row=element('li');row.append(element('strong',{text:a.name}));if(a.from!==a.to)row.append(element('p',{text:(review.groups.find(g=>g.id===a.from)?.name||i18n.t('appUnassigned'))+' → '+(review.groups.find(g=>g.id===a.to)?.name||i18n.t('appUnassigned'))}));row.append(element('p',{text:a.reason}));if(a.sourceUrl)row.append(element('a',{text:i18n.t('appSources'),attributes:{href:a.sourceUrl,target:'_blank',rel:'noopener noreferrer'}}));list.append(row);}section.append(list);
+  if(review.changes.length){const apply=button(i18n.t('appApplyGroupReview'),async()=>{apply.disabled=true;await mutate(()=>api.post('/v1/supplements/jobs/'+report.jobId+'/apply-groups',{}));apply.disabled=false;},'primary');section.append(apply);}
+ }
+ container.append(section);
 }
 function resetGroup(){get('group-form').reset();clearDirty(get('group-form'));get('cancel-group').hidden=true;get('group-form-title').textContent=i18n.t('appNewGroup');}
 get('cancel-group').addEventListener('click',()=>{resetGroup();void groupSheet.close();});
@@ -277,7 +289,20 @@ get('remove-key').addEventListener('click',async()=>{
  await mutate(async()=>{state.ai=await api.delete('/v1/settings/ai');get('ai-form').elements.key.value='';clearDirty(get('ai-form'));});
  renderAi();
 });
-function clearPhoto(){imageGeneration++;photo=[];get('photo-previews').hidden=true;get('more-photo-previews').replaceChildren();get('photo-preview').removeAttribute('src');get('photo-preview').hidden=true;get('remove-photo').hidden=true;for(const name of ['photo'])get('analyze-form').elements[name].value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
+function renderPhotoPreviews(){
+ const container=get('photo-previews');container.hidden=!photo.length;container.replaceChildren();
+ const rest=element('div',{attributes:{id:'more-photo-previews'}});
+ photo.forEach((src,index)=>{
+  const tile=element('div',{className:'photo-thumb'}),img=element('img',{attributes:{alt:i18n.t('appLibraryPhoto')}});if(!index)img.id='photo-preview';img.src=src;
+  const remove=button('×',()=>{
+   // Invalidate unfinished preparation so removed files cannot reappear later.
+   imageGeneration++;photo.splice(index,1);requestId=crypto.randomUUID();get('analyze-form').elements.photo.value='';renderPhotoPreviews();status('analysis-status','');get('analyze-form').querySelector('button[type="submit"]').disabled=false;
+   (get('photo-previews').querySelectorAll('button')[Math.min(index,photo.length-1)]||get('analyze-form').elements.photo).focus();
+  },'photo-remove');remove.setAttribute('aria-label',i18n.t('appRemoveOnePhoto',{number:index+1}));tile.append(img,remove);(index?rest:container).append(tile);
+ });container.append(rest);get('remove-photo').hidden=!photo.length;
+}
+function clearPhoto(){imageGeneration++;photo=[];renderPhotoPreviews();get('analyze-form').elements.photo.value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
+
 function resetAddDraft(){get('analyze-form').reset();clearPhoto();clearDirty(get('analyze-form'));requestId=crypto.randomUUID();}
 function closeAdd(force=false){
  void addSheet.close({immediate:force});if(!force)return;
@@ -303,7 +328,7 @@ for(const name of ['photo'])get('analyze-form').elements[name].addEventListener(
   const prepared=[];
   // Bound each compressed photo so five fit the existing server/proxy limit.
   for(const file of selected){let data,lastError;for(const maxSide of [1800,1400,1000,700]){try{data=await prepareImage(file,{maxSide,maxBytes:600000});break;}catch(error){lastError=error;}}if(!data)throw lastError;if(version!==imageGeneration)return;prepared.push(data);}
-  if(version!==imageGeneration)return;photo.push(...prepared);requestId=crypto.randomUUID();get('photo-previews').hidden=false;get('photo-preview').src=photo[0];get('photo-preview').hidden=false;get('more-photo-previews').replaceChildren(...photo.slice(1).map(src=>{const img=element('img',{attributes:{alt:i18n.t('appLibraryPhoto')}});img.src=src;return img;}));get('remove-photo').hidden=false;event.target.value='';status('analysis-status','');
+  if(version!==imageGeneration)return;photo.push(...prepared);requestId=crypto.randomUUID();renderPhotoPreviews();event.target.value='';status('analysis-status','');
  }
  catch(error){if(version===imageGeneration){clearPhoto();status('analysis-status',err(error),true);}}
  finally{if(version===imageGeneration)get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
@@ -321,14 +346,14 @@ function renderUploadQueue(){
   const submission=job.result?.submission,title=submission?.name||i18n.t(submission?.kind==='photo'?'appUploadPhoto':'appUploadSupplement');
   const failed=job.status==='failed',issues=job.result?.items?.some(item=>item.research==='failed'||item.status==='failed');
   const phase=job.phase||'recognizing',label=failed?'appUploadFailed':job.status==='complete'?(issues?'appUploadDoneIssues':'appUploadDone'):'appUpload_'+phase;
-  const summary=element('summary'),labels=element('div',{className:'upload-job-labels'});labels.append(element('strong',{text:title}),element('span',{text:i18n.t(label),className:'upload-job-phase'}));
+  const summary=element('summary'),labels=element('div',{className:'upload-job-labels'});labels.append(element('strong',{text:title}),element('span',{text:i18n.t(job.result?.review?.status==='checking'?'appGroupReview_checking':label),className:'upload-job-phase'}));
   if(job.created_at){const date=new Date(job.created_at);if(Number.isFinite(date.getTime()))labels.append(element('time',{text:new Intl.DateTimeFormat(i18n.language,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date),attributes:{datetime:date.toISOString()},className:'upload-job-time'}));}
   summary.append(element('span',{text:failed?'!':job.status==='complete'?'✓':'…',className:'upload-job-icon',attributes:{'aria-hidden':'true'}}),labels);card.append(summary);
   const step=job.status==='complete'?3:failed?({queued:0,recognizing:1,enriching:2}[job.result?.failedPhase]??(job.result?.items?.length?2:1)):({queued:0,recognizing:1,enriching:2,done:3}[phase]??1),steps=element('ol',{className:'upload-steps'});
-  ['appUpload_queued','appUpload_recognizing','appUpload_enriching','appUploadDone'].forEach((key,index)=>{const row=element('li',{text:i18n.t(key),className:index<step||job.status==='complete'?'is-complete':index===step?'is-current':''});if(index===step&&job.status==='running')row.setAttribute('aria-current','step');if(index===step&&failed)row.dataset.error='true';steps.append(row);});card.append(steps);
-  if(job.total_count>0){const progress=element('progress',{attributes:{max:String(job.total_count),value:String(job.processed_count||0),'aria-label':i18n.t('appUpload_enriching')}});card.append(progress,element('p',{text:i18n.t('appUploadDetailsProgress',{done:job.processed_count||0,total:job.total_count}),className:'form-help'}));}
+  ['appUpload_queued','appUpload_recognizing',job.result?.review?'appGroupReview':'appUpload_enriching','appUploadDone'].forEach((key,index)=>{const row=element('li',{text:i18n.t(key),className:index<step||job.status==='complete'?'is-complete':index===step?'is-current':''});if(index===step&&job.status==='running')row.setAttribute('aria-current','step');if(index===step&&failed)row.dataset.error='true';steps.append(row);});card.append(steps);
+  if(job.total_count>0){const progress=element('progress',{attributes:{max:String(job.total_count),value:String(job.processed_count||0),'aria-label':i18n.t('appUpload_enriching')}});card.append(progress,element('p',{text:job.result?.review?i18n.t('appGroupReview'):i18n.t('appUploadDetailsProgress',{done:job.processed_count||0,total:job.total_count}),className:'form-help'}));}
   if(failed)card.append(element('p',{text:err(new Error(job.error_code||'REQUEST_FAILED')),attributes:{'data-error':'true'}}));
-  if(job.result?.items?.length||job.result?.skipped?.length){const result=element('div',{attributes:{id:'upload-result-'+job.id},className:'upload-job-result'});card.append(result);container.append(card);renderReport(result.id,{...job.result,running:job.status==='running',total:job.total_count});}else container.append(card);
+  if(job.result?.items?.length||job.result?.skipped?.length){const result=element('div',{attributes:{id:'upload-result-'+job.id},className:'upload-job-result'});card.append(result);container.append(card);renderReport(result.id,{...job.result,jobId:job.id,running:job.status==='running',total:job.total_count});}else container.append(card);
  }
 }
 /** One loop observes every job; closing the upload dialog never aborts it. */
@@ -341,8 +366,8 @@ async function observeJobs(data,session,refresh=false){
  jobHistory=[...history.values()].sort((a,b)=>Date.parse(b.finished_at||b.created_at||0)-Date.parse(a.finished_at||a.created_at||0)).filter((job,index)=>job.status==='running'||index<20);
  const recognizing=active.some(job=>!job.phase||job.phase==='recognizing'),queued=active.some(job=>job.phase==='queued');
  const progress=active.reduce((sum,job)=>({done:sum.done+(job.processed_count||0),total:sum.total+(job.total_count||0)}),{done:0,total:0});
- status('home-status',recognizing?i18n.t('appRecognizing'):queued?i18n.t('appUpload_queued'):active.length?i18n.t('appEnrichingProgress',progress):data.job?.status==='failed'?err(new Error(data.job.error_code||'REQUEST_FAILED')):'',data.job?.status==='failed');
- if(data.job?.result?.items?.length){latestReport={...data.job.result,running:data.job.status==='running',total:data.job.total_count};renderReport('home-analysis-results',latestReport);}
+ status('home-status',active.some(j=>j.result?.review?.status==='checking')?i18n.t('appGroupReview_checking'):recognizing?i18n.t('appRecognizing'):queued?i18n.t('appUpload_queued'):active.length?i18n.t('appEnrichingProgress',progress):data.job?.status==='failed'?err(new Error(data.job.error_code||'REQUEST_FAILED')):'',data.job?.status==='failed');
+ if(data.job?.result?.items?.length){latestReport={...data.job.result,jobId:data.job.id,running:data.job.status==='running',total:data.job.total_count};renderReport('home-analysis-results',latestReport);}
  const job=history.get(modalJobId);
  if(job&&!sending){
   if(job.status==='failed')status('analysis-status',err(new Error(job.error_code||'REQUEST_FAILED')),true);

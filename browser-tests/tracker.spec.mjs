@@ -5,8 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
-async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false}={}){
- let completed=false,added=preloaded,started=false,configured=true,release,terminalJob=null,researchRequested=false,released=false,detailsReady=!progressive;
+async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false}={}){
+ let completed=false,added=preloaded,started=false,configured=true,release,terminalJob=null,researchRequested=false,reviewApplied=false,released=false,detailsReady=!progressive;
  const uploads=[],requests=[];release=()=>{released=true;};
  await page.route('https://perimove.com/supplement-api/**',async route=>{
   const request=route.request(),path=new URL(request.url()).pathname.replace('/supplement-api','');requests.push({path,method:request.method()});
@@ -28,6 +28,7 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
    }
    if(path.endsWith('/test-job'))result=result.job;
   }
+  else if(path.endsWith('/apply-groups')){reviewApplied=true;}
   else if(path==='/v1/supplements'&&request.method()==='DELETE'){added=false;started=false;terminalJob=null;}
   else if(path.endsWith('/research')){researchRequested=true;result={id:'detail-job',status:'running',phase:'enriching',result:{items:[],skipped:[]}};}
   else if(path.endsWith('/completion'))completed=request.postDataJSON().completed;
@@ -38,6 +39,8 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
   if(path==='/v1/dashboard'&&labelProduct&&added){result.supplements[0].name='Trans Resveratrolis (300 mg kapsulės, 60 vnt.)';result.supplements[0].analysis.manufacturer='L Cell';result.supplements[0].analysis.variant='300 mg kapsulės, 60 vnt.';}
   if(path==='/v1/dashboard'&&conflict&&added)result.supplements[0].analysis.compatibility.assessments=[{supplementId:'existing',supplementName:'Other magnesium',status:'duplicate',reason:'Review total magnesium before combining.'}];
   if(path==='/v1/dashboard'&&basic&&added){const a=result.supplements[0].analysis;a.schemaVersion='basic-1';a.enrichment={status:researchRequested?'researching':'complete'};}
+  if(groupReview&&path==='/v1/dashboard'){result.groups.push({id:'55555555-5555-4555-8555-555555555555',name:'With fats'});if(reviewApplied&&result.supplements.length)result.supplements[0].group_id=result.groups[1].id;}
+  if(groupReview&&result.job?.status==='complete'){result.job.total_count=1;result.job.result={items:[{id,name:'Vitamin',status:'added',research:'complete'}],review:{status:reviewApplied?'applied':'ready',groups:[{id:group,name:'With a meal'},{id:'55555555-5555-4555-8555-555555555555',name:'With fats'}],changes:[{id}],assessments:[{id,name:'Vitamin',from:group,to:'55555555-5555-4555-8555-555555555555',reason:'Manufacturer recommends a fat-containing meal.',sourceUrl:'https://manufacturer.example/timing'}]}};}
   await route.fulfill({status:httpStatus,json:result});
  });
  return {release,requests,uploads,releaseResearch:()=>{detailsReady=true;}};
@@ -202,4 +205,18 @@ test('multiple photos stay in the draft and are sent as one request',async({page
  await input.setInputFiles(Array.from({length:4},(_,i)=>file(i+'.png')));await expect(page.locator('#analysis-status')).toContainText('up to 5');await expect(page.locator('#more-photo-previews img')).toHaveCount(1);
  await expect.poll(()=>page.locator('#add-dialog').evaluate(d=>d.getAnimations().length)).toBe(0);await page.screenshot({path:'.runtime/multiple-photos.png',animations:'disabled'});
  const requests=[];page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/supplements/jobs'))requests.push(r.postDataJSON());});await page.locator('#analyze-form button[type=submit]').click();await expect.poll(()=>requests.length).toBe(1);expect(requests[0].images).toHaveLength(2);expect(requests[0].image).toBeUndefined();await expect(page.locator('#photo-preview')).toBeHidden();await expect(page.locator('#more-photo-previews img')).toHaveCount(0);
+});
+
+test('individual photo removal preserves remaining images and never submits deleted data',async({page})=>{
+ await mock(page,{waitAnalysis:true});await login(page);await page.locator('#add-supplement').click();
+ const colors=await page.evaluate(()=>['red','green','blue'].map(color=>{const c=document.createElement('canvas');c.width=40;c.height=40;const ctx=c.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,40,40);return c.toDataURL().split(',')[1];}));
+ await page.locator('[name=photo]').setInputFiles(colors.map((data,i)=>({name:i+'.png',mimeType:'image/png',buffer:Buffer.from(data,'base64')})));await expect(page.locator('.photo-remove')).toHaveCount(3);await expect.poll(()=>page.locator('#add-dialog').evaluate(d=>d.getAnimations().length)).toBe(0);await page.screenshot({path:'.runtime/photo-remove-controls.png',animations:'disabled'});
+ const original=await page.locator('#photo-previews img').evaluateAll(nodes=>nodes.map(n=>n.src));await page.getByRole('button',{name:'Remove photo 2',exact:true}).click();await expect(page.locator('.photo-remove')).toHaveCount(2);expect(await page.locator('#photo-previews img').evaluateAll(nodes=>nodes.map(n=>n.src))).toEqual([original[0],original[2]]);
+ await page.locator('#close-add').click();await page.locator('#add-supplement').click();await expect(page.locator('.photo-remove')).toHaveCount(2);
+ const request=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/supplements/jobs'));await page.locator('#analyze-form button[type=submit]').click();expect((await request).postDataJSON().images).toEqual([original[0],original[2]]);
+ await expect(page.locator('#photo-previews')).toBeHidden();await page.locator('[name=photo]').setInputFiles({name:'last.png',mimeType:'image/png',buffer:Buffer.from(colors[0],'base64')});await page.getByRole('button',{name:'Remove photo 1',exact:true}).click();await expect(page.locator('#photo-previews')).toBeHidden();await expect(page.locator('#remove-photo')).toBeHidden();
+});
+
+test('group review shows proposed move and source, applies only after explicit acceptance',async({page})=>{
+ const m=await mock(page,{basic:true,groupReview:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Vitamin');await page.locator('#analyze-form button[type=submit]').click();const review=page.locator('#analysis-results .group-review');await expect(review).toContainText('With a meal → With fats');await expect(review.locator('a')).toHaveAttribute('href','https://manufacturer.example/timing');expect(m.requests.filter(r=>r.path.endsWith('/apply-groups'))).toHaveLength(0);await review.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/group-review-preview.png',animations:'disabled'});await review.getByRole('button',{name:'Apply suggested group changes'}).click();await expect(review).toContainText('Group changes applied.');expect(m.requests.filter(r=>r.path.endsWith('/apply-groups'))).toHaveLength(1);
 });

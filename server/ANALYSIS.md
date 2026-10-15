@@ -1,5 +1,23 @@
 # Supplement analysis 1.4
 
+## Current: 0.12.0 — automatic grouping review
+
+This supersedes the historical one-request-only policy below at the user's explicit
+request. Adding has ONE fast identification call, then ONE focused Grok 4.7 review
+call with web search (180s, max 4 turns, no retries). Already-saved products remain
+visible. Review receives identified names/manufacturers and the complete routine;
+it verifies manufacturer meal/fat instructions, not dosage/full descriptions. The
+review returns owned group IDs, concise localized reasons and consulted sources.
+Only cited proposals become actionable. No automatic moves: upload history and
+Home's recent report show source-linked proposals and an explicit Apply button.
+The owner transaction checks the original routine/group snapshot, preserving manual
+edits and rejecting stale/cross-account proposals. Repeated apply is idempotent.
+Clear-all cancels stored jobs/proposals; late results cannot recreate rows. Failed
+or interrupted review keeps the initial groups and shows failure, never re-bills.
+Existing products outside a submitted batch are context, not automatic move targets.
+Per-thumbnail remove controls keep the three-column sage grid and remaining order.
+
+
 ## Current behavior: 0.10.2 (2026-10-15)
 
 The user explicitly reduced scope to one AI call per submitted name/photo. The
@@ -331,3 +349,10 @@ keywords in the selected language, with noun forms and no support/health filler.
 Examples are formatting only; unsupported benefits must not be invented. Applies
 to both compact recognition and opt-in detailed research. Existing stored results
 are preserved; no automatic re-analysis or paid requests on opening the app.
+
+0.12.0 live verification: two photos, seven identified products, recognition
+4,733 ms; exactly one Grok 4.7 sourced review call returned two proposed moves.
+Total job 140 seconds; no changes applied without acceptance. All 35 isolated
+checks in that run passed, plus the separate malformed/foreign proposal test.
+22 browser flows and focused visual checks passed. This is a measured sample,
+not a latency or medical-correctness guarantee.

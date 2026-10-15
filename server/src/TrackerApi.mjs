@@ -1,3 +1,5 @@
+import {reviewSnapshot,groupReviewSchema,validGroupReview,groupReviewMessages} from './group-review.mjs';
+import {citationUrl} from './structured-research.mjs';
 import {basicProductsSchema,basicProductsMessages,validBasicProducts,normalizeBasicProducts} from './photo-products.mjs';
 /** User-scoped tracker endpoints. All ownership is derived from the bearer session.
  * AI results are validated before a transaction writes a supplement. Raw photos/keys
@@ -37,7 +39,7 @@ export function validatePhotos(body){
  const images=body.images.map(validatePhoto);if(images.some(x=>!x)||images.reduce((n,x)=>n+x.length,0)>4300000)throw new ApiError(400,'IMAGE_INVALID');return images;
 }
 export class TrackerApi {
- constructor(pool,auth,{vault,chat,discover,singlePass=true,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
+ constructor(pool,auth,{vault,chat,discover,review=null,singlePass=true,discoveryModel='grok-4.3',models=['grok-4.7'],now=()=>new Date()}){this.review=review;this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
  get providers(){return this.providerQueue.running;}
  async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
@@ -113,6 +115,8 @@ export class TrackerApi {
    if(method==='POST')return [202,await this.startAnalysis(owner,body,authorization)];
    if(method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? ORDER BY created_at DESC LIMIT 1`,[owner]);const [recent]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? ORDER BY GREATEST(created_at,COALESCE(finished_at,created_at)) DESC LIMIT 20`,[owner]);const [active]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND status='running' ORDER BY created_at`,[owner]);return [200,{job:jobResult(rows[0]),active:active.map(jobResult),recent:recent.map(jobResult)}];}
   }
+  const apply=/^\/supplements\/jobs\/([a-f0-9-]{36})\/apply-groups$/.exec(path);
+  if(apply&&method==='POST')return [200,await this.applyGroupReview(owner,apply[1])];
   const job=/^\/supplements\/jobs\/([a-f0-9-]{36})$/.exec(path);
   if(job&&method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE id=? AND user_id=?`,[job[1],owner]);if(!rows.length)throw new ApiError(404,'NOT_FOUND');return [200,jobResult(rows[0])];}
   if(method==='POST'&&path==='/supplements/analyze'){if(this.singlePass)throw new ApiError(404,'NOT_FOUND');return this.analyze(owner,body,authorization);}
@@ -235,9 +239,41 @@ export class TrackerApi {
     catch(error){item.research='failed';item.error=safeCode(error);await this.markResearchFailed(owner,item.id,id,item.error);}
     item.elapsedMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);
    }));
+   if(this.singlePass&&this.review&&report.items.length)await this.reviewGroups(owner,id,report,authorization,sealed);
    await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status=?,error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[report.items.length?'complete':'failed',report.items.length?null:'SUPPLEMENT_NOT_IDENTIFIED',id,owner]);
   }catch(error){body.image=null;body.images=[];report.failedPhase=failurePhase;const code=safeCode(error);for(const item of report.items){if(!['queued','researching'].includes(item.research))continue;item.research='failed';item.error=code;try{await this.markResearchFailed(owner,item.id,id,code);}catch{ /* DB may be unavailable; startup also marks interrupted drafts. */ }}try{await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,id,owner]);}catch{ /* Deleted accounts have no surviving private job metadata. */ }}
   finally{body.image=null;body.images=[];this.activeJobs.delete(id);if(this.jobOwners.get(owner)===id)this.jobOwners.delete(owner);const queue=this.recognitionQueues.get(owner);if(queue&&!queue.running&&!queue.size){queue.close();this.recognitionQueues.delete(owner);}}
+ }
+ /** One optional second call per accepted batch. Errors retain recognized products. */
+ async reviewGroups(owner,id,report,authorization,sealed){
+  report.review={status:'checking',changes:[]};await this.jobProgress(owner,id,report);
+  try{
+   await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
+   const [jobs]=await this.pool.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=?',[id,owner]);if(!jobs.length)return;
+   const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);
+   const [rows]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
+   const targets=rows.filter(r=>report.items.some(i=>i.id===r.id));if(!targets.length)return;
+   const snapshot=reviewSnapshot(rows),started=Date.now();
+   const response=await this.provider(()=>this.review({key:this.vault.open(sealed,{owner,provider:'xai'}),model:'grok-4.7',messages:groupReviewMessages({groups,rows,targets,language:report.language}),schema:groupReviewSchema(groups,targets),validate:v=>validGroupReview(v,groups,targets),name:'supplement_group_review',maxTokens:Math.min(10000,1000+targets.length*280)}));
+   if(!validGroupReview(response.result,groups,targets))throw new ApiError(502,'AI_INVALID_RESPONSE');
+   await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
+   const citations=new Set((response.citations||[]).map(citationUrl));
+   const assessments=response.result.assignments.map(a=>{const target=targets.find(t=>t.id===a.supplementId),analysis=typeof target.analysis==='string'?JSON.parse(target.analysis):target.analysis,source=citationUrl(a.sourceUrl),verified=!!source&&citations.has(source),allowed=verified&&analysis.grouping?.basis!=='manual';return {id:target.id,name:target.name,from:target.group_id,to:allowed?a.groupId:target.group_id,reason:a.reason,sourceUrl:verified?source:null,unverified:!verified};});
+   report.review={status:'ready',model:response.model,elapsedMs:Date.now()-started,groups,snapshot,assessments,changes:assessments.filter(a=>a.from!==a.to)};
+  }catch(error){report.review={status:'failed',error:safeCode(error),changes:[]};}
+ }
+ async applyGroupReview(owner,id){
+  await this.auth.transaction(async db=>{
+   await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+   const [jobs]=await db.execute('SELECT result FROM analysis_jobs WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!jobs.length)throw new ApiError(404,'NOT_FOUND');
+   const report=typeof jobs[0].result==='string'?JSON.parse(jobs[0].result):jobs[0].result,review=report?.review;
+   if(review?.status==='applied')return;if(review?.status!=='ready'||!review.changes.length)throw new ApiError(409,'COLLECTION_CHANGED');
+   const [groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);
+   const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);
+   if(JSON.stringify(groups)!==JSON.stringify(review.groups)||reviewSnapshot(rows)!==review.snapshot)throw new ApiError(409,'COLLECTION_CHANGED');
+   for(const change of review.changes){const row=rows.find(r=>r.id===change.id);if(!row||change.to&&!groups.some(g=>g.id===change.to))throw new ApiError(409,'COLLECTION_CHANGED');const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;a.grouping={basis:'manual',groupId:change.to,explanation:change.reason,sourceUrl:change.sourceUrl};await db.execute('UPDATE supplements SET group_id=?,analysis=? WHERE id=? AND user_id=?',[change.to,JSON.stringify(a),change.id,owner]);}
+   review.status='applied';delete review.snapshot;await db.execute('UPDATE analysis_jobs SET result=? WHERE id=? AND user_id=?',[JSON.stringify(report),id,owner]);
+  });return {ok:true};
  }
  /** Explicit refresh/retry never performs recognition and never adds a second row.
   * It uses the selected UI language; a completed result is retained while refreshing.

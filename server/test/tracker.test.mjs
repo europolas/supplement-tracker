@@ -186,6 +186,23 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
 
    await assert.rejects(call('POST','/supplements/analyze',body),e=>e.status===404);
   });
+  await t.test('automatic review proposes sourced changes without moving products; apply is owned and stale-safe',async()=>{
+   await pool.query('DELETE FROM auth_rate_limits');let release,entered,reviewCalls=0,discoveryCalls=0;
+   let gate=new Promise(r=>release=r),started=new Promise(r=>entered=r);
+   const checked=new TrackerApi(pool,auth,{vault,chat,discover:async input=>{discoveryCalls++;const c=JSON.parse(input.messages[1].content[0].text);return {model:input.model,result:{language:'en',products:[{name:'Review test '+discoveryCalls,manufacturer:'Example',groupId:c.groups[0].id,benefit:'Energy, cells'}],skipped:[]}};},review:async input=>{reviewCalls++;entered();await gate;const c=JSON.parse(input.messages[1].content);assert.equal(input.model,'grok-4.7');const result={assignments:c.targets.map(id=>({supplementId:id,groupId:c.groups[1].id,reason:'Manufacturer recommends a meal with fats.',sourceUrl:'https://manufacturer.example/timing'}))};assert.ok(input.validate(result));return {result,model:input.model,citations:['https://manufacturer.example/timing']};}});
+   const call=(method,path,body={})=>checked.handle(method,path,body,'Bearer '+a.token,'test',query);
+   const [,job]=await call('POST','/supplements/jobs',{requestId:randomUUID(),name:'Review one'});await started;
+   const early=(await call('GET','/supplements/jobs/'+job.id))[1];assert.equal(early.result.review.status,'checking');const target=early.result.items[0].id;assert.equal((await call('GET','/dashboard'))[1].supplements.find(s=>s.id===target).group_id,group);release();
+   let done;for(let i=0;i<100;i++){done=(await call('GET','/supplements/jobs/'+job.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,10));}
+   assert.equal(done.result.review.status,'ready');assert.equal(done.result.review.changes.length,1);assert.equal(reviewCalls,1);assert.equal(discoveryCalls,1);assert.equal((await call('GET','/dashboard'))[1].supplements.find(s=>s.id===target).group_id,group);
+   await assert.rejects(checked.handle('POST','/supplements/jobs/'+job.id+'/apply-groups',{},'Bearer '+b.token,'test'),e=>e.status===404);
+   await call('POST','/supplements/jobs/'+job.id+'/apply-groups');await call('POST','/supplements/jobs/'+job.id+'/apply-groups');assert.equal((await call('GET','/dashboard'))[1].supplements.find(s=>s.id===target).group_id,done.result.review.changes[0].to);
+   const [,next]=await call('POST','/supplements/jobs',{requestId:randomUUID(),name:'Review two'});for(let i=0;i<100;i++){done=(await call('GET','/supplements/jobs/'+next.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,10));}assert.equal(done.result.review.status,'ready');await call('PATCH','/supplements/'+done.result.items[0].id,{groupId:group});await assert.rejects(call('POST','/supplements/jobs/'+next.id+'/apply-groups'),e=>e.status===409);
+   const originalReview=checked.review;checked.review=async input=>({...await originalReview(input),citations:[]});
+   const [,unsupported]=await call('POST','/supplements/jobs',{requestId:randomUUID(),name:'Review three'});for(let i=0;i<100;i++){done=(await call('GET','/supplements/jobs/'+unsupported.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,10));}assert.equal(done.result.review.status,'ready');assert.equal(done.result.review.changes.length,0,'Uncited source cannot justify a move');
+   checked.review=async()=>{throw new ProviderError('AI_PROVIDER_FAILED');};const [,failed]=await call('POST','/supplements/jobs',{requestId:randomUUID(),name:'Review four'});for(let i=0;i<100;i++){done=(await call('GET','/supplements/jobs/'+failed.id))[1];if(done.status!=='running')break;await new Promise(r=>setTimeout(r,10));}assert.equal(done.status,'complete');assert.equal(done.result.review.status,'failed');assert.equal(done.result.items.length,1,'Review failure keeps the recognized product');
+
+  });
   await t.test('clear keeps groups/key/other accounts and rejects late recognition results',async()=>{
    await pool.query('DELETE FROM auth_rate_limits');
    await request(b,'PUT','/settings/ai',{key:'xai-test-only-private-key-for-bob',model:'grok-4.7'});

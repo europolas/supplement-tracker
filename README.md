@@ -1,5 +1,23 @@
 # Supplement Tracker · 0.10.2
 
+## Current: 0.12.0 — automatic grouping review
+
+This supersedes the historical one-request-only policy below at the user's explicit
+request. Adding has ONE fast identification call, then ONE focused Grok 4.7 review
+call with web search (180s, max 4 turns, no retries). Already-saved products remain
+visible. Review receives identified names/manufacturers and the complete routine;
+it verifies manufacturer meal/fat instructions, not dosage/full descriptions. The
+review returns owned group IDs, concise localized reasons and consulted sources.
+Only cited proposals become actionable. No automatic moves: upload history and
+Home's recent report show source-linked proposals and an explicit Apply button.
+The owner transaction checks the original routine/group snapshot, preserving manual
+edits and rejecting stale/cross-account proposals. Repeated apply is idempotent.
+Clear-all cancels stored jobs/proposals; late results cannot recreate rows. Failed
+or interrupted review keeps the initial groups and shows failure, never re-bills.
+Existing products outside a submitted batch are context, not automatic move targets.
+Per-thumbnail remove controls keep the three-column sage grid and remaining order.
+
+
 ## Current behavior: 0.10.2 (2026-10-15)
 
 The user explicitly reduced scope to one AI call per submitted name/photo. The
@@ -270,3 +288,7 @@ are preserved; no automatic re-analysis or paid requests on opening the app.
 
 0.11.2 groups all selected photo previews into one padded sage grid: three equal
 square thumbnails per row, center-cropped only in CSS. AI payloads remain uncropped.
+
+0.11.3 adds an accessible per-thumbnail remove button. Removing invalidates any
+pending image preparation, keeps remaining order, changes submission ID, and never
+submits removed data. Existing remove-all and three-column crop grid remain.

@@ -138,3 +138,9 @@ details,summary { color:var(--ink);border-color:var(--line); }
 .photo-previews { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px;margin-top:10px;background:var(--soft);border-radius:16px; }
 #more-photo-previews { display:contents; }
 .photo-previews img { display:block;width:100%;min-width:0;aspect-ratio:1;height:auto;object-fit:cover;object-position:center;border-radius:10px; }
+
+.photo-thumb { position:relative;min-width:0; }
+.photo-remove { position:absolute;top:2px;right:2px;display:grid;place-items:center;width:36px;height:36px;min-height:36px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--ink);font-size:25px;line-height:1;box-shadow:0 1px 5px #0002; }
+
+.group-review { margin-top:16px;padding:14px;border-radius:12px;background:var(--soft); }
+.group-review li { margin:12px 0; }.group-review p { margin:6px 0; }.group-review button { width:100%; }
