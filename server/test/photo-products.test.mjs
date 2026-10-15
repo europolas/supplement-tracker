@@ -22,3 +22,13 @@ test('compact contract accepts four fields and rejects foreign groups, long bene
  assert.equal(validBasicProducts({...r,products:[null]},groups),false);assert.equal(validBasicProducts({...r,language:'lt'},groups),false);
  const prompt=basicProductsMessages({groups,language:'lt',name:'Vitamin C'});assert.match(prompt[0].content,/Lithuanian/);assert.match(prompt[0].content,/No doses/);assert.equal(prompt.length,2);
 });
+
+test('numbered multi-photo inventory preserves separate same-brand formulas and exact duplicates',()=>{
+ const messages=basicProductsMessages({images:['photo-a','photo-b'],groups:[{id:'meal'}],language:'lt'});
+ const parts=messages[1].content;
+ assert.deepEqual(parts.filter(p=>p.type==='image_url').map(p=>p.image_url),[{url:'photo-a',detail:'high'},{url:'photo-b',detail:'high'}]);
+ assert.match(parts[1].text,/Photo 1 of 2/);assert.match(parts[3].text,/Photo 2 of 2/);
+ const p=(name,manufacturer)=>({...product,name,manufacturer,variant:''});
+ const items=[p('Bio-Zinc','Pharma Nord'),p('Bio-Selenium+Zinc','Pharma Nord'),p('Magnesium Taurate','KAL'),p('Magnesium Bisglycinate','Zenyth')];
+ assert.equal(uniqueProducts([...items,items[0]]).length,4);
+});

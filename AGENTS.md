@@ -226,3 +226,19 @@ Usage and Potential benefits for new and historical records, plus a localized do
 consultation footer. Source links and management remain in the disclosure. Existing
 records are not rewritten or billed automatically; explicitly refresh old prose.
 No DB migration or mail changes.
+
+## 0.12.2 — exhaustive multi-photo inventory
+
+The compact identification prompt inventories each numbered photo independently
+before deduplication, explicitly including separate blister strips, rotated foil
+text, small/edge containers and distinct same-brand formulations. A final coverage
+pass accounts for unreadable candidates by photo/position in skipped. No product
+count is supplied to the model; unreadable identities must not be guessed. The
+four-field response, one recognition call, existing grouping review and detailed
+research remain unchanged. Photos still use high detail and the existing compressor.
+
+An opt-in paid regression is available with `INVENTORY_PHOTO_DIR` (the four original
+files named `1-Photo-1.jpg` through `4-Photo-4.jpg`) and `PROVIDER_TEST_KEY_FILE`:
+`node scripts/check-photo-inventory.mjs`. It uses real browser compression, performs
+two independent recognition calls and checks all 16 expected identities. Neither
+photos nor keys are committed; no production account/database is modified.
