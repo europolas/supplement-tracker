@@ -7,3 +7,10 @@ test('review proposals cover exactly owned targets and reject foreign IDs or mal
  for(const assignments of [[entry('a')],[entry('a'),entry('a')],[entry('a'),entry('foreign')],[entry('a'),{...entry('b'),groupId:'foreign'}],[entry('a'),null],[entry('a'),{...entry('b'),extra:true}]])assert.equal(validGroupReview({assignments},groups,targets),false);
  const rows=[{id:'a',name:'A',group_id:'g',analysis:{manufacturer:'Brand'}}];assert.notEqual(reviewSnapshot(rows),reviewSnapshot([{...rows[0],analysis:{manufacturer:'Brand',grouping:{basis:'manual'}}}]));
 });
+
+test('review cannot unassign a product or give it multiple timing groups',()=>{
+ const groups=[{id:'fast'},{id:'fats'},{id:'bed'}],targets=[{id:'a'}],entry={supplementId:'a',groupId:'fast',reason:'Label directions.',sourceUrl:null};
+ for(const groupId of [null,['fast','bed'],'unknown'])assert.equal(validGroupReview({assignments:[{...entry,groupId}]},groups,targets),false);
+ for(const groupId of ['fast','fats','bed'])assert.equal(validGroupReview({assignments:[{...entry,groupId}]},groups,targets),true);
+ assert.equal(validGroupReview({assignments:[entry,{...entry,groupId:'bed'}]},groups,targets),false);
+});

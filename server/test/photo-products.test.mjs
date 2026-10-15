@@ -32,3 +32,9 @@ test('numbered multi-photo inventory preserves separate same-brand formulas and 
  const items=[p('Bio-Zinc','Pharma Nord'),p('Bio-Selenium+Zinc','Pharma Nord'),p('Magnesium Taurate','KAL'),p('Magnesium Bisglycinate','Zenyth')];
  assert.equal(uniqueProducts([...items,items[0]]).length,4);
 });
+
+test('compact recognition rejects duplicate identity entries even when assigned to different owned groups',()=>{
+ const groups=[{id:'fast'},{id:'bed'}],p={name:'Product',manufacturer:'Brand',groupId:'fast',benefit:'Energy, cells'};
+ assert.equal(validBasicProducts({language:'en',products:[p,{...p,groupId:'bed'}],skipped:[]},groups),false);
+ assert.equal(validBasicProducts({language:'en',products:[p,{...p,name:'Different product',groupId:'bed'}],skipped:[]},groups),true);
+});

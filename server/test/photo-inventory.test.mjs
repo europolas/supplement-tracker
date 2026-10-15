@@ -19,3 +19,12 @@ test('text-only recognition keeps original contract and malformed photo coverage
  const request=input([]);let calls=0;await createPhotoInventoryDiscovery(async actual=>{calls++;assert.equal(actual,request);return {result:{language:'en',products:[],skipped:[]}};})(request);assert.equal(calls,1);
  await assert.rejects(createPhotoInventoryDiscovery(async()=>({result:{language:'en',photos:[]}}))(input(['one'])),e=>e.code==='AI_INVALID_RESPONSE');
 });
+
+test('conflicting groups for one exact product across photos are rejected, not silently deduplicated',async()=>{
+ const owned=[...groups,{id:'bed',name:'Before bed'}];let calls=0;
+ const discover=createPhotoInventoryDiscovery(async request=>{calls++;
+  const result={language:'en',photos:[{photoIndex:1,products:[p('Same product')],skipped:[]},{photoIndex:2,products:[{...p('Same product'),groupId:'bed'}],skipped:[]}]};
+  assert.equal(request.validate(result),false);return {result};
+ });
+ await assert.rejects(discover({messages:basicProductsMessages({images:['one','two'],groups:owned}),schema:basicProductsSchema(owned),validate:v=>validBasicProducts(v,owned)}),e=>e.code==='AI_INVALID_RESPONSE');assert.equal(calls,1);
+});

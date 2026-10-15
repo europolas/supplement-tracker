@@ -20,6 +20,6 @@ const expected=[/nad/i,/\bnac\b/i,/astaxanthin/i,/lysine/i,/quinone.*q10|q10/i,/
 for(let run=1;run<=Number(process.env.INVENTORY_RUNS||2);run++){
  const started=Date.now(),response=await createPhotoInventoryDiscovery(createStructuredOutput({timeout:90000,reasoningEffort:'none'}))({key:readFileSync(process.env.PROVIDER_TEST_KEY_FILE,'utf8').trim(),model:'grok-4.3',messages:basicProductsMessages({images,groups,language:'lt'}),schema:basicProductsSchema(groups,'lt'),validate:v=>validBasicProducts(v,groups,'lt'),name:'supplement_basics_v1',maxTokens:5000});
  const products=uniqueProducts(response.result.products),missing=expected.filter(re=>!products.some(p=>re.test(p.name))).map(String);
- console.log(JSON.stringify({run,inventory:response.inventory,count:products.length,ms:Date.now()-started,missing,products:products.map(p=>`${p.manufacturer}: ${p.name}`),skipped:response.result.skipped}));
+ console.log(JSON.stringify({run,inventory:response.inventory,count:products.length,ms:Date.now()-started,missing,products:products.map(p=>({name:`${p.manufacturer}: ${p.name}`,group:groups.find(g=>g.id===p.groupId)?.name})),skipped:response.result.skipped}));
  assert.equal(missing.length,0);assert.equal(products.length,16);
 }

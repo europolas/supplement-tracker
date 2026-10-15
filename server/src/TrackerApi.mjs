@@ -272,7 +272,7 @@ export class TrackerApi {
    const [groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);
    const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);
    if(JSON.stringify(groups)!==JSON.stringify(review.groups)||reviewSnapshot(rows)!==review.snapshot)throw new ApiError(409,'COLLECTION_CHANGED');
-   for(const change of review.changes){const row=rows.find(r=>r.id===change.id);if(!row||change.to&&!groups.some(g=>g.id===change.to))throw new ApiError(409,'COLLECTION_CHANGED');const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;a.grouping={basis:'manual',groupId:change.to,explanation:change.reason,sourceUrl:change.sourceUrl};await db.execute('UPDATE supplements SET group_id=?,analysis=? WHERE id=? AND user_id=?',[change.to,JSON.stringify(a),change.id,owner]);}
+   for(const change of review.changes){const row=rows.find(r=>r.id===change.id);if(!row||!groups.some(g=>g.id===change.to))throw new ApiError(409,'COLLECTION_CHANGED');const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;a.grouping={basis:'manual',groupId:change.to,explanation:change.reason,sourceUrl:change.sourceUrl};await db.execute('UPDATE supplements SET group_id=?,analysis=? WHERE id=? AND user_id=?',[change.to,JSON.stringify(a),change.id,owner]);}
    review.status='applied';delete review.snapshot;await db.execute('UPDATE analysis_jobs SET result=? WHERE id=? AND user_id=?',[JSON.stringify(report),id,owner]);
   });return {ok:true};
  }

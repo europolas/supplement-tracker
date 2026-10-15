@@ -271,3 +271,20 @@ Photo controls use scoped 44px touch targets and small glass trash/expand icons.
 The reusable image-viewer from toolkit 1.11.0 shows the full prepared (uncropped)
 image with optional 2x zoom/pan; close clears its source, preserves the upload
 draft, restores focus and makes no request. Logout/draft cleanup closes it.
+
+## 0.12.5 — one supplement, one group
+
+Recognition and sourced review share grouping-policy.mjs. Each product must receive
+one owned group ID, considering empty-stomach, fat-meal and before-bed constraints
+against exact label/manufacturer instructions and formulation evidence. No fixed
+medical ranking overrides verified restrictions when constraints overlap: choose
+one best-fitting slot, keep additional conditions in usage/review text, and preserve
+an existing suitable/manual assignment. Missing evidence must not become an invented
+fasting/fat/bedtime requirement. Unknown identity/timing remains explicitly qualified.
+
+Compact results reject duplicate exact identity rows. Photo inventories can repeat
+a product across images, but all occurrences must agree on one group before exact
+deduplication; conflicting choices fail closed without a paid retry. Review schema
+requires one non-null owned group ID per target and rejects repeated target IDs or
+group arrays. This validates structural consistency, not medical correctness or
+fuzzy identity equivalence. Existing data is not automatically rewritten.

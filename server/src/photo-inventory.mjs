@@ -5,7 +5,7 @@
  * Text-only requests retain the compact contract; no automatic paid retries.
  */
 import {ProviderError} from './structured-chat.mjs';
-import {uniqueProducts} from './photo-products.mjs';
+import {uniqueProducts,consistentProductGroups} from './photo-products.mjs';
 export function createPhotoInventoryDiscovery(provider){
  return async input=>{
   const count=input.messages.flatMap(m=>Array.isArray(m.content)?m.content:[]).filter(p=>p.type==='image_url').length;
@@ -23,11 +23,11 @@ export function createPhotoInventoryDiscovery(provider){
     if(!p||Object.keys(p).length!==3||!Number.isInteger(p.photoIndex)||p.photoIndex<1||p.photoIndex>count||indices.has(p.photoIndex)||!Array.isArray(p.products)||!Array.isArray(p.skipped))return false;
     indices.add(p.photoIndex);
     if(p.products.some(x=>!x||Object.keys(x).length!==5||typeof x.position!=='string'||!x.position.trim()||x.position.length>120))return false;
-    if(!input.validate({language:value.language,products:p.products.map(({position,...x})=>x),skipped:p.skipped}))return false;
+    if(!input.validate({language:value.language,products:uniqueProducts(p.products.map(({position,...x})=>x)),skipped:p.skipped}))return false;
    }
    // The application's overall capacity is 40; repeated views may exceed that
    // before deduplication, so validate each image independently above.
-   return true;
+   return consistentProductGroups(value.photos.flatMap(p=>p.products));
   };
   const messages=input.messages.map(m=>({...m}));
   messages[0]={...messages[0],content:messages[0].content+`\nOUTPUT CONTRACT OVERRIDE: Return {language, photos}, with exactly one entry per numbered input photo, photoIndex 1 through ${count}. Each entry has its own products and skipped arrays. Include every readable package IN THAT PHOTO, even if it appeared in another photo or already exists in the routine. Do not deduplicate across photos; the application does that. Give each product its physical position in this image. Repeated print on one blister is one package, but separate blisters MUST be read independently, including a single-ingredient formula beside a combination. Recheck rightmost and partially cropped packages before finishing each photo. Never silently omit an unreadable package: put its position and unreadable identity in that photo's skipped list. Do not guess identities or a target count. All other language, benefit and grouping rules still apply.`};
