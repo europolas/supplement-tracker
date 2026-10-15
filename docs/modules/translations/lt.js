@@ -1,5 +1,10 @@
 /** Lithuanian translations; missing keys fall back to the English dictionary. */
 export default Object.freeze({
+  "appPhotoPreview": "Nuotraukos peržiūra",
+  "appEnlargePhoto": "Išdidinti nuotrauką {number}",
+  "appZoomIn": "Priartinti",
+  "appFitImage": "Visa nuotrauka",
+
   "appComposition": "Sudėtis",
   "appUsage": "Vartojimas",
   "appDoctorConsultation": "Dėl kiekvieno papildo vartojimo būtina pasitarti su gydytoju.",

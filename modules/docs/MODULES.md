@@ -61,3 +61,23 @@ Subscriptions/listeners/watchers return cleanup or destroy handles; camera and
 previews return stop/dispose; database returns close. The screen/app that creates
 them owns cleanup. App-specific endpoints, policies and private data stay outside
 these generic modules. Read individual returned values before integrating them.
+
+## Local image viewer
+
+`createImageViewer({document?, labels?})` creates an opt-in nested native bottom
+sheet. Call `open(localDataUrl, {alt})`, `close()` on logout/draft cleanup and
+`destroy()` on teardown. JPEG/PNG/WebP data URLs and caller-owned blob URLs only;
+no remote fetch, upload, storage or blob revocation. Import the library base.css.
+The viewer provides fit-to-screen and image-only 2x zoom with scrolling to pan;
+app-wide viewport zoom remains locked. Photo panning does not dismiss the sheet.
+Supply localized `{title,close,zoom,fit}` through the labels callback (English
+defaults provided). Closing clears the source and returns focus to the opener.
+
+```js
+const viewer = createImageViewer({labels: () => ({
+ title:i18n.t('appPhotoPreview'), close:i18n.t('appClose'),
+ zoom:i18n.t('appZoomIn'), fit:i18n.t('appFitImage')
+})});
+previewButton.onclick = () => viewer.open(preparedImage, {alt:'Product label'});
+// On logout: viewer.close(); on final teardown: viewer.destroy();
+```

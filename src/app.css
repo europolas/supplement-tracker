@@ -140,7 +140,14 @@ details,summary { color:var(--ink);border-color:var(--line); }
 .photo-previews img { display:block;width:100%;min-width:0;aspect-ratio:1;height:auto;object-fit:cover;object-position:center;border-radius:10px; }
 
 .photo-thumb { position:relative;min-width:0; }
-.photo-remove { position:absolute;top:2px;right:2px;display:grid;place-items:center;width:36px;height:36px;min-height:36px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--ink);font-size:25px;line-height:1;box-shadow:0 1px 5px #0002; }
+/* Scope above global form-button rules; 44px targets with smaller glass discs. */
+html .app-dialog .photo-thumb button { position:absolute;display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:8px;margin:0;border:0;border-radius:50%;background:transparent;color:white;box-shadow:none;z-index:1; }
+html .photo-thumb button::before { content:'';position:absolute;inset:5px;border-radius:50%;background:#17251dcc;box-shadow:0 2px 6px #0003;backdrop-filter:blur(8px);z-index:-1; }
+html .photo-thumb button:active::before { background:#607c56; }
+html .photo-thumb button .icon { width:17px;height:17px; }
+html .photo-thumb .photo-remove { top:0;right:0; }
+html .photo-thumb .photo-zoom { bottom:0;right:0; }
+
 
 .group-review { margin-top:16px;padding:14px;border-radius:12px;background:var(--soft); }
 .group-review li { margin:12px 0; }.group-review p { margin:6px 0; }.group-review button { width:100%; }

@@ -4,12 +4,14 @@
  */
 import {createConfig,createStorage,createSettings,createTheme,createI18n,createRouter,createToast,
  bindForm,trackDirty,setupViewport,setupGestures,setupPwa,watchNetwork,createAuth,setupAccount,
- element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet,productLabel} from './modules/index.js';
+ element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet,productLabel,createImageViewer} from './modules/index.js';
 // Local presentation icons use fixed SVG paths, never server/model markup.
 const iconPaths={
  user:'M20 21v-2a7 7 0 0 0-14 0v2 M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
  home:'m3 10 9-7 9 7v11h-6v-7H9v7H3Z',
  calendar:'M4 5h16v16H4Z M8 3v4 M16 3v4 M4 10h16 M8 14h2 M14 14h2 M8 17h2',
+ trash:'M4 7h16 M9 7V4h6v3 M6 7l1 14h10l1-14 M10 11v6 M14 11v6',
+ expand:'M9 3H3v6 M15 3h6v6 M3 15v6h6 M21 15v6h-6',
  plus:'M12 5v14 M5 12h14',close:'m6 6 12 12 M18 6 6 18',
  camera:'M3 7h4l2-3h6l2 3h4v14H3Z M16 14a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
  image:'M3 3h18v18H3Z m0 14 6-6 5 5 3-3 4 4 M8 7h.01',
@@ -39,6 +41,7 @@ setupAccount(config,{i18n,auth});
 const api=auth.api;
 let baseRoute='/';
 const addSheet=createBottomSheet(get('add-dialog'),{onDismiss:()=>closeAdd()});
+const photoViewer=createImageViewer({labels:()=>({title:i18n.t('appPhotoPreview'),close:i18n.t('appClose'),zoom:i18n.t('appZoomIn'),fit:i18n.t('appFitImage')})});
 const groupSheet=createBottomSheet(get('group-dialog'));
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router;
@@ -271,18 +274,18 @@ function renderPhotoPreviews(){
  const rest=element('div',{attributes:{id:'more-photo-previews'}});
  photo.forEach((src,index)=>{
   const tile=element('div',{className:'photo-thumb'}),img=element('img',{attributes:{alt:i18n.t('appLibraryPhoto')}});if(!index)img.id='photo-preview';img.src=src;
-  const remove=button('×',()=>{
+  const remove=button('',()=>{
    // Invalidate unfinished preparation so removed files cannot reappear later.
    imageGeneration++;photo.splice(index,1);requestId=crypto.randomUUID();get('analyze-form').elements.photo.value='';renderPhotoPreviews();status('analysis-status','');get('analyze-form').querySelector('button[type="submit"]').disabled=false;
-   (get('photo-previews').querySelectorAll('button')[Math.min(index,photo.length-1)]||get('analyze-form').elements.photo).focus();
-  },'photo-remove');remove.setAttribute('aria-label',i18n.t('appRemoveOnePhoto',{number:index+1}));tile.append(img,remove);(index?rest:container).append(tile);
+   (get('photo-previews').querySelectorAll('.photo-remove')[Math.min(index,photo.length-1)]||get('analyze-form').elements.photo).focus();
+  },'photo-remove');remove.setAttribute('aria-label',i18n.t('appRemoveOnePhoto',{number:index+1}));remove.append(icon('trash'));const enlarge=button('',()=>photoViewer.open(src,{alt:i18n.t('appEnlargePhoto',{number:index+1})}),'photo-zoom');enlarge.setAttribute('aria-label',i18n.t('appEnlargePhoto',{number:index+1}));enlarge.append(icon('expand'));tile.append(img,remove,enlarge);(index?rest:container).append(tile);
  });container.append(rest);get('remove-photo').hidden=!photo.length;
 }
-function clearPhoto(){imageGeneration++;photo=[];renderPhotoPreviews();get('analyze-form').elements.photo.value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
+function clearPhoto(){photoViewer.close();imageGeneration++;photo=[];renderPhotoPreviews();get('analyze-form').elements.photo.value='';get('analyze-form').querySelector('button[type="submit"]').disabled=false;}
 
 function resetAddDraft(){get('analyze-form').reset();clearPhoto();clearDirty(get('analyze-form'));requestId=crypto.randomUUID();}
 function closeAdd(force=false){
- void addSheet.close({immediate:force});if(!force)return;
+ photoViewer.close(); void addSheet.close({immediate:force});if(!force)return;
  resetAddDraft();modalJobId=null;addedId=null;get('view-added').hidden=true;get('analysis-status').textContent='';get('analyze-form').hidden=false;get('analyze-form').querySelector('fieldset').disabled=false;
 }
 get('add-supplement').addEventListener('click',()=>{

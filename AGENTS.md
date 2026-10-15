@@ -258,3 +258,16 @@ Regression uses actual user's group names and browser-compressed four-photo fixt
 three independent calls returned 4+3+7+2 products (16 total), in 7.7–9.6 seconds.
 Missing production item was Bio-Zink; previous successful counts did not establish
 reliable coverage. Existing user records are preserved, not automatically re-added.
+
+## 0.12.4 — grouping priorities and photo viewer
+
+Recognition still inventories each photo, then considers the complete routine for
+consistent grouping. Explicit product directions precede ingredient absorption
+considerations. Sourced review must not remove a suitable fat-meal assignment only
+because a label says "with food" or does not require extra fat. Actual source-backed
+changes still require user acceptance; manual assignments are preserved. No
+existing product or pending review is silently rewritten.
+Photo controls use scoped 44px touch targets and small glass trash/expand icons.
+The reusable image-viewer from toolkit 1.11.0 shows the full prepared (uncropped)
+image with optional 2x zoom/pan; close clears its source, preserves the upload
+draft, restores focus and makes no request. Logout/draft cleanup closes it.

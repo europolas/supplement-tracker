@@ -220,3 +220,16 @@ test('individual photo removal preserves remaining images and never submits dele
 test('group review shows proposed move and source, applies only after explicit acceptance',async({page})=>{
  const m=await mock(page,{basic:true,groupReview:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Vitamin');await page.locator('#analyze-form button[type=submit]').click();const review=page.locator('#analysis-results .group-review');await expect(review).toContainText('With a meal → With fats');await expect(review.locator('a')).toHaveAttribute('href','https://manufacturer.example/timing');expect(m.requests.filter(r=>r.path.endsWith('/apply-groups'))).toHaveLength(0);await review.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/group-review-preview.png',animations:'disabled'});await review.getByRole('button',{name:'Apply suggested group changes'}).click();await expect(review).toContainText('Group changes applied.');expect(m.requests.filter(r=>r.path.endsWith('/apply-groups'))).toHaveLength(1);
 });
+
+test('photo controls enlarge the full image, zoom locally and return to the preserved draft',async({page})=>{
+ const fake=await mock(page,{waitAnalysis:true});await login(page);await page.locator('#add-supplement').click();
+ const buffer=Buffer.from(await page.evaluate(()=>{const c=document.createElement('canvas');c.width=300;c.height=900;const ctx=c.getContext('2d');ctx.fillStyle='#829c6e';ctx.fillRect(0,0,300,900);ctx.fillStyle='white';ctx.font='40px sans-serif';ctx.fillText('TOP',20,60);ctx.fillText('BOTTOM',20,850);return c.toDataURL().split(',')[1];}),'base64');
+ await page.locator('[name=photo]').setInputFiles({name:'label.png',mimeType:'image/png',buffer});await expect(page.locator('.photo-zoom')).toHaveCount(1);
+ const source=await page.locator('#photo-preview').getAttribute('src');await page.getByRole('button',{name:'Enlarge photo 1',exact:true}).click();
+ const viewer=page.locator('.local-image-viewer');await expect(viewer).toBeVisible();await expect(viewer.locator('img')).toHaveAttribute('src',source);await expect(viewer).toHaveAttribute('data-enlarged','false');
+ await page.getByRole('button',{name:'Zoom in',exact:true}).click();await expect(viewer).toHaveAttribute('data-enlarged','true');await expect(viewer.locator('.local-image-stage')).toBeVisible();
+ await page.getByRole('button',{name:'Fit image',exact:true}).click();await expect(viewer).toHaveAttribute('data-enlarged','false');await page.screenshot({path:'.runtime/photo-viewer.png',animations:'disabled'});
+ await page.keyboard.press('Escape');await expect(viewer).not.toBeVisible();await expect(viewer.locator('img')).not.toHaveAttribute('src',/.+/);await expect(page.locator('#add-dialog')).toBeVisible();await expect(page.locator('.photo-zoom')).toBeFocused();
+ expect(fake.requests.filter(r=>r.method==='POST'&&r.path==='/v1/supplements/jobs')).toHaveLength(0);
+ await page.getByRole('button',{name:'Remove photo 1',exact:true}).click();await expect(page.locator('#photo-previews')).toBeHidden();
+});

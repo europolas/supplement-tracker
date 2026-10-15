@@ -1,5 +1,10 @@
 /** English is the canonical default; add each new key to both dictionaries. */
 export default Object.freeze({
+  "appPhotoPreview": "Photo preview",
+  "appEnlargePhoto": "Enlarge photo {number}",
+  "appZoomIn": "Zoom in",
+  "appFitImage": "Fit image",
+
   "appComposition": "Composition",
   "appUsage": "Usage",
   "appDoctorConsultation": "Consult a doctor before using each supplement.",
