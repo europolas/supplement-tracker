@@ -1,3 +1,11 @@
+## 0.16.1 — background completion timing fix
+
+The batch clock is scoped to runProgressive rather than its recognition callback.
+Recognition and background durations are separate. A failed individual research
+request stays on that item and does not fail the committed batch. Diagnostics
+displays completed-with-issues for such partial outcomes. Regression covers the
+real timed pipeline shape with 16 products, 15 success and one provider rejection.
+
 ## 0.16.0 — concise significant incompatibilities
 
 Home never displays a compatibility badge. Full research returns sparse,

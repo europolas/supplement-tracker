@@ -83,3 +83,14 @@ Build `api web migrate`, run migration 010 before restarting API, rebuild public
 assets and recreate web. No new secrets/providers. Startup marks interrupted
 background drafts failed; it never silently repeats paid work. New products start
 research automatically; existing products remain available for explicit refresh.
+
+### 0.16.1 timing-error recovery
+
+`repair-batch-timing.mjs --apply <job-id>` is an explicit maintenance CLI, never
+an HTTP endpoint/startup hook. Mount a private directory as REPAIR_BACKUP_DIR.
+It locks and backs up a completed product batch whose historical status was
+REQUEST_FAILED in the Gemini enrichment-finalization phase, verifies all product
+IDs still belong to that job's owner, derives duration from original timestamps,
+then repairs batch status only. It retains original per-item failures, original
+created/finished times, and a recovery audit. It never calls AI or changes products.
+The callback-clock fix is regression-tested with real pipeline timing metadata.

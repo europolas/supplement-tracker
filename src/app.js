@@ -469,7 +469,7 @@ function renderDiagnostics(){
  for(const job of jobHistory){
   const m=job.result?.monitor||{},t=job.result?.timings||m,card=element('article',{className:'surface diagnostics-card',attributes:{'data-diagnostic-job-id':job.id}});
   const title=job.result?.submission?.name||i18n.t('appUploadPhoto');card.append(heading(title,'h2'));
-  const label=job.status==='running'?i18n.t(m.pipeline==='grok-jev'&&job.phase==='enriching'?'appJevClassifying':(job.result?.monitor?.pipeline==='gemini-single'&&job.phase==='enriching'?'appSavingRecords':'appUpload_'+(job.phase||'recognizing'))):i18n.t(job.status==='complete'?'appUploadDone':'appUploadFailed');
+  const label=job.status==='running'?i18n.t(m.pipeline==='grok-jev'&&job.phase==='enriching'?'appJevClassifying':(job.result?.monitor?.pipeline==='gemini-single'&&job.phase==='enriching'?(job.result?.monitor?.autoResearch?'appUpload_enriching':'appSavingRecords'):'appUpload_'+(job.phase||'recognizing'))):i18n.t(job.status==='complete'?(job.result?.items?.some(item=>item.research==='failed'||item.status==='failed')?'appUploadDoneIssues':'appUploadDone'):'appUploadFailed');
   card.append(element('p',{className:'research-badge',text:label}));
   if(job.created_at){const date=new Date(job.created_at);if(Number.isFinite(date.getTime()))card.append(element('time',{className:'muted',text:date.toLocaleString(i18n.language)}));}
   const list=element('dl',{className:'diagnostics-grid'});
