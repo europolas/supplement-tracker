@@ -1,3 +1,4 @@
+import {validRoutine,routineFromRow} from './routine-preferences.mjs';
 import {routineRecheckSchema,validRoutineRecheck,routineRecheckMessages,productFingerprint,groupFingerprint,readAnalysis} from './routine-recheck.mjs';
 import {analysisTexts,textFingerprint,localizedAnalysis,validLocalization} from './analysis-localization.mjs';
 import {reviewSnapshot,groupReviewSchema,validGroupReview,groupReviewMessages} from './group-review.mjs';
@@ -50,9 +51,10 @@ export class TrackerApi {
  async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
   const [keys]=await this.pool.execute(`SELECT updated_at FROM ${this.credentialTable} WHERE user_id=?`,[user]);
-  const [prefs]=await this.pool.execute('SELECT model,timezone FROM tracker_preferences WHERE user_id=?',[user]);
-  return {configured:keys.length>0,updatedAt:keys[0]?.updated_at||null,provider:this.credentialProvider,model:this.models.includes(prefs[0]?.model)?prefs[0].model:this.models[0],timezone:prefs[0]?.timezone||'UTC',models:this.models};
+  const [prefs]=await this.pool.execute('SELECT model,timezone,routine,routine_revision FROM tracker_preferences WHERE user_id=?',[user]);
+  return {configured:keys.length>0,updatedAt:keys[0]?.updated_at||null,provider:this.credentialProvider,model:this.models.includes(prefs[0]?.model)?prefs[0].model:this.models[0],timezone:prefs[0]?.timezone||'UTC',models:this.models,...routineFromRow(prefs[0])};
  }
+ async routineSnapshot(db,owner){const [rows]=await db.execute('SELECT routine,routine_revision FROM tracker_preferences WHERE user_id=? FOR UPDATE',[owner]);return routineFromRow(rows[0]);}
  async bootstrap(user,body){
   const zone=timezone(body.timezone||'UTC');const lt=body.language==='lt';
   await this.auth.transaction(async db=>{
@@ -77,6 +79,18 @@ export class TrackerApi {
     await db.execute('DELETE FROM analysis_jobs WHERE user_id=?',[owner]);
     await db.execute('DELETE FROM supplements WHERE user_id=?',[owner]);
    });return [200,{ok:true}];
+  }
+  if(path==='/settings/routine'){
+   if(method==='GET'){const settings=await this.settings(owner);return [200,{routine:settings.routine,revision:settings.routineRevision}];}
+   if(method==='PUT'){
+    if(!Number.isSafeInteger(body.revision)||body.revision<0||!Object.hasOwn(body,'routine')||!validRoutine(body.routine))throw new ApiError(400,'INVALID_INPUT');
+    return [200,await this.auth.transaction(async db=>{
+     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+     const [rows]=await db.execute('SELECT routine,routine_revision FROM tracker_preferences WHERE user_id=? FOR UPDATE',[owner]);
+     if(!rows.length)throw new ApiError(409,'COLLECTION_CHANGED');if(Number(rows[0].routine_revision)!==body.revision)throw new ApiError(409,'COLLECTION_CHANGED');
+     await db.execute('UPDATE tracker_preferences SET routine=?,routine_revision=routine_revision+1 WHERE user_id=?',[body.routine===null?null:JSON.stringify(body.routine),owner]);return {routine:body.routine,revision:body.revision+1};
+    })];
+   }
   }
   if(path==='/rechecks'){
    if(method==='GET')return [200,await this.rechecks(owner)];
@@ -184,6 +198,7 @@ export class TrackerApi {
    const [users]=await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);if(!users.length)throw new ApiError(401,'SESSION_EXPIRED');
    const [same]=await db.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND (request_id=? OR status='running' AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind'))='routine_recheck') ORDER BY created_at DESC LIMIT 1`,[owner,body.requestId]);
    if(same.length){job=jobResult(same[0]);if(job.result?.kind!=='routine_recheck')throw new ApiError(409,'COLLECTION_CHANGED');return;}
+   Object.assign(settings,await this.routineSnapshot(db,owner));
    if(this.activeJobs.size>=8)throw new ApiError(409,'AI_BUSY');await this.auth.limit('recheck-minute',owner,3,60);await this.auth.limit('recheck-day',owner,30,86400);
    [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);[groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);
    if(!rows.length||!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
@@ -195,21 +210,22 @@ export class TrackerApi {
    await this.provider(async()=>{
     await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);const [exists]=await this.pool.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=?',[job.id,owner]);if(!exists.length)throw new ApiError(409,'COLLECTION_CHANGED');
     await this.pool.execute("UPDATE analysis_jobs SET phase='enriching' WHERE id=? AND user_id=?",[job.id,owner]);
-    const response=await this.recheck({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:settings.model,messages:routineRecheckMessages(groups,rows,language),schema:routineRecheckSchema(groups,rows),validate:v=>validRoutineRecheck(v,groups,rows),name:'routine_recheck',maxTokens:Math.min(24000,800+rows.length*120)});
+    const response=await this.recheck({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:settings.model,messages:routineRecheckMessages(groups,rows,language,settings.routine),schema:routineRecheckSchema(groups,rows),validate:v=>validRoutineRecheck(v,groups,rows),name:'routine_recheck',maxTokens:Math.min(24000,800+rows.length*120)});
     if(!validRoutineRecheck(response.result,groups,rows))throw new ProviderError('AI_INVALID_RESPONSE');await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
     await this.auth.transaction(async db=>{
      await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);const [jobs]=await db.execute('SELECT result FROM analysis_jobs WHERE id=? AND user_id=? FOR UPDATE',[job.id,owner]);if(!jobs.length)throw new ApiError(409,'COLLECTION_CHANGED');
+     if((await this.routineSnapshot(db,owner)).routineRevision!==settings.routineRevision)throw new ApiError(409,'COLLECTION_CHANGED');
      const [currentRows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const [currentGroups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);if(groupFingerprint(groups)!==groupFingerprint(currentGroups))throw new ApiError(409,'COLLECTION_CHANGED');
      // Refresh a still-pending proposal for the same product in place. Other
      // unresolved products survive new checks, even if not returned as changes.
      const [old]=await db.execute("SELECT id,result FROM analysis_jobs WHERE user_id=? AND id<>? AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind'))='routine_recheck' AND JSON_SEARCH(result,'one','pending',NULL,'$.proposals[*].status') IS NOT NULL ORDER BY created_at DESC FOR UPDATE",[owner,job.id]);const older=old.map(j=>({...j,data:typeof j.result==='string'?JSON.parse(j.result):j.result,dirty:false}));
      const proposals=[];let skippedCount=0,proposedCount=0;
      for(const a of response.result.assignments){const before=rows.find(r=>r.id===a.supplementId),now=currentRows.find(r=>r.id===a.supplementId);if(!now||productFingerprint(before)!==productFingerprint(now)){skippedCount++;continue;}if(!a.groupId||a.groupId===now.group_id)continue;
-      proposedCount++;const proposal={id:randomUUID(),supplementId:now.id,name:now.name,manufacturer:readAnalysis(now).manufacturer||'',from:{id:now.group_id,name:currentGroups.find(g=>g.id===now.group_id)?.name||null},to:{id:a.groupId,name:currentGroups.find(g=>g.id===a.groupId).name},reason:a.reason,status:'pending',productFingerprint:productFingerprint(now),groupsFingerprint:groupFingerprint(currentGroups)};
+      proposedCount++;const proposal={id:randomUUID(),supplementId:now.id,name:now.name,manufacturer:readAnalysis(now).manufacturer||'',from:{id:now.group_id,name:currentGroups.find(g=>g.id===now.group_id)?.name||null},to:{id:a.groupId,name:currentGroups.find(g=>g.id===a.groupId).name},reason:a.reason,status:'pending',routineRevision:settings.routineRevision,productFingerprint:productFingerprint(now),groupsFingerprint:groupFingerprint(currentGroups)};
       const prior=older.find(j=>j.data.proposals.some(p=>p.status==='pending'&&p.supplementId===now.id));if(prior){const p=prior.data.proposals.find(p=>p.status==='pending'&&p.supplementId===now.id);Object.assign(p,{...proposal,id:p.id});prior.dirty=true;}else proposals.push(proposal);
      }
      for(const j of older.filter(j=>j.dirty))await db.execute('UPDATE analysis_jobs SET result=? WHERE id=? AND user_id=?',[JSON.stringify(j.data),j.id,owner]);
-     const result={kind:'routine_recheck',language,proposals,proposedCount,skippedCount,elapsedMs:Date.now()-started,model:response.model||settings.model};await db.execute("UPDATE analysis_jobs SET status='complete',phase='done',processed_count=total_count,finished_at=UTC_TIMESTAMP(3),result=? WHERE id=? AND user_id=?",[JSON.stringify(result),job.id,owner]);
+     const result={kind:'routine_recheck',language,routineRevision:settings.routineRevision,proposals,proposedCount,skippedCount,elapsedMs:Date.now()-started,model:response.model||settings.model};await db.execute("UPDATE analysis_jobs SET status='complete',phase='done',processed_count=total_count,finished_at=UTC_TIMESTAMP(3),result=? WHERE id=? AND user_id=?",[JSON.stringify(result),job.id,owner]);
     });
    });
   }catch(error){await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[safeCode(error),job.id,owner]);}finally{this.activeJobs.delete(job.id);}})().catch(()=>this.activeJobs.delete(job.id));return {id:job.id,status:job.status};
@@ -220,7 +236,7 @@ export class TrackerApi {
    await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);const [jobs]=await db.execute('SELECT result FROM analysis_jobs WHERE id=? AND user_id=? FOR UPDATE',[jobId,owner]);if(!jobs.length)throw new ApiError(404,'NOT_FOUND');const result=typeof jobs[0].result==='string'?JSON.parse(jobs[0].result):jobs[0].result;
    const p=result.kind==='routine_recheck'&&result.proposals.find(p=>p.id===proposalId);if(!p)throw new ApiError(404,'NOT_FOUND');const status=action==='accept'?'accepted':'removed';if(p.status===status)return;if(p.status!=='pending')throw new ApiError(409,'COLLECTION_CHANGED');
    if(action==='accept'){
-    const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[p.supplementId,owner]);const [groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);const row=rows[0];if(!row||productFingerprint(row)!==p.productFingerprint||groupFingerprint(groups)!==p.groupsFingerprint||!groups.some(g=>g.id===p.to.id))throw new ApiError(409,'COLLECTION_CHANGED');
+    const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[p.supplementId,owner]);const [groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);const row=rows[0];if((await this.routineSnapshot(db,owner)).routineRevision!==(p.routineRevision||0))throw new ApiError(409,'COLLECTION_CHANGED');if(!row||productFingerprint(row)!==p.productFingerprint||groupFingerprint(groups)!==p.groupsFingerprint||!groups.some(g=>g.id===p.to.id))throw new ApiError(409,'COLLECTION_CHANGED');
     const a=readAnalysis(row);a.grouping={basis:'manual',groupId:p.to.id,explanation:p.reason};await db.execute('UPDATE supplements SET group_id=?,analysis=? WHERE id=? AND user_id=?',[p.to.id,JSON.stringify(a),row.id,owner]);
    }
    p.status=status;p.resolvedAt=this.now().toISOString();await db.execute('UPDATE analysis_jobs SET result=? WHERE id=? AND user_id=?',[JSON.stringify(result),jobId,owner]);
@@ -278,7 +294,7 @@ export class TrackerApi {
    const [keys]=await this.pool.execute(`SELECT encrypted_key FROM ${this.credentialTable} WHERE user_id=?`,[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');sealed=keys[0].encrypted_key;
    const [supplements]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);
    const context=JSON.stringify(groups),started=Date.now(),language=body.language,settings=await this.settings(owner);
-   let {result,model,inventory,productMetadata,timings,pipeline}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:this.credentialProvider}),model:this.discoveryModel||settings.model,cacheScope:owner,onMetrics:async update=>{report.monitor={...(report.monitor||{}),...update,autoResearch:this.autoResearch};await this.jobProgress(owner,id,report,['grok','gemini'].includes(update.stage)?'recognizing':'enriching');},compositionCache:supplements.map(r=>{const a=typeof r.analysis==='string'?JSON.parse(r.analysis):r.analysis;return {name:r.name,manufacturer:a.manufacturer,composition:a.composition||(a.research?.checkedAt&&a.nutrients?.length?{complete:false,basis:'verified_research',checkedAt:a.research.checkedAt,ingredients:a.nutrients.filter(n=>['manufacturer','label_photo'].includes(n.evidence)).map(n=>({name:n.name,labelAmount:''}))}:null)};}),beforeClassification:async()=>{await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);const [jobs]=await this.pool.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=?',[id,owner]);if(!jobs.length)throw new ApiError(409,'COLLECTION_CHANGED');await this.pool.execute("UPDATE analysis_jobs SET phase='enriching' WHERE id=? AND user_id=?",[id,owner]);},messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
+   let {result,model,inventory,productMetadata,timings,pipeline}=await this.provider(()=>this.discover({key:this.vault.open(keys[0].encrypted_key,{owner,provider:this.credentialProvider}),model:this.discoveryModel||settings.model,cacheScope:owner,onMetrics:async update=>{report.monitor={...(report.monitor||{}),...update,autoResearch:this.autoResearch};await this.jobProgress(owner,id,report,['grok','gemini'].includes(update.stage)?'recognizing':'enriching');},compositionCache:supplements.map(r=>{const a=typeof r.analysis==='string'?JSON.parse(r.analysis):r.analysis;return {name:r.name,manufacturer:a.manufacturer,composition:a.composition||(a.research?.checkedAt&&a.nutrients?.length?{complete:false,basis:'verified_research',checkedAt:a.research.checkedAt,ingredients:a.nutrients.filter(n=>['manufacturer','label_photo'].includes(n.evidence)).map(n=>({name:n.name,labelAmount:''}))}:null)};}),beforeClassification:async()=>{await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);const [jobs]=await this.pool.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=?',[id,owner]);if(!jobs.length)throw new ApiError(409,'COLLECTION_CHANGED');await this.pool.execute("UPDATE analysis_jobs SET phase='enriching' WHERE id=? AND user_id=?",[id,owner]);},messages:(this.singlePass?basicProductsMessages:photoProductsMessages)({...body,groups,supplements,routine:settings.routine}),schema:this.singlePass?basicProductsSchema(groups,language):photoProductsSchema(groups,supplements,language),validate:v=>this.singlePass?validBasicProducts(v,groups,language):validPhotoProducts(v,groups,supplements,language),name:this.singlePass?'supplement_basics_v1':'quick_supplement_routine_v2',maxTokens:5000}),{priority:10});
    if(this.singlePass){if(!validBasicProducts(result,groups,language))throw new ApiError(502,'AI_INVALID_RESPONSE');result=normalizeBasicProducts(result);}
    body.image=null;body.images=[]; // No background research request resends a photo.
    if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
@@ -287,6 +303,7 @@ export class TrackerApi {
    const products=uniqueProducts(result.products);if(!products.length&&!report.skipped.length)report.skipped.push({location:'',reasonCode:'SUPPLEMENT_NOT_IDENTIFIED'});if(result.overflow)report.skipped.push({location:'',reasonCode:'PHOTO_PRODUCT_LIMIT'});
    await this.auth.transaction(async db=>{
     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+    if((await this.routineSnapshot(db,owner)).routineRevision!==settings.routineRevision)throw new ApiError(409,'COLLECTION_CHANGED');
     const [liveJob]=await db.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!liveJob.length)throw new ApiError(409,'COLLECTION_CHANGED');
     const [latestGroups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);if(JSON.stringify(latestGroups)!==context)throw new ApiError(409,'COLLECTION_CHANGED');
     const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);
@@ -431,6 +448,7 @@ export class TrackerApi {
   const supplements=rows.filter(row=>row.id!==id),snapshot=JSON.stringify(rows.map(row=>[row.id,row.name,row.group_id,row.id===id?null:row.analysis]));
   const {result,model,verifiedLabelSources=[]}=await this.requestResearch(owner,{name:target.name,image:null,language,target:{...(previous.identity||{name:target.name,manufacturer:previous.manufacturer||null,variant:previous.variant||null}),groupId:target.group_id,groupingBasis:previous.grouping?.basis||(previous.identity?.groupId===target.group_id?'provisional':'unknown'),originalBenefit:previous.benefitSummary,originalComposition:previous.composition?.ingredients||[]},groups,supplements,settings,sealed},authorization);
   return this.auth.transaction(async db=>{
+   await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);const routineNow=await this.routineSnapshot(db,owner);
    const [latest]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const row=latest.find(r=>r.id===id);if(!row)throw new ApiError(404,'NOT_FOUND');
    const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;if(a.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
    const changed=JSON.stringify(latest.map(r=>[r.id,r.name,r.group_id,r.id===id?null:r.analysis]))!==snapshot;
@@ -443,8 +461,8 @@ export class TrackerApi {
    // timing context without discarding otherwise useful product information.
    const timingSources=result.sources.filter(s=>s.kind==='manufacturer'||s.kind==='label_registry'&&verifiedLabelSources.includes(s.url)||this.singlePass&&s.kind==='retailer');
    const source=timingSources.find(s=>s.url===result.dosage?.sourceUrl)||timingSources[0];
-   const grouping=this.singlePass&&this.fullResearch?researchedGrouping({analysis:a,previous:target.group_id,current:row.group_id,proposed:result.groupId,ownedIds:owned.map(g=>g.id),groupsUnchanged:JSON.stringify(owned)===JSON.stringify(groups),reason:result.reviewReason,sourceUrl:source?.url,checkedAt:this.now().toISOString()}):this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
-   const groupId=grouping.groupId;result.grouping=grouping;
+   const grouping=this.singlePass&&this.fullResearch?researchedGrouping({analysis:a,previous:target.group_id,current:row.group_id,proposed:result.groupId,ownedIds:owned.map(g=>g.id),groupsUnchanged:JSON.stringify(owned)===JSON.stringify(groups)&&!routineNow.routine&&routineNow.routineRevision===settings.routineRevision,reason:result.reviewReason,sourceUrl:source?.url,checkedAt:this.now().toISOString()}):this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
+   const groupId=grouping.groupId;result.grouping=grouping;if(routineNow.routine&&result.groupId&&result.groupId!==groupId&&owned.some(g=>g.id===result.groupId))result.groupingSuggestion={groupId:result.groupId,reason:result.reviewReason,routineRevision:routineNow.routineRevision};
    // Capture the actual transaction's before/after groups, never a proposed or
    // blocked manual move. Names are snapshots so later renames do not alter history.
    const change=grouping.basis==='researched'&&row.group_id!==groupId?{jobId,from:{id:row.group_id,name:owned.find(g=>g.id===row.group_id)?.name||null},to:{id:groupId,name:owned.find(g=>g.id===groupId)?.name||null}}:null;
@@ -460,7 +478,7 @@ export class TrackerApi {
  }
  async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){
   const focused=this.singlePass,timing=Boolean(this.fullResearch&&target?.groupId&&['provisional','researched'].includes(target?.groupingBasis)&&groups.some(g=>g.id===target.groupId)),detailGroups=timing?groups:[];
-  const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:settings.model,messages:focused?detailsMessages({name,image,language,target,groups:detailGroups,full:timing}):analysisMessages({name,image,groups,supplements,language,target}),schema:focused?detailsSchema(detailGroups,language,[],timing):analysisSchema(groups,supplements,language),validate:value=>focused?validDetails(value,detailGroups,language,[],timing):validAnalysis(value,groups,supplements,language),name:focused?'supplement_product_details':'supplement_analysis_v1_4',maxTokens:focused?6000:Math.min(12000,4500+supplements.length*190)}));
+  const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:settings.model,messages:focused?detailsMessages({name,image,language,target,groups:detailGroups,full:timing,routine:settings.routine}):analysisMessages({name,image,groups,supplements,language,target}),schema:focused?detailsSchema(detailGroups,language,[],timing):analysisSchema(groups,supplements,language),validate:value=>focused?validDetails(value,detailGroups,language,[],timing):validAnalysis(value,groups,supplements,language),name:focused?'supplement_product_details':'supplement_analysis_v1_4',maxTokens:focused?6000:Math.min(12000,4500+supplements.length*190)}));
   const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,verifiedLabelSources:data.verifiedLabelSources||[],allowReported:focused,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;if(data.extractionAttempts)result.research.extractionAttempts=data.extractionAttempts;if(focused)result.research.scope=this.fullResearch?'full-product-details':'product-details';await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
   for(const assessment of result.compatibility.assessments){const s=supplements.find(s=>s.id===assessment.supplementId),a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;assessment.supplementName=s.name;if(assessment.status==='no_known_issue'&&a.enrichment&&a.enrichment.status!=='complete')assessment.status='insufficient_information';}
   if(result.compatibility.assessments.some(a=>a.status!=='no_known_issue')){result.needsReview=true;result.compatibility.requiresReview=true;}return data;

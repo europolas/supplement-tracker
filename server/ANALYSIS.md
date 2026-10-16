@@ -825,3 +825,20 @@ keeping these separate from exact label requirements. No extra search stage,
 product-name rule, automatic rewrite or manual-assignment override is introduced.
 New recognition classification.policyVersion is 3. Existing records can receive
 individual explicit Recheck proposals; full research still obeys owner/snapshot guards.
+
+## Routine wizard preference context (0.23.0)
+
+Owner-only structured routine preferences add selected meal/exercise/sleep times,
+regularity, strategy and evening-rest preference to recognition, focused AI timing
+and Recheck. No private routine goes to Google Search: the existing adapter strips
+user messages to public selected identity and response language. Manual detail
+requests still omit both profile and grouping fields/instructions.
+
+This context is a preference, not a manufacturer direction. It cannot create groups,
+doses, fatty-meal/fasting requirements, safety guarantees or sleep efficacy. With a
+saved profile, detailed research keeps current assignments and can record an optional
+`groupingSuggestion`; Recheck proposals require per-product acceptance. Saving the
+profile itself never starts AI or rewrites groups. Revision checks cancel outdated
+recognition/review commits and reject old pending acceptances. Existing detail facts
+can still save while their stale automatic group decision is rejected. No automatic
+paid retry is introduced. See README for migration 011, payload and UI lifecycle.

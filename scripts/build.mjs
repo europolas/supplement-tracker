@@ -16,7 +16,7 @@ export async function buildStarter({ source = path.join(root, 'src'), output = p
   try { const files = await readdir(output); if (files.length && !files.includes('.starter-build')) throw new Error('Refusing to overwrite unmanaged output'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   const config = createConfig(input || JSON.parse(await readFile(path.join(source, 'app.config.json'), 'utf8')));
   await mkdir(output, { recursive: true });
-  for (const name of ['index.html', 'startup.js', 'app.js', 'custom-icon.js', 'vendor', 'account.html', 'icon-192.png', 'icon-512.png', 'app.css']) await cp(path.join(source, name), path.join(output, name),{recursive:true});
+  for (const name of ['index.html', 'startup.js', 'app.js', 'routine-wizard.js', 'custom-icon.js', 'vendor', 'account.html', 'icon-192.png', 'icon-512.png', 'app.css']) await cp(path.join(source, name), path.join(output, name),{recursive:true});
   await cp(path.join(modules, 'src'), path.join(output, 'modules'), { recursive: true });
   await cp(path.join(modules, 'styles/base.css'), path.join(output, 'style.css'));
   await writeFile(path.join(output, 'app.config.json'), JSON.stringify(config, null, 2) + '\n');
@@ -29,6 +29,8 @@ export async function buildStarter({ source = path.join(root, 'src'), output = p
   const hash = createHash('sha256'); for (const name of files) { hash.update(name); hash.update(await readFile(path.join(output, name))); }
   const version = hash.digest('hex');
   await writeFile(path.join(output, 'sw.js'), `import { installWorker } from './modules/worker.js';\ninstallWorker(${JSON.stringify({ id: config.id, name: config.name, version, assets: ['./', ...files.map(name => './' + name)] })});\n`);
+  // Design previews are shared review artifacts, not runtime/offline app assets.
+  for (const variant of ['a', 'b']) { const name = 'routine-wizard-' + variant + '.png'; try { await access(path.join(root, 'design', name)); await mkdir(path.join(output, 'previews'), { recursive: true }); await cp(path.join(root, 'design', name), path.join(output, 'previews', name)); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
   await writeFile(path.join(output, '.starter-build'), version + '\n');
   return { output, version, assets: files, config };
 }

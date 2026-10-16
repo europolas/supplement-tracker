@@ -689,3 +689,20 @@ including --nav-height, so footer clearance and safe-area positioning agree on
 all three pages. Only the active aria-current pill changes on tab navigation.
 
 0.22.8: Home navigation keeps the original outline house glyph even when active; only its surrounding selected pill changes.
+
+## 0.23.0 — chosen Routine B design
+
+`design/routine-wizard-b.png` is the mandatory visual reference. Account Preferences
+opens `src/routine-wizard.js`, using the shared bottom sheets and current app tokens.
+Preserve the timeline, two steps, contextual meal/exercise/sleep choices, approximate
+and exact time modes, variable options, cancellation, three strategy cards, rest
+switch, editable recap and save action. Profile choices are EN/LT codes, not prose.
+
+Migration 011 and `server/src/routine-preferences.mjs` own strict server validation;
+`settings/routine` is owner-only with revisions. Keep new fields on AI grouping
+context only, never public Search or browser persistence. Manual research omits
+profile/group context. Saving preferences is free of AI calls and group writes.
+A configured profile disables automatic existing-group moves from detail research;
+Recheck is the explicit owner-accepted application path. Revisions protect in-flight
+recognition/review and pending acceptance; late facts may save without stale moves.
+Clear-all retains the profile; account/session reset erases in-memory drafts.

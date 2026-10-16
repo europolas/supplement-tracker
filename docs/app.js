@@ -6,9 +6,13 @@ import {createConfig,createStorage,createSettings,createTheme,createI18n,createR
  bindForm,trackDirty,setupViewport,setupGestures,setupPwa,watchNetwork,createAuth,setupAccount,
  element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet,productLabel,createImageViewer} from './modules/index.js';
 import {setupPasswordVisibility} from './modules/password-visibility.js';
+import {createRoutineWizard} from './routine-wizard.js';
 import {parseCustomIcon} from './custom-icon.js';
 // Local presentation icons use fixed SVG paths, never server/model markup.
 const iconPaths={
+ coffee:'M4 8h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4Z M16 8h2a3 3 0 0 1 0 6h-2 M3 21h17 M7 3v2 M11 2v3',
+ bowl:'M3 11h18a9 9 0 0 1-18 0Z M6 21h12 M7 6l2-3 M12 7l2-4 M17 6l2-3',
+ sliders:'M3 6h18 M3 12h18 M3 18h18 M7 4v4 M16 10v4 M10 16v4',
  pencil:'m14 4 6 6 M3 21l5-1 13-13-5-5L3 15Z',
  ellipsis:'M5 12h.01 M12 12h.01 M19 12h.01',
  grip:'M9 5h.01 M15 5h.01 M9 12h.01 M15 12h.01 M9 19h.01 M15 19h.01',
@@ -77,6 +81,11 @@ const photoViewer=createImageViewer({labels:()=>({title:i18n.t('appPhotoPreview'
 const groupSheet=createBottomSheet(get('group-dialog'));
 const recheckSheet=createBottomSheet(get('recheck-dialog'));
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
+const routineWizard=createRoutineWizard({dialog:get('routine-wizard-dialog'),editorDialog:get('routine-time-dialog'),i18n,icon,confirm:message=>confirmDialog(message,{i18n}),onError:error=>err(error),onSave:async(routine,revision)=>{
+ const session=current();writes++;renderRoutineLoading();try{const result=await api.request('/v1/settings/routine',{method:'PUT',body:{routine,revision}});if(session!==current())return false;state.ai={...state.ai,routine:result.routine,routineRevision:result.revision};renderAccount();notify(i18n.t('appRoutineSaved'));return true;}catch(error){if(error.status===409&&session===current())await load(false);throw error;}finally{writes--;renderRoutineLoading();}
+}});
+get('open-routine-wizard').addEventListener('click',()=>routineWizard.open(state.ai||{}));
+
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router,appReady=false;
 const localizationAttempts=new Set();let localizationSending=false;
 let routineReading=false,routineJobLoading=false;
@@ -95,6 +104,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
+ routineWizard.reset();
  routineChecks={active:null,latest:null,proposals:[]};recheckBusy=false;recheckStarting=false;get('recheck-content').replaceChildren();recheckAbort?.abort();recheckWatcher=null;void recheckSheet.close({immediate:true});
  groupDrag=null;get('profile-form').hidden=true;get('connection-editor').open=false;
  appReady=false;collectionEpoch++;uploadQueueExpanded=false;localizationAttempts.clear();localizationSending=false;
@@ -231,6 +241,7 @@ async function moveGroup(id,index){if(index<0||index>=state.groups.length)return
 get('new-custom-group').addEventListener('click',()=>openGroup());
 for(const name of ['training','sleep'])get('quick-'+name).addEventListener('click',()=>{openGroup();const f=get('group-form');f.elements.name.value=i18n.t('appIcon_'+name);f.elements.description.value=i18n.t(name==='training'?'appTrainingHelp':'appSleepHelp');f.elements.icon.value=icon(name).outerHTML;renderGroupIconOptions();});
 function renderAccount(){
+ get('open-routine-wizard').disabled=!current()||!appReady;get('routine-preference-summary').textContent=i18n.t(state.ai?.routine?'appRoutineConfigured':'appRoutineSetUp');
  const user=auth.state.get().user;get('account-screen').dataset.authenticated=String(Boolean(user));for(const id of ['account-security','account-tools','logout-slot'])get(id).hidden=!user;
  get('account-display-name').textContent=user?.name||'';get('account-initials').textContent=(user?.name||'').trim().split(/\s+/).slice(0,2).map(n=>Array.from(n)[0]).join('').toUpperCase();
  get('edit-profile-name').setAttribute('aria-expanded',String(!get('profile-form').hidden));
@@ -606,7 +617,7 @@ function scheduleMidnight(){clearTimeout(midnightTimer);const next=new Date();ne
 scheduleMidnight();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshDay();scheduleMidnight();}});
 window.addEventListener('focus',()=>{if(restoringSession&&!current())void auth.restore().catch(failure);else refreshDay();});
 let applyUpdate;
-const pwa=await setupPwa({canReload:()=>!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
+const pwa=await setupPwa({canReload:()=>!routineWizard.dirty&&!routineWizard.saving&&!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
  onUpdate:({apply})=>{if(starting){applyingStartupUpdate=true;get('startup-progress').setAttribute('aria-valuenow','90');apply();}else{applyUpdate=apply;get('update-button').hidden=false;}},onError:()=>{}});
 // A bounded public-worker check keeps offline launches usable. Existing/found
 // updates activate behind the launch screen; later updates respect unsaved edits.

@@ -8,6 +8,7 @@ import {productIdentity} from '../photo-products.mjs';
 import {compactDetailsSchema,expandCompactDetails} from '../product-details.mjs';
 import {localizationSchema,validLocalization} from '../analysis-localization.mjs';
 import {ProviderError} from '../structured-chat.mjs';
+import {routineInstructions} from '../routine-preferences.mjs';
 import {groupingPolicy} from '../grouping-policy.mjs';
 const str=maxLength=>({type:'string',maxLength});const obj=properties=>({type:'object',additionalProperties:false,properties,required:Object.keys(properties)});
 export function geminiProductsSchema(groups){return obj({products:{type:'array',maxItems:40,items:obj({name:str(250),manufacturer:str(180),ingredients:{type:'array',maxItems:40,items:str(100)},groupId:{type:'string',enum:groups.map(g=>g.id)},benefit:str(80)})}});}
@@ -25,7 +26,7 @@ export function createGeminiPipeline({provider=createGeminiStructured(),research
  const context=JSON.parse(input.messages[1].content.find(p=>p.type==='text').text),language=context.responseLanguage==='lt'?'lt':'en',groups=context.groups;
  const images=input.messages[1].content.filter(p=>p.type==='image_url');const start=Date.now();await input.onMetrics?.({pipeline:'gemini-single',stage:'gemini',model:'gemini-3.8-flash',calls:1,photoCount:images.length,startedAt:new Date(start).toISOString()});
  const content=[{type:'text',text:JSON.stringify({...context})},...images.flatMap((p,i)=>[{type:'text',text:`Photo ${i+1}`},p])];
- const response=await provider({key:input.key,model:'gemini-3.8-flash',messages:[{role:'system',content:geminiPrompt(language)},{role:'user',content}],schema:geminiProductsSchema(groups),validate:v=>validGeminiProducts(v,groups),maxTokens:6000});
+ const response=await provider({key:input.key,model:'gemini-3.8-flash',messages:[{role:'system',content:geminiPrompt(language)+'\n'+routineInstructions(context.routinePreferences)},{role:'user',content}],schema:geminiProductsSchema(groups),validate:v=>validGeminiProducts(v,groups),maxTokens:6000});
  if(!validGeminiProducts(response.result,groups))throw new ProviderError('AI_INVALID_RESPONSE');
  const products=response.result.products.map(p=>({...p,manufacturer:p.manufacturer.trim()||'Unknown'}));
  const geminiMs=Date.now()-start;

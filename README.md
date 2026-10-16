@@ -645,3 +645,41 @@ including --nav-height, so footer clearance and safe-area positioning agree on
 all three pages. Only the active aria-current pill changes on tab navigation.
 
 0.22.8: Home navigation keeps the original outline house glyph even when active; only its surrounding selected pill changes.
+
+## 0.23.0 — Routine wizard B
+
+Account → Preferences → Daily routine opens the selected B design from
+[design/routine-wizard-b.png](design/routine-wizard-b.png): an editable day timeline,
+contextual time sheet and grouping preferences. Existing sheet, color, typography,
+icons, native select and iPhone scroller contracts are retained. English is the
+first-use default; Lithuanian and both themes are supported.
+
+Breakfast/lunch/dinner each have eat/skip/varies choices. Exercise has yes/no/varies,
+weekly frequency and timing. Sleep has timing. Times use a selected 15-minute clock,
+predefined approximate windows (including midnight crossings), or explicit variable
+time. Skipped events omit timing. Daily regularity, rhythm/fewer/keep strategy and
+an optional evening-rest preference complete the profile. Every event must be
+answered before moving on; no free text or invented daily schedule is saved.
+
+Migration 011 adds owner-only `tracker_preferences.routine` and `routine_revision`.
+GET/PUT `/settings/routine` uses `{routine,revision}` and optimistic revision checks.
+Strict enum/shape validation rejects arbitrary instructions. Clear-all retains
+preferences; account deletion cascades them. Drafts stay in memory only, and are
+cleared on logout. Cancelling a time editor does not change the wizard draft;
+closing a changed wizard offers discard confirmation. Failed saves preserve edits.
+A revision conflict requires closing/reopening against the latest server state.
+
+Saving starts no AI call and does not move existing supplements. Recognition gets
+the profile for new initial assignments; focused details gets it only for AI timing,
+and Recheck gets it with the owned routine. Search receives public product identity
+only. Manufacturer constraints/manual choices still win. With a saved profile,
+detailed research stores facts and an optional `groupingSuggestion` without moving
+an existing assignment; use Recheck for individually accepted moves. Preference
+revisions invalidate in-flight classification/rechecks and old pending proposals;
+changing preferences during research cannot apply an outdated automatic move.
+No scheduling preference is a dose, safety conclusion or sleep efficacy claim.
+
+Validation includes owner isolation, persistence, malformed choices, optimistic
+conflicts, profile changes during AI work, Search/manual privacy, editor cancellation,
+failed-save recovery, EN/LT, themes, responsive layouts and the selected design states.
+Design preview PNGs remain available at `/previews/`, outside the worker asset cache.
