@@ -1,3 +1,45 @@
+## 0.27.0 — personal routine and durable conclusions
+
+Account Tools follows the user card and contains Daily routine (sliders icon).
+The wizard now has My day / About me / Preferences tabs, no numbered steps or
+policy paragraph. Version 1 saved routines remain readable; explicitly saving the
+three-step editor upgrades to version 2 with optional personal fields. Not specified
+is a valid answer. The goal sheet provides 36 stable choices, at most 3, plus none;
+Save changes only the local draft, X discards that selection. Main Save is still
+revision-guarded, scrolls with content and never calls AI or changes groups.
+
+Personal includes optional sex/date of birth/height cm/weight kg/muscle kg/goals
+and allowAI=false by default. routineForAI is the only provider serialization path
+in recognition, detailed timing, Recheck and conclusions. Without consent omit the
+whole personal object; with consent omit every null/unspecified parameter and empty
+goals, and replace date of birth with ageYears. Search remains product-only. Private
+profile/report data never enters browser persistence. Profile validation bounds
+numbers/dates and rejects more than 3/duplicate/unknown goals and muscle>body weight.
+
+Migration 014 creates the latest owner-only durable routine_conclusions report.
+GET /conclusions is read-only; POST with requestId explicitly starts one async,
+rate-limited structured report using server-owned grouped products, groups, routine
+and consent-filtered personal data. Version 2 routine required, unspecified personal
+fields allowed. Existing queue/model/credentials used; no new provider configuration.
+Report jobs stay out of Upload queue. Restart marks unfinished jobs failed without
+retrying or charging twice; prior completed text remains. Reports and pending
+individual suggestions survive upload-job expiry/reload until regeneration/decision;
+valid pending proposals carry into regenerated reports. Clear-all/account deletion
+erases reports and invalidates late writes. No raw prompts/photos/keys are persisted.
+
+Report sections cover routine, possible benefits, overlaps, recommendations and
+unknowns. Model must distinguish facts/possibilities, avoid invented doses/diagnoses,
+consider exercise/optional muscle mass without diagnosing adiposity from BMI, and
+avoid adult assumptions for children. Paused grouped products are context only.
+No automatic group changes: PATCH /conclusions/:report/:proposal accepts/removes one
+proposal with routine revision, product/pause and group fingerprint guards. Suggestions
+for other products remain actionable after one accepted move. Report inputs have a
+semantic hash: routine/profile/consent, grouped product facts/directions/cautions,
+pause state and group meanings. Changes show an outdated warning; Taken changes and
+translation caches do not. Old text stays visible during refresh/failure. Logout/clear
+aborts polls and closes/clears all new sheets. EN default/LT, common header, cards,
+switches, animated progress and existing PWA dirty/update guards remain in use.
+
 ## 0.26.3 — simpler routine headings
 
 Routine removes the introductory breadcrumb/subtitle, preferences back arrow and

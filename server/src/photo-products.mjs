@@ -3,7 +3,7 @@
  * English instructions; localized explanations; exact brands stay untranslated.
  */
 import {createHash} from 'node:crypto';
-import {routineInstructions} from './routine-preferences.mjs';
+import {routineInstructions,routineForAI} from './routine-preferences.mjs';
 import {GROUPING_POLICY} from './grouping-policy.mjs';
 const string=maxLength=>({type:'string',maxLength});
 const object=properties=>({type:'object',additionalProperties:false,properties,required:Object.keys(properties)});
@@ -37,7 +37,7 @@ export function basicProductsSchema(groups=[],language='en'){
  return object({language:{type:'string',enum:[language]},products:{type:'array',maxItems:40,items:object({name:{type:'string',minLength:1,maxLength:250},manufacturer:{type:'string',minLength:1,maxLength:180},groupId:{type:'string',enum:groups.map(g=>g.id)},benefit:{type:'string',minLength:1,maxLength:80,description:'2 or 3 single-word benefit keywords separated by comma and space, in the selected language.'}})},skipped:{type:'array',maxItems:40,items:object({location:string(200),reason:string(500)})}});
 }
 export function basicProductsMessages({image,images,name,language='en',groups=[],supplements=[],routine=null}){
- const content=[{type:'text',text:JSON.stringify({responseLanguage:language,productName:name||null,groups,...(routine?{routinePreferences:routine}:{}),existingSupplements:supplements.map(s=>{const a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;return {name:s.name,manufacturer:a.manufacturer,groupId:s.group_id};})})}];
+ const content=[{type:'text',text:JSON.stringify({responseLanguage:language,productName:name||null,groups,...(routine?{routinePreferences:routineForAI(routine)}:{}),existingSupplements:supplements.map(s=>{const a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;return {name:s.name,manufacturer:a.manufacturer,groupId:s.group_id};})})}];
  const photos=images||(image?[image]:[]);
  for(const [index,url] of photos.entries())content.push({type:'text',text:`Photo ${index+1} of ${photos.length}. Inspect every separate package in this image.`},{type:'image_url',image_url:{url,detail:'high'}});
  return [{role:'system',content:`${GROUPING_POLICY}

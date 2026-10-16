@@ -7,10 +7,12 @@ import {createConfig,createStorage,createSettings,createTheme,createI18n,createR
  element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet,productLabel,createImageViewer} from './modules/index.js';
 import {setupPasswordVisibility} from './modules/password-visibility.js';
 import {createUsageCalendar} from './usage-calendar.js';
+import {createRoutineConclusion} from './routine-conclusion.js';
 import {createRoutineWizard} from './routine-wizard.js';
 import {parseCustomIcon} from './custom-icon.js';
 // Local presentation icons use fixed SVG paths, never server/model markup.
 const iconPaths={
+ target:'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0 M18 12a6 6 0 1 1-12 0 6 6 0 0 1 12 0 M14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0',
  back:'m15 5-7 7 7 7',
  pause:'M9 5v14 M15 5v14',
  'pause-circle':'M9 8v8 M15 8v8 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
@@ -93,9 +95,11 @@ const recheckSheet=createBottomSheet(get('recheck-dialog'));
 const pauseSheet=createBottomSheet(get('pause-dialog'));let pauseTarget=null,pauseSaving=false;
 const usageSheet=createBottomSheet(get('usage-dialog'),{onDismiss:()=>router.navigate('/account')});
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(router.current==='/detail'?detailReturnRoute:baseRoute);}});
-const routineWizard=createRoutineWizard({dialog:get('routine-wizard-dialog'),editorDialog:get('routine-time-dialog'),i18n,icon,confirm:message=>confirmDialog(message,{i18n}),onError:error=>err(error),onSave:async(routine,revision)=>{
- const session=current();writes++;renderRoutineLoading();try{const result=await api.request('/v1/settings/routine',{method:'PUT',body:{routine,revision}});if(session!==current())return false;state.ai={...state.ai,routine:result.routine,routineRevision:result.revision};renderAccount();notify(i18n.t('appRoutineSaved'));return true;}catch(error){if(error.status===409&&session===current())await load(false);throw error;}finally{writes--;renderRoutineLoading();}
+const routineWizard=createRoutineWizard({dialog:get('routine-wizard-dialog'),editorDialog:get('routine-time-dialog'),goalsDialog:get('routine-goals-dialog'),i18n,icon,confirm:message=>confirmDialog(message,{i18n}),onError:error=>err(error),onSave:async(routine,revision)=>{
+ const session=current();writes++;renderRoutineLoading();try{const result=await api.request('/v1/settings/routine',{method:'PUT',body:{routine,revision}});if(session!==current())return false;state.ai={...state.ai,routine:result.routine,routineRevision:result.revision};renderAccount();conclusion.changed();notify(i18n.t('appRoutineSaved'));return true;}catch(error){if(error.status===409&&session===current())await load(false);throw error;}finally{writes--;renderRoutineLoading();}
 }});
+const conclusion=createRoutineConclusion({dialog:get('conclusion-dialog'),root:get('conclusion-content'),i18n,request:(path,options)=>api.request(path,options),configured:()=>Boolean(state.ai?.configured),onRoutine:()=>routineWizard.open({...state.ai,firstIncomplete:true}),onAccepted:()=>load(false),onError:error=>err(error)});
+get('open-conclusion').addEventListener('click',()=>void conclusion.open());
 const usageCalendar=createUsageCalendar({root:get('usage-content'),i18n,icon,groupIcon:renderGroupIcon,request:(path,options)=>api.get(path,options),onProduct:id=>router.navigate('/detail?id='+encodeURIComponent(id)),isActive:()=>Boolean(current()&&router?.current==='/usage')});
 get('open-routine-wizard').addEventListener('click',()=>routineWizard.open(state.ai||{}));
 
@@ -117,7 +121,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
- void routeSheet.close({immediate:true});void usageSheet.close({immediate:true});get('route-header').querySelector('.detail-name')?.remove();usageCalendar.reset();routineWizard.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
+ void routeSheet.close({immediate:true});void usageSheet.close({immediate:true});get('route-header').querySelector('.detail-name')?.remove();usageCalendar.reset();routineWizard.reset();conclusion.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
  routineChecks={active:null,latest:null,proposals:[]};recheckBusy=false;recheckStarting=false;get('recheck-content').replaceChildren();recheckAbort?.abort();recheckWatcher=null;void recheckSheet.close({immediate:true});
  groupDrag=null;get('profile-form').hidden=true;get('connection-editor').open=false;
  appReady=false;collectionEpoch++;uploadQueueExpanded=false;localizationAttempts.clear();localizationSending=false;
@@ -145,7 +149,7 @@ async function load(checkJobs=true){
   const [result,checks]=await Promise.all([api.get('/v1/dashboard?timezone='+encodeURIComponent(zone())+'&language='+i18n.language),api.get('/v1/rechecks')]);
   if(session!==current()||version!==generation)return;
   routineChecks=Array.isArray(checks.proposals)?checks:{active:null,latest:null,proposals:[]};if(routineChecks.active&&!recheckWatcher)void watchRoutineChecks(session,collectionEpoch);
-  state=result;appReady=true;get('app-error').hidden=true;render();
+  state=result;conclusion.changed();appReady=true;get('app-error').hidden=true;render();
   if(checkJobs){const latest=await api.get('/v1/supplements/jobs');if(version!==generation)return;await observeJobs(latest,session);}
  }catch(error){if(session===current()&&version===generation){get('app-error').hidden=false;get('app-error').textContent=err(error);appReady=true;render();}}
  finally{if(session===current()&&version===generation){routineReading=false;renderRoutineLoading();}}
@@ -397,7 +401,7 @@ function render(){
  get('diagnostics-link').hidden=!current();renderAccount();renderDiagnostics();
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
- get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');usageCalendar.languageChanged();renderHome();renderRoutineCheck();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
+ get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');usageCalendar.languageChanged();conclusion.languageChanged();get('conclusion-home').hidden=!current()||!state.supplements.some(s=>state.groups.some(g=>g.id===s.group_id));renderHome();renderRoutineCheck();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');if(get('group-dialog').open)renderGroupIconOptions();
  renderUploadQueue();
 }
@@ -659,7 +663,7 @@ function scheduleMidnight(){clearTimeout(midnightTimer);const next=new Date();ne
 scheduleMidnight();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshDay();scheduleMidnight();}});
 window.addEventListener('focus',()=>{if(restoringSession&&!current())void auth.restore().catch(failure);else refreshDay();});
 let applyUpdate;
-const pwa=await setupPwa({canReload:()=>!routineWizard.dirty&&!routineWizard.saving&&!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
+const pwa=await setupPwa({canReload:()=>!conclusion.busy&&!routineWizard.dirty&&!routineWizard.saving&&!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
  onUpdate:({apply})=>{if(starting){applyingStartupUpdate=true;get('startup-progress').setAttribute('aria-valuenow','90');apply();}else{applyUpdate=apply;get('update-button').hidden=false;}},onError:()=>{}});
 // A bounded public-worker check keeps offline launches usable. Existing/found
 // updates activate behind the launch screen; later updates respect unsaved edits.

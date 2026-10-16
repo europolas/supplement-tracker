@@ -501,7 +501,7 @@ html .routine-wizard-dialog{height:calc(var(--app-height,100dvh) - env(safe-area
 .routine-toolbar .icon-button{width:32px;min-height:32px}.routine-back .icon{transform:rotate(180deg)}
 .routine-heading h2,.routine-editor-heading h2{font:700 27px/1.2 var(--font-ui);letter-spacing:-.65px;margin:0;color:var(--ink)}
 .routine-heading p{font-size:14px;line-height:1.4;margin:6px 0 0;color:var(--ink)}.routine-heading .routine-breadcrumb{color:var(--muted);font-size:12px;margin:0 0 8px}
-.routine-tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--soft);border-radius:12px;padding:3px}
+.routine-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;background:var(--soft);border-radius:12px;padding:3px}
 html .routine-tab{display:flex;align-items:center;justify-content:center;gap:5px;border:0;background:transparent;border-radius:10px;padding:10px 5px;min-height:42px;font-size:12px;line-height:1.3;color:var(--muted)}
 html .routine-tab[aria-current="step"]{background:var(--green);color:var(--on-green)}.routine-tab .icon{width:14px;height:14px}
 .routine-wizard-body{display:flex;flex-direction:column;gap:16px}.routine-glyph{display:inline-flex;flex:none;align-items:center;justify-content:center}.routine-glyph .icon{width:23px;height:23px}
@@ -590,3 +590,11 @@ html .bottom-sheet[aria-labelledby^="dialog-"]>.sheet-header{margin-bottom:0}
 html .bottom-sheet .sheet-header .detail-name{white-space:normal}
 @media(max-width:360px){html .bottom-sheet{padding-left:16px;padding-right:16px}html .bottom-sheet .sheet-header h1,html .bottom-sheet .sheet-header h2{font-size:25px}}
 html .bottom-sheet[aria-labelledby^="dialog-"]{row-gap:0}
+
+/* Personal routine and conclusions use existing sheet, card, switch and action tokens. */
+.routine-personal{display:flex;flex-direction:column;gap:16px}.routine-personal-field{display:flex;flex-direction:column;gap:8px;font-size:14px}.routine-personal-field label{margin:0}.routine-personal-field input,.routine-personal-field select{width:100%;min-height:44px;font:inherit;font-size:16px;padding:10px 12px}
+html .routine-goals-open{display:flex;align-items:center;gap:12px;width:100%;color:var(--ink);text-align:left}.routine-goals-open>span:nth-child(2){flex:1;min-width:0}.routine-goals-open strong{display:block;font-size:14px}.routine-goals-open small{display:block;font-size:12px;color:var(--muted);line-height:1.4;margin-top:4px}
+.routine-goal-chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.routine-goal-chips .routine-choice{flex:none;min-height:40px;padding:9px 12px;border-radius:20px}.routine-goal-count{font-size:12px;color:var(--muted);margin:12px 0}.routine-goals-save{width:100%;margin-top:8px}
+#conclusion-home{margin-top:16px}#conclusion-home>button{width:100%}.conclusion-content,.conclusion-result{display:flex;flex-direction:column;gap:16px}.conclusion-empty{text-align:center;color:var(--muted);font-size:13px;line-height:1.6;padding:24px 8px}.conclusion-actions{display:flex;justify-content:center;margin:16px 0}.conclusion-actions button{min-width:160px;max-width:100%}.conclusion-warning{border:1px solid var(--line);background:var(--soft);border-radius:14px;padding:14px;font-size:13px;line-height:1.5}.conclusion-section{padding:16px;border:1px solid var(--line);background:var(--surface);border-radius:16px}.conclusion-section h3{font-size:15px;margin:0 0 10px}.conclusion-section p{font-size:13px;line-height:1.65;white-space:pre-wrap;margin:0}.conclusion-date{font-size:12px;color:var(--muted);margin:0 0 14px}.conclusion-proposals-title{font-size:16px;margin:22px 0 12px}.conclusion-error{font-size:13px;color:var(--danger,#ae493e);line-height:1.5}
+
+html .conclusion-actions button{width:auto;flex:0 1 auto}

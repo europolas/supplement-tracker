@@ -1,3 +1,4 @@
+import {RoutineConclusions} from './routine-conclusion.mjs';
 import {usageRange,usageCalendar} from './usage-calendar.mjs';
 import {pausedOn,dateOnly,validReturnDate} from './supplement-pause.mjs';
 import {validRoutine,routineFromRow} from './routine-preferences.mjs';
@@ -48,7 +49,7 @@ export function validatePhotos(body){
  const images=body.images.map(validatePhoto);if(images.some(x=>!x)||images.reduce((n,x)=>n+x.length,0)>4300000)throw new ApiError(400,'IMAGE_INVALID');return images;
 }
 export class TrackerApi {
- constructor(pool,auth,{vault,chat,discover,localize=null,credentialProvider='xai',review=null,recheck=null,autoResearch=false,fullResearch=false,singlePass=true,discoveryModel='grok-4.7',models=['grok-4.7'],now=()=>new Date()}){if(!['xai','google'].includes(credentialProvider))throw TypeError('Invalid credential provider');this.localize=localize;this.autoResearch=autoResearch;this.fullResearch=fullResearch;this.credentialProvider=credentialProvider;this.credentialTable=credentialProvider==='google'?'google_provider_credentials':'provider_credentials';this.review=review;this.recheck=recheck;this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
+ constructor(pool,auth,{vault,chat,discover,localize=null,credentialProvider='xai',review=null,recheck=null,autoResearch=false,fullResearch=false,singlePass=true,discoveryModel='grok-4.7',models=['grok-4.7'],now=()=>new Date()}){if(!['xai','google'].includes(credentialProvider))throw TypeError('Invalid credential provider');this.localize=localize;this.autoResearch=autoResearch;this.fullResearch=fullResearch;this.credentialProvider=credentialProvider;this.credentialTable=credentialProvider==='google'?'google_provider_credentials':'provider_credentials';this.review=review;this.recheck=recheck;this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();this.conclusions=new RoutineConclusions(this);}
  get providers(){return this.providerQueue.running;}
  async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
@@ -78,7 +79,7 @@ export class TrackerApi {
    // results without touching groups, credentials, preferences or other accounts.
    await this.auth.transaction(async db=>{
     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
-    await db.execute('DELETE FROM analysis_jobs WHERE user_id=?',[owner]);
+    await db.execute('DELETE FROM analysis_jobs WHERE user_id=?',[owner]);await db.execute('DELETE FROM routine_conclusions WHERE user_id=?',[owner]);
     await db.execute('DELETE FROM supplements WHERE user_id=?',[owner]);
    });return [200,{ok:true}];
   }
@@ -94,6 +95,12 @@ export class TrackerApi {
     })];
    }
   }
+  if(path==='/conclusions'){
+   if(method==='GET')return [200,await this.conclusions.read(owner)];
+   if(method==='POST')return [202,await this.conclusions.start(owner,body,authorization)];
+  }
+  const conclusionProposal=/^\/conclusions\/([a-f0-9-]{36})\/([a-f0-9-]{36})$/.exec(path);
+  if(conclusionProposal&&method==='PATCH')return [200,await this.conclusions.resolve(owner,conclusionProposal[1],conclusionProposal[2],body.action)];
   if(path==='/rechecks'){
    if(method==='GET')return [200,await this.rechecks(owner)];
    if(method==='POST')return [202,await this.startRecheck(owner,body,authorization)];
@@ -161,7 +168,7 @@ export class TrackerApi {
   }
   if(path==='/supplements/jobs'){
    if(method==='POST')return [202,await this.startAnalysis(owner,body,authorization)];
-   if(method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind')),'')<>'routine_recheck' ORDER BY created_at DESC LIMIT 1`,[owner]);const [recent]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind')),'')<>'routine_recheck' ORDER BY GREATEST(created_at,COALESCE(finished_at,created_at)) DESC LIMIT 20`,[owner]);const [active]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND status='running' AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind')),'')<>'routine_recheck' ORDER BY created_at`,[owner]);return [200,{job:jobResult(rows[0]),active:active.map(jobResult),recent:recent.map(jobResult)}];}
+   if(method==='GET'){const [rows]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind')),'') NOT IN ('routine_recheck','routine_conclusion') ORDER BY created_at DESC LIMIT 1`,[owner]);const [recent]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind')),'') NOT IN ('routine_recheck','routine_conclusion') ORDER BY GREATEST(created_at,COALESCE(finished_at,created_at)) DESC LIMIT 20`,[owner]);const [active]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND status='running' AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind')),'') NOT IN ('routine_recheck','routine_conclusion') ORDER BY created_at`,[owner]);return [200,{job:jobResult(rows[0]),active:active.map(jobResult),recent:recent.map(jobResult)}];}
   }
   const apply=/^\/supplements\/jobs\/([a-f0-9-]{36})\/apply-groups$/.exec(path);
   if(apply&&method==='POST')return [200,await this.applyGroupReview(owner,apply[1])];
