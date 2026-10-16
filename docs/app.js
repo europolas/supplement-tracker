@@ -625,7 +625,7 @@ function showRoute(path){
  for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===((path==='/usage'||baseRoute==='/usage')?'/account':path==='/account'?'/account':baseRoute))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
  if(sheet){get('route-title').textContent=path==='/diagnostics'?i18n.t('appDiagnostics'):'';get('route-dialog').classList.toggle('product-sheet',path==='/detail');get('route-dialog').setAttribute('aria-labelledby',path==='/detail'?'product-detail-title':'route-title');}
  get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();
- if(path==='/usage')usageCalendar.open();if(path==='/detail')renderDetail();if(path==='/diagnostics')renderDiagnostics();
+ if(path==='/usage')usageCalendar.open({resetScroll:document.querySelector('main').dataset.tab!=='/usage'});if(path==='/detail')renderDetail();if(path==='/diagnostics')renderDiagnostics();
  if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open)get('supplement-detail').replaceChildren();});if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}
 }
 router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/usage','/detail','/diagnostics'].map(path=>[path,()=>showRoute(path)])),onNotFound:()=>{location.hash=current()?'/':'/account';}});

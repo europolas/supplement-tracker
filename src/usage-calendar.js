@@ -12,11 +12,11 @@ export function createUsageCalendar({root,i18n,icon,groupIcon,request,onProduct,
  const format=(day,options)=>new Intl.DateTimeFormat(i18n.language,options).format(date(day));
  const titleDay=day=>{const value=format(day,{month:'long',day:'numeric'});return value[0].toLocaleUpperCase(i18n.language)+value.slice(1);};
  function windowRange(){if(mode==='week'){const from=monday(selected);return {from,to:shift(from,6)};}const first=selected.slice(0,7)+'-01',last=new Date(Date.UTC(+selected.slice(0,4),+selected.slice(5,7),0)).toISOString().slice(0,10),from=monday(first),end=shift(monday(last),6);return {from,to:end};}
- async function refresh(){
+ async function refresh(resetScroll=false){
   if(!isActive())return;controller?.abort();controller=new AbortController();const version=++epoch;loading=true;error='';const range=windowRange();if(data?.from!==range.from||data?.to!==range.to)data=null;render();
   try{const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',result=await request('/v1/usage?'+new URLSearchParams({...range,timezone:zone}),{signal:controller.signal});if(version!==epoch)return;data=result;}
   catch(e){if(version!==epoch||e.name==='AbortError')return;error=i18n.message(e?.data?.error||e.message||'REQUEST_FAILED');}
-  finally{if(version===epoch){loading=false;render();}}
+  finally{if(version===epoch){loading=false;render();if(resetScroll)requestAnimationFrame(()=>{if(version===epoch&&isActive())root.closest('main').scrollTop=0;});}}
  }
  function changeDay(day){selected=day;filter='all';const range=windowRange();if(data?.from===range.from&&data.to===range.to)render();else void refresh();}
  function navigate(direction){
@@ -61,5 +61,5 @@ export function createUsageCalendar({root,i18n,icon,groupIcon,request,onProduct,
   }
   if(data)wrap.append(text('p',t('appUsageCurrentGroups'),'usage-context-note'));root.append(wrap);
  }
- return {open:()=>void refresh(),refreshDay(){if(isActive())void refresh();},languageChanged(){if(language!==i18n.language&&isActive())void refresh();},reset(){epoch++;controller?.abort();data=null;error='';loading=false;selected=localDay();mode='week';filter='all';root.replaceChildren();},render};
+ return {open:({resetScroll=false}={})=>void refresh(resetScroll),refreshDay(){if(isActive())void refresh();},languageChanged(){if(language!==i18n.language&&isActive())void refresh();},reset(){epoch++;controller?.abort();data=null;error='';loading=false;selected=localDay();mode='week';filter='all';root.replaceChildren();},render};
 }
