@@ -542,3 +542,12 @@ html .routine-range{position:relative;display:flex;flex-direction:column;align-i
 
 .routine-recap-copy{font-size:13px;line-height:1.5;margin:4px 0;color:var(--ink)}
 .routine-wizard-actions{position:sticky;bottom:0;z-index:2;background:var(--paper);padding:12px 0 max(0px,env(safe-area-inset-bottom))}
+
+/* Pausing preserves inventory access without adding inactive items to daily totals. */
+.paused-supplements { margin-top:16px; }.paused-supplements h2 { font-size:16px;margin-bottom:8px; }
+.paused-row { display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line); }.paused-row:last-child { padding-bottom:0; }
+.paused-open { flex:1;min-width:0;background:none;text-align:left;padding:0;color:var(--ink); }.paused-open strong { display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere; }.paused-open small { display:block;color:var(--muted);font-size:12px;line-height:1.5;margin-top:4px; }
+.paused-resume { flex:none;width:auto;font-size:12px;padding:9px 12px;min-height:40px; }.pause-status { margin:0;padding:12px 16px;border-radius:12px;background:var(--soft);font-size:14px;color:var(--muted); }
+.pause-dialog .modal-heading { display:flex;align-items:center;justify-content:space-between;gap:12px; }.pause-dialog .modal-heading h2 { margin:0;font-size:26px; }.pause-dialog .modal-heading button { background:none;color:var(--ink);padding:8px;width:auto; }
+#pause-form { display:flex;flex-direction:column;gap:18px;margin-top:20px; }#pause-form p { margin:0; }#pause-form label { display:flex;flex-direction:column;gap:8px; }#pause-form [hidden] { display:none; }#pause-form select,#pause-form input { width:100%;min-height:48px;box-sizing:border-box; }#pause-form .pause-product-name { font-size:17px;font-weight:600; }#pause-form .form-help { font-size:14px;line-height:1.6; }
+.pause-actions { display:grid;grid-template-columns:1fr 1fr;gap:12px; }.pause-actions button { margin:0;min-width:0;white-space:normal; }

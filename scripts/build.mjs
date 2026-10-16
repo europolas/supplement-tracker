@@ -30,7 +30,7 @@ export async function buildStarter({ source = path.join(root, 'src'), output = p
   const version = hash.digest('hex');
   await writeFile(path.join(output, 'sw.js'), `import { installWorker } from './modules/worker.js';\ninstallWorker(${JSON.stringify({ id: config.id, name: config.name, version, assets: ['./', ...files.map(name => './' + name)] })});\n`);
   // Design previews are shared review artifacts, not runtime/offline app assets.
-  for (const variant of ['a', 'b']) { const name = 'routine-wizard-' + variant + '.png'; try { await access(path.join(root, 'design', name)); await mkdir(path.join(output, 'previews'), { recursive: true }); await cp(path.join(root, 'design', name), path.join(output, 'previews', name)); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
+  for (const name of ['routine-wizard-a.png','routine-wizard-b.png','intake-history-a.png','intake-history-b.png']) { try { await access(path.join(root, 'design', name)); await mkdir(path.join(output, 'previews'), { recursive: true }); await cp(path.join(root, 'design', name), path.join(output, 'previews', name)); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
   await writeFile(path.join(output, '.starter-build'), version + '\n');
   return { output, version, assets: files, config };
 }

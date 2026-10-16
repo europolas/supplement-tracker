@@ -80,6 +80,7 @@ const addSheet=createBottomSheet(get('add-dialog'),{onDismiss:()=>closeAdd()});
 const photoViewer=createImageViewer({labels:()=>({title:i18n.t('appPhotoPreview'),close:i18n.t('appClose'),zoom:i18n.t('appZoomIn'),fit:i18n.t('appFitImage')})});
 const groupSheet=createBottomSheet(get('group-dialog'));
 const recheckSheet=createBottomSheet(get('recheck-dialog'));
+const pauseSheet=createBottomSheet(get('pause-dialog'));let pauseTarget=null,pauseSaving=false;
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
 const routineWizard=createRoutineWizard({dialog:get('routine-wizard-dialog'),editorDialog:get('routine-time-dialog'),i18n,icon,confirm:message=>confirmDialog(message,{i18n}),onError:error=>err(error),onSave:async(routine,revision)=>{
  const session=current();writes++;renderRoutineLoading();try{const result=await api.request('/v1/settings/routine',{method:'PUT',body:{routine,revision}});if(session!==current())return false;state.ai={...state.ai,routine:result.routine,routineRevision:result.revision};renderAccount();notify(i18n.t('appRoutineSaved'));return true;}catch(error){if(error.status===409&&session===current())await load(false);throw error;}finally{writes--;renderRoutineLoading();}
@@ -104,7 +105,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
- routineWizard.reset();
+ routineWizard.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
  routineChecks={active:null,latest:null,proposals:[]};recheckBusy=false;recheckStarting=false;get('recheck-content').replaceChildren();recheckAbort?.abort();recheckWatcher=null;void recheckSheet.close({immediate:true});
  groupDrag=null;get('profile-form').hidden=true;get('connection-editor').open=false;
  appReady=false;collectionEpoch++;uploadQueueExpanded=false;localizationAttempts.clear();localizationSending=false;
@@ -144,20 +145,44 @@ async function ensureLanguage(){
  try{const job=await api.post('/v1/supplements/localize',{requestId:crypto.randomUUID(),language});if(session!==current())return;if(job.id&&job.status==='running')await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);else await load(false);}
  catch(error){if(session===current())failure(error);}finally{if(session===current())localizationSending=false;}
 }
+// Effective pause comes from the server, including automatic return in its saved zone.
+const activeSupplements=()=>state.supplements.filter(item=>!item.paused);
+function pauseStatus(item){return i18n.t(item.resume_on?'appPausedUntil':'appPausedManual',item.resume_on?{date:new Intl.DateTimeFormat(i18n.language,{dateStyle:'medium'}).format(new Date(item.resume_on+'T12:00:00'))}:{});}
+function openPause(item){
+ if(pauseSaving)return;
+ pauseTarget=item.id;const form=get('pause-form');form.reset();get('pause-product-name').textContent=item.name;
+ const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);form.elements.resumeOn.min=localDay(tomorrow);form.elements.resumeOn.value=localDay(tomorrow);
+ get('pause-date-label').hidden=true;form.elements.resumeOn.required=false;get('pause-error').hidden=true;pauseSheet.open();
+}
+get('pause-dialog').addEventListener('close',()=>{pauseTarget=null;get('pause-form').reset();clearDirty(get('pause-form'));});
+get('pause-form').elements.returnChoice.addEventListener('change',()=>{const chosen=get('pause-form').elements.returnChoice.value==='date';get('pause-date-label').hidden=!chosen;get('pause-form').elements.resumeOn.required=chosen;});
+get('pause-form').addEventListener('submit',async event=>{
+ event.preventDefault();if(pauseSaving||!pauseTarget)return;const session=current(),target=pauseTarget,form=event.currentTarget;
+ pauseSaving=true;writes++;renderRoutineLoading();form.setAttribute('aria-busy','true');const submit=form.querySelector('[type="submit"]');submit.disabled=true;
+ try{await api.request('/v1/supplements/'+target+'/pause',{method:'PUT',body:{paused:true,resumeOn:form.elements.returnChoice.value==='date'?form.elements.resumeOn.value:null,timezone:zone()}});if(session!==current())return;await pauseSheet.close();await load();}
+ catch(error){if(session===current()){get('pause-error').textContent=err(error);get('pause-error').hidden=false;}}
+ finally{pauseSaving=false;writes--;renderRoutineLoading();form.removeAttribute('aria-busy');submit.disabled=false;}
+});
+async function resumeSupplement(item){await mutate(()=>api.request('/v1/supplements/'+item.id+'/pause',{method:'PUT',body:{paused:false,timezone:zone()}}));}
 function renderHome(){
- get('routine-note').hidden=!state.supplements.some(s=>s.analysis.schemaVersion==='draft-1');
+ const active=activeSupplements();
+ get('routine-note').hidden=!active.some(s=>s.analysis.schemaVersion==='draft-1');
  get('today-date').textContent=new Intl.DateTimeFormat(i18n.language,{weekday:'short',month:'short',day:'numeric'}).format(new Date());
- const done=state.supplements.filter(s=>s.completed).length,total=state.supplements.length;
+ const done=active.filter(s=>s.completed).length,total=active.length;
  get('today-progress').textContent=i18n.t('trackerProgress',{done,total});
  get('progress-count').textContent=done+' / '+total;get('progress-ring').setAttribute('aria-label',get('today-progress').textContent);
  get('progress-arc').setAttribute('stroke-dasharray',(total?100*done/total:0)+' 100');
  get('progress-message').textContent=i18n.t(!total?'appStartRoutine':done===total?'appDayComplete':done?'appOnTrack':'appReadyToday');
  get('progress-caption').textContent=i18n.t(done&&done===total?'appSeeTomorrow':'appKeepGoing');
  get('home-empty').hidden=state.supplements.length>0;
+ const paused=state.supplements.filter(item=>item.paused),pausedRoot=get('paused-supplements');pausedRoot.replaceChildren();pausedRoot.hidden=!paused.length;
+ if(paused.length){pausedRoot.append(heading(i18n.t('appPausedCount',{count:paused.length}),'h2'));
+  for(const item of paused){const row=element('div',{className:'paused-row'}),open=button('',()=>router.navigate('/detail?id='+encodeURIComponent(item.id)),'paused-open');open.append(element('strong',{text:item.name}),element('small',{text:[item.analysis.manufacturer,pauseStatus(item)].filter(Boolean).join(' · ')}));const resume=button(i18n.t('appResumeSupplement'),async()=>{resume.disabled=true;await resumeSupplement(item);resume.disabled=false;},'secondary paused-resume');row.append(open,resume);pausedRoot.append(row);}
+ }
  const container=get('routine-groups');container.replaceChildren();
- const groups=[...state.groups];if(state.supplements.some(s=>!s.group_id))groups.push({id:null,name:i18n.t('appUnassigned'),description:i18n.t('appUnassignedHelp')});
+ const groups=[...state.groups];if(active.some(s=>!s.group_id))groups.push({id:null,name:i18n.t('appUnassigned'),description:i18n.t('appUnassignedHelp')});
  groups.forEach((group,index)=>{
-  const rows=state.supplements.filter(item=>item.group_id===group.id);
+  const rows=active.filter(item=>item.group_id===group.id);
   const section=element('section',{className:'group-block'}),head=element('div',{className:'group-heading'}),labels=element('div');
   const groupIcon=element('span',{className:'group-symbol'});groupIcon.append(renderGroupIcon(group));head.append(groupIcon);labels.append(heading(group.name));
   head.append(labels);if(group.id){const edit=button('',()=>openGroup(group),'group-edit');edit.setAttribute('aria-label',i18n.t('appEdit')+': '+group.name);edit.append(icon('chevron'));head.append(edit);}section.append(head);
@@ -268,7 +293,7 @@ function renderDetail(){
  const productInfo=productLabel({name:item.name,manufacturer:analysis.manufacturer,variant:analysis.variant});
  card.append(element('h1',{text:productInfo.name,className:'detail-name',attributes:{id:'product-detail-title',tabindex:'-1','data-sheet-focus':'',autofocus:''}}));
  const subtitle=element('p',{className:'product-subtitle'});if(productInfo.manufacturer)subtitle.append(element('b',{text:productInfo.manufacturer}));if(productInfo.variant)subtitle.append(document.createTextNode((productInfo.manufacturer?' · ':'')+productInfo.variant));if(subtitle.textContent)card.append(subtitle);
- card.append(badge,primary);
+ card.append(badge);if(item.paused)card.append(element('p',{className:'pause-status',text:pauseStatus(item),attributes:{role:'status'}}));card.append(primary);
  const basic=analysis.schemaVersion==='basic-1';
  if(!basic){
  // Same compact presentation for historical records; never trigger paid research
@@ -331,7 +356,8 @@ function renderDetail(){
  disclosure.open=Boolean(expanded);label();disclosure.addEventListener('toggle',label);
  disclosure.append(toggle,extra);card.append(disclosure);
  }
- const actions=element('div',{className:'detail-actions'});actions.append(refresh,remove);
+ const pause=button(i18n.t(item.paused?'appResumeSupplement':'appPauseSupplement'),async()=>{if(item.paused){pause.disabled=true;await resumeSupplement(item);}else openPause(item);},'secondary pause-supplement');
+ const actions=element('div',{className:'detail-actions'});actions.append(pause,refresh,remove);
  card.append(groupControls,actions);
  if(pending||basic&&analysis.enrichment?.status==='failed')card.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status),className:'research-badge',attributes:{role:'status'}}));
  container.append(card);
@@ -366,8 +392,8 @@ function render(){
 /** Recheck drafts stay on the server, independently of upload history. Closing
  * this sheet stops no work; logout/clear invalidates every in-flight UI result. */
 function renderRoutineCheck(){
- const {active,latest,proposals}=routineChecks;get('recheck-home').hidden=!current()||!state.supplements.length;
- get('recheck-all').textContent=i18n.t(active?'appRecheckRunning':'appRecheckAll');get('recheck-all').disabled=recheckBusy||!state.ai?.configured||!state.supplements.length||!state.groups.length;
+ const {active,latest,proposals}=routineChecks;get('recheck-home').hidden=!current()||!activeSupplements().length;
+ get('recheck-all').textContent=i18n.t(active?'appRecheckRunning':'appRecheckAll');get('recheck-all').disabled=recheckBusy||!state.ai?.configured||!activeSupplements().length||!state.groups.length;
  get('recheck-pending').hidden=!proposals.length;get('recheck-pending').textContent=i18n.t('appRecheckPending',{count:proposals.length});
  const root=get('recheck-content'),running=Boolean(current()&&(active||recheckStarting));
  // Keep the animated node connected across polling; removing it restarts CSS animation.

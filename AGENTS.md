@@ -1,3 +1,28 @@
+## 0.24.0 — supplement pauses
+
+The product sheet offers Pause supplement and Resume. Pausing hides the product
+from active Home groups, Taken totals and new Recheck requests, while retaining
+inventory access in a Paused supplements list, metadata, assigned group and every
+completion. Groups inventory counts continue to include paused products.
+An optional return date is inclusive: active from midnight of that date in the
+validated timezone captured at pause creation. Dashboard/recheck/completion reads
+compute effective state without a cron job; the app refreshes on focus and local
+midnight. Pausing never fabricates or removes a completion; unmarking remains
+available via the API for correction. Explicit resume restores today's existing
+completion, if any. Pausing/resuming does not call AI.
+
+Migration 012 adds the cheap current snapshot and owner-scoped supplement_pauses
+periods. History periods retain start/resumed timestamps plus scheduled date/zone;
+effective end is the earlier of manual resume and scheduled midnight. Deletion
+of product/account or clear-all cascades those periods. Repeated identical state
+writes are idempotent; pause_revision prevents in-flight Recheck results from
+surviving a pause/resume cycle. Old pending product moves are dismissed; active
+research can still enrich metadata but cannot move a paused product's group.
+API: PUT /v1/supplements/:id/pause with {paused:boolean, resumeOn:YYYY-MM-DD|null,
+timezone:IANA}; future valid dates only. Sessions derive ownership; no client IDs
+or dates can overwrite completion history. No history screen is implemented yet:
+design/intake-history-a.png and b.png are light-theme concept images only.
+
 ## 0.16.2 — grounded research evidence binding
 
 Research extraction selects short source IDs from a strict schema enum; server

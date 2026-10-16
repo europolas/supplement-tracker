@@ -1,3 +1,4 @@
+import {pausedOn,dateOnly,validReturnDate} from './supplement-pause.mjs';
 import {validRoutine,routineFromRow} from './routine-preferences.mjs';
 import {routineRecheckSchema,validRoutineRecheck,routineRecheckMessages,productFingerprint,groupFingerprint,readAnalysis} from './routine-recheck.mjs';
 import {analysisTexts,textFingerprint,localizedAnalysis,validLocalization} from './analysis-localization.mjs';
@@ -117,8 +118,8 @@ export class TrackerApi {
   if(method==='GET'&&path==='/dashboard'){
    const zone=timezone(query.get('timezone')||'UTC'),day=calendarDay(zone,this.now());
    const [groups]=await this.pool.execute('SELECT id,name,description,position,icon FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]);
-   const [rows]=await this.pool.execute('SELECT s.id,s.group_id,s.name,s.analysis,s.model,s.created_at,IF(c.supplement_id IS NULL,0,1) AS completed FROM supplements s LEFT JOIN supplement_completions c ON c.supplement_id=s.id AND c.local_day=? WHERE s.user_id=? ORDER BY s.created_at',[day,owner]);
-   return [200,{day,groups,supplements:rows.map(row=>({...row,completed:Boolean(row.completed),analysis:query.has('language')?localizedAnalysis(typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis,query.get('language')==='lt'?'lt':'en'):typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis})),ai:await this.settings(owner)}];
+   const [rows]=await this.pool.execute('SELECT s.id,s.group_id,s.name,s.analysis,s.model,s.created_at,s.paused_at,s.resume_on,s.pause_timezone,s.pause_revision,IF(c.supplement_id IS NULL,0,1) AS completed FROM supplements s LEFT JOIN supplement_completions c ON c.supplement_id=s.id AND c.local_day=? WHERE s.user_id=? ORDER BY s.created_at',[day,owner]);
+   return [200,{day,groups,supplements:rows.map(row=>({...row,paused:pausedOn(row,this.now()),resume_on:dateOnly(row.resume_on),completed:Boolean(row.completed),analysis:query.has('language')?localizedAnalysis(typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis,query.get('language')==='lt'?'lt':'en'):typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis})),ai:await this.settings(owner)}];
   }
   if(method==='POST'&&path==='/groups'){
    const name=text(body.name,120),description=text(body.description||'',500,false),id=randomUUID();
@@ -157,6 +158,24 @@ export class TrackerApi {
   if(method==='POST'&&path==='/supplements/analyze'){if(this.singlePass)throw new ApiError(404,'NOT_FOUND');return this.analyze(owner,body,authorization);}
   const research=/^\/supplements\/([a-f0-9-]{36})\/research$/.exec(path);
   if(research&&method==='POST')return [202,await this.startResearch(owner,research[1],body,authorization)];
+  const pause=/^\/supplements\/([a-f0-9-]{36})\/pause$/.exec(path);
+  if(pause&&method==='PUT'){
+   if(typeof body.paused!=='boolean')throw new ApiError(400,'INVALID_INPUT');
+   const zone=timezone(body.timezone||'UTC'),now=this.now(),day=calendarDay(zone,now),resume=body.paused?validReturnDate(body.resumeOn,day):null;
+   await this.auth.transaction(async db=>{
+    await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+    const [rows]=await db.execute('SELECT id,paused_at,resume_on,pause_timezone,pause_revision FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[pause[1],owner]);
+    if(!rows.length)throw new ApiError(404,'NOT_FOUND');const row=rows[0],activePause=pausedOn(row,now);
+    if(body.paused&&activePause&&dateOnly(row.resume_on)===resume&&row.pause_timezone===zone||!body.paused&&!activePause)return;
+    // A new choice closes the previous period; scheduled resume_on still bounds it
+    // earlier than resumed_at. Both timestamps remain available for future history.
+    await db.execute('UPDATE supplement_pauses SET resumed_at=? WHERE supplement_id=? AND user_id=? AND resumed_at IS NULL',[now,row.id,owner]);
+    const [jobs]=await db.execute("SELECT id,result FROM analysis_jobs WHERE user_id=? AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind'))='routine_recheck' AND JSON_SEARCH(result,'one','pending',NULL,'$.proposals[*].status') IS NOT NULL FOR UPDATE",[owner]);
+    for(const job of jobs){const result=typeof job.result==='string'?JSON.parse(job.result):job.result;let changed=false;for(const p of result.proposals||[])if(p.supplementId===row.id&&p.status==='pending'){p.status='removed';p.resolvedAt=now.toISOString();changed=true;}if(changed)await db.execute('UPDATE analysis_jobs SET result=? WHERE id=? AND user_id=?',[JSON.stringify(result),job.id,owner]);}
+    if(body.paused)await db.execute('INSERT INTO supplement_pauses(id,user_id,supplement_id,started_at,resume_on,timezone) VALUES (?,?,?,?,?,?)',[randomUUID(),owner,row.id,now,resume,zone]);
+    await db.execute('UPDATE supplements SET paused_at=?,resume_on=?,pause_timezone=?,pause_revision=pause_revision+1 WHERE id=? AND user_id=?',[body.paused?now:null,resume,body.paused?zone:null,row.id,owner]);
+   });return [200,{ok:true}];
+  }
   const supplement=/^\/supplements\/([a-f0-9-]{36})(\/completion)?$/.exec(path);
   if(supplement){
    const id=supplement[1];
@@ -164,7 +183,10 @@ export class TrackerApi {
     if(typeof body.completed!=='boolean')throw new ApiError(400,'INVALID_INPUT');
     const day=calendarDay(timezone(body.timezone||'UTC'),this.now());
     await this.auth.transaction(async db=>{
-     const [owned]=await db.execute('SELECT id FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!owned.length)throw new ApiError(404,'NOT_FOUND');
+     // Match pause/clear/recheck lock order before completion FKs take owner locks.
+     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+     const [owned]=await db.execute('SELECT id,paused_at,resume_on,pause_timezone FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!owned.length)throw new ApiError(404,'NOT_FOUND');
+     if(body.completed&&pausedOn(owned[0],this.now()))throw new ApiError(409,'SUPPLEMENT_PAUSED');
      if(body.completed)await db.execute('INSERT INTO supplement_completions(user_id,supplement_id,local_day) VALUES (?,?,?) ON DUPLICATE KEY UPDATE completed_at=completed_at',[owner,id,day]);
      else await db.execute('DELETE FROM supplement_completions WHERE supplement_id=? AND user_id=? AND local_day=?',[id,owner,day]);
     });return [200,{day,completed:body.completed}];
@@ -189,7 +211,8 @@ export class TrackerApi {
   const [pending]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind'))='routine_recheck' AND (status='running' OR JSON_SEARCH(result,'one','pending',NULL,'$.proposals[*].status') IS NOT NULL) ORDER BY created_at DESC`,[owner]);
   const [last]=await this.pool.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind'))='routine_recheck' ORDER BY created_at DESC LIMIT 1`,[owner]);
   const publicJob=row=>{const j=jobResult(row);return j?{id:j.id,status:j.status,phase:j.phase,error_code:j.error_code,total_count:j.total_count,processed_count:j.processed_count,created_at:j.created_at,elapsedMs:j.result.elapsedMs,proposedCount:j.result.proposedCount||0,skippedCount:j.result.skippedCount||0}:null;};
-  return {active:publicJob(pending.find(j=>j.status==='running')),latest:publicJob(last[0]),proposals:pending.flatMap(row=>{const j=jobResult(row);return (j.result.proposals||[]).filter(p=>p.status==='pending').map(({id,supplementId,name,manufacturer,from,to,reason})=>({jobId:j.id,id,supplementId,name,manufacturer,from,to,reason}));})};
+  const [inventory]=await this.pool.execute('SELECT id,paused_at,resume_on,pause_timezone FROM supplements WHERE user_id=?',[owner]);const activeIds=new Set(inventory.filter(row=>!pausedOn(row,this.now())).map(row=>row.id));
+  return {active:publicJob(pending.find(j=>j.status==='running')),latest:publicJob(last[0]),proposals:pending.flatMap(row=>{const j=jobResult(row);return (j.result.proposals||[]).filter(p=>p.status==='pending'&&activeIds.has(p.supplementId)).map(({id,supplementId,name,manufacturer,from,to,reason})=>({jobId:j.id,id,supplementId,name,manufacturer,from,to,reason}));})};
  }
  async startRecheck(owner,body,authorization){
   if(!this.recheck)throw new ApiError(503,'AI_PROVIDER_FAILED');if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');
@@ -200,7 +223,8 @@ export class TrackerApi {
    if(same.length){job=jobResult(same[0]);if(job.result?.kind!=='routine_recheck')throw new ApiError(409,'COLLECTION_CHANGED');return;}
    Object.assign(settings,await this.routineSnapshot(db,owner));
    if(this.activeJobs.size>=8)throw new ApiError(409,'AI_BUSY');await this.auth.limit('recheck-minute',owner,3,60);await this.auth.limit('recheck-day',owner,30,86400);
-   [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);[groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);
+   [rows]=await db.execute('SELECT id,name,group_id,analysis,paused_at,resume_on,pause_timezone,pause_revision FROM supplements WHERE user_id=? ORDER BY id',[owner]);[groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);
+   rows=rows.filter(row=>!pausedOn(row,this.now()));
    if(!rows.length||!groups.length)throw new ApiError(400,'CREATE_GROUP_FIRST');
    const id=randomUUID(),result={kind:'routine_recheck',language,proposals:[]};
    await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language,total_count,result) VALUES (?,?,?,'running','queued',?,?,?)",[id,owner,body.requestId,language,rows.length,JSON.stringify(result)]);job={id,status:'running',phase:'queued',language,total_count:rows.length,result};
@@ -215,12 +239,12 @@ export class TrackerApi {
     await this.auth.transaction(async db=>{
      await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);const [jobs]=await db.execute('SELECT result FROM analysis_jobs WHERE id=? AND user_id=? FOR UPDATE',[job.id,owner]);if(!jobs.length)throw new ApiError(409,'COLLECTION_CHANGED');
      if((await this.routineSnapshot(db,owner)).routineRevision!==settings.routineRevision)throw new ApiError(409,'COLLECTION_CHANGED');
-     const [currentRows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const [currentGroups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);if(groupFingerprint(groups)!==groupFingerprint(currentGroups))throw new ApiError(409,'COLLECTION_CHANGED');
+     const [currentRows]=await db.execute('SELECT id,name,group_id,analysis,paused_at,resume_on,pause_timezone,pause_revision FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const [currentGroups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);if(groupFingerprint(groups)!==groupFingerprint(currentGroups))throw new ApiError(409,'COLLECTION_CHANGED');
      // Refresh a still-pending proposal for the same product in place. Other
      // unresolved products survive new checks, even if not returned as changes.
      const [old]=await db.execute("SELECT id,result FROM analysis_jobs WHERE user_id=? AND id<>? AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind'))='routine_recheck' AND JSON_SEARCH(result,'one','pending',NULL,'$.proposals[*].status') IS NOT NULL ORDER BY created_at DESC FOR UPDATE",[owner,job.id]);const older=old.map(j=>({...j,data:typeof j.result==='string'?JSON.parse(j.result):j.result,dirty:false}));
      const proposals=[];let skippedCount=0,proposedCount=0;
-     for(const a of response.result.assignments){const before=rows.find(r=>r.id===a.supplementId),now=currentRows.find(r=>r.id===a.supplementId);if(!now||productFingerprint(before)!==productFingerprint(now)){skippedCount++;continue;}if(!a.groupId||a.groupId===now.group_id)continue;
+     for(const a of response.result.assignments){const before=rows.find(r=>r.id===a.supplementId),now=currentRows.find(r=>r.id===a.supplementId);if(!now||pausedOn(now,this.now())||productFingerprint(before)!==productFingerprint(now)){skippedCount++;continue;}if(!a.groupId||a.groupId===now.group_id)continue;
       proposedCount++;const proposal={id:randomUUID(),supplementId:now.id,name:now.name,manufacturer:readAnalysis(now).manufacturer||'',from:{id:now.group_id,name:currentGroups.find(g=>g.id===now.group_id)?.name||null},to:{id:a.groupId,name:currentGroups.find(g=>g.id===a.groupId).name},reason:a.reason,status:'pending',routineRevision:settings.routineRevision,productFingerprint:productFingerprint(now),groupsFingerprint:groupFingerprint(currentGroups)};
       const prior=older.find(j=>j.data.proposals.some(p=>p.status==='pending'&&p.supplementId===now.id));if(prior){const p=prior.data.proposals.find(p=>p.status==='pending'&&p.supplementId===now.id);Object.assign(p,{...proposal,id:p.id});prior.dirty=true;}else proposals.push(proposal);
      }
@@ -236,7 +260,7 @@ export class TrackerApi {
    await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);const [jobs]=await db.execute('SELECT result FROM analysis_jobs WHERE id=? AND user_id=? FOR UPDATE',[jobId,owner]);if(!jobs.length)throw new ApiError(404,'NOT_FOUND');const result=typeof jobs[0].result==='string'?JSON.parse(jobs[0].result):jobs[0].result;
    const p=result.kind==='routine_recheck'&&result.proposals.find(p=>p.id===proposalId);if(!p)throw new ApiError(404,'NOT_FOUND');const status=action==='accept'?'accepted':'removed';if(p.status===status)return;if(p.status!=='pending')throw new ApiError(409,'COLLECTION_CHANGED');
    if(action==='accept'){
-    const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[p.supplementId,owner]);const [groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);const row=rows[0];if((await this.routineSnapshot(db,owner)).routineRevision!==(p.routineRevision||0))throw new ApiError(409,'COLLECTION_CHANGED');if(!row||productFingerprint(row)!==p.productFingerprint||groupFingerprint(groups)!==p.groupsFingerprint||!groups.some(g=>g.id===p.to.id))throw new ApiError(409,'COLLECTION_CHANGED');
+    const [rows]=await db.execute('SELECT id,name,group_id,analysis,paused_at,resume_on,pause_timezone,pause_revision FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[p.supplementId,owner]);const [groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);const row=rows[0];if((await this.routineSnapshot(db,owner)).routineRevision!==(p.routineRevision||0))throw new ApiError(409,'COLLECTION_CHANGED');if(!row||pausedOn(row,this.now())||productFingerprint(row)!==p.productFingerprint||groupFingerprint(groups)!==p.groupsFingerprint||!groups.some(g=>g.id===p.to.id))throw new ApiError(409,'COLLECTION_CHANGED');
     const a=readAnalysis(row);a.grouping={basis:'manual',groupId:p.to.id,explanation:p.reason};await db.execute('UPDATE supplements SET group_id=?,analysis=? WHERE id=? AND user_id=?',[p.to.id,JSON.stringify(a),row.id,owner]);
    }
    p.status=status;p.resolvedAt=this.now().toISOString();await db.execute('UPDATE analysis_jobs SET result=? WHERE id=? AND user_id=?',[JSON.stringify(result),jobId,owner]);
@@ -378,9 +402,9 @@ export class TrackerApi {
    const report=typeof jobs[0].result==='string'?JSON.parse(jobs[0].result):jobs[0].result,review=report?.review;
    if(review?.status==='applied')return;if(review?.status!=='ready'||!review.changes.length)throw new ApiError(409,'COLLECTION_CHANGED');
    const [groups]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position FOR UPDATE',[owner]);
-   const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);
+   const [rows]=await db.execute('SELECT id,name,group_id,analysis,paused_at,resume_on,pause_timezone FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);
    if(JSON.stringify(groups)!==JSON.stringify(review.groups)||reviewSnapshot(rows)!==review.snapshot)throw new ApiError(409,'COLLECTION_CHANGED');
-   for(const change of review.changes){const row=rows.find(r=>r.id===change.id);if(!row||!groups.some(g=>g.id===change.to))throw new ApiError(409,'COLLECTION_CHANGED');const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;a.grouping={basis:'manual',groupId:change.to,explanation:change.reason,sourceUrl:change.sourceUrl};await db.execute('UPDATE supplements SET group_id=?,analysis=? WHERE id=? AND user_id=?',[change.to,JSON.stringify(a),change.id,owner]);}
+   for(const change of review.changes){const row=rows.find(r=>r.id===change.id);if(!row||pausedOn(row,this.now())||!groups.some(g=>g.id===change.to))throw new ApiError(409,'COLLECTION_CHANGED');const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;a.grouping={basis:'manual',groupId:change.to,explanation:change.reason,sourceUrl:change.sourceUrl};await db.execute('UPDATE supplements SET group_id=?,analysis=? WHERE id=? AND user_id=?',[change.to,JSON.stringify(a),change.id,owner]);}
    review.status='applied';delete review.snapshot;await db.execute('UPDATE analysis_jobs SET result=? WHERE id=? AND user_id=?',[JSON.stringify(report),id,owner]);
   });return {ok:true};
  }
@@ -449,7 +473,7 @@ export class TrackerApi {
   const {result,model,verifiedLabelSources=[]}=await this.requestResearch(owner,{name:target.name,image:null,language,target:{...(previous.identity||{name:target.name,manufacturer:previous.manufacturer||null,variant:previous.variant||null}),groupId:target.group_id,groupingBasis:previous.grouping?.basis||(previous.identity?.groupId===target.group_id?'provisional':'unknown'),originalBenefit:previous.benefitSummary,originalComposition:previous.composition?.ingredients||[]},groups,supplements,settings,sealed},authorization);
   return this.auth.transaction(async db=>{
    await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);const routineNow=await this.routineSnapshot(db,owner);
-   const [latest]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const row=latest.find(r=>r.id===id);if(!row)throw new ApiError(404,'NOT_FOUND');
+   const [latest]=await db.execute('SELECT id,name,group_id,analysis,paused_at,resume_on,pause_timezone FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const row=latest.find(r=>r.id===id);if(!row)throw new ApiError(404,'NOT_FOUND');
    const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;if(a.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
    const changed=JSON.stringify(latest.map(r=>[r.id,r.name,r.group_id,r.id===id?null:r.analysis]))!==snapshot;
    if(changed&&!this.singlePass){result.compatibility.stale=true;result.compatibility.requiresReview=true;result.needsReview=true;}
@@ -461,7 +485,7 @@ export class TrackerApi {
    // timing context without discarding otherwise useful product information.
    const timingSources=result.sources.filter(s=>s.kind==='manufacturer'||s.kind==='label_registry'&&verifiedLabelSources.includes(s.url)||this.singlePass&&s.kind==='retailer');
    const source=timingSources.find(s=>s.url===result.dosage?.sourceUrl)||timingSources[0];
-   const grouping=this.singlePass&&this.fullResearch?researchedGrouping({analysis:a,previous:target.group_id,current:row.group_id,proposed:result.groupId,ownedIds:owned.map(g=>g.id),groupsUnchanged:JSON.stringify(owned)===JSON.stringify(groups)&&!routineNow.routine&&routineNow.routineRevision===settings.routineRevision,reason:result.reviewReason,sourceUrl:source?.url,checkedAt:this.now().toISOString()}):this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
+   const grouping=pausedOn(row,this.now())?{...(a.grouping||{basis:'provisional'}),groupId:row.group_id}:this.singlePass&&this.fullResearch?researchedGrouping({analysis:a,previous:target.group_id,current:row.group_id,proposed:result.groupId,ownedIds:owned.map(g=>g.id),groupsUnchanged:JSON.stringify(owned)===JSON.stringify(groups)&&!routineNow.routine&&routineNow.routineRevision===settings.routineRevision,reason:result.reviewReason,sourceUrl:source?.url,checkedAt:this.now().toISOString()}):this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
    const groupId=grouping.groupId;result.grouping=grouping;if(routineNow.routine&&result.groupId&&result.groupId!==groupId&&owned.some(g=>g.id===result.groupId))result.groupingSuggestion={groupId:result.groupId,reason:result.reviewReason,routineRevision:routineNow.routineRevision};
    // Capture the actual transaction's before/after groups, never a proposed or
    // blocked manual move. Names are snapshots so later renames do not alter history.
