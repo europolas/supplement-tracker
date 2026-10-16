@@ -303,3 +303,17 @@ test('restrictions and the full-width refresh action stay inside the disclosure'
  await expect(restrictions).toBeVisible();await expect(restrictions).toContainText('Confirm suitability.');await action.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/detail-actions-expanded.png',animations:'disabled'});
  await more.locator('summary').click();await expect(restrictions).toBeHidden();await expect(action).toBeHidden();
 });
+
+test('login and registration password eyes preserve values and caret, remask on tab change and localize',async({page})=>{
+ const fake=await mock(page);await page.goto('/');const loginForm=page.locator('#login-form'),password=loginForm.locator('[name=password]'),eye=loginForm.locator('.password-toggle');
+ await expect(password).toHaveAttribute('type','password');await expect(eye).toHaveAttribute('aria-label','Show password');await expect(eye.locator('svg')).toHaveCSS('opacity','0.8');
+ await password.fill('Private testing phrase');await password.evaluate(n=>n.setSelectionRange(4,9));await eye.click();await expect(password).toHaveAttribute('type','text');await expect(password).toHaveValue('Private testing phrase');await expect(eye).toHaveAttribute('aria-label','Hide password');await expect(eye).toHaveAttribute('aria-pressed','true');expect(await password.evaluate(n=>[n.selectionStart,n.selectionEnd])).toEqual([4,9]);
+ await eye.click();await expect(password).toHaveAttribute('type','password');await expect(password).toHaveAttribute('autocomplete','current-password');
+ await eye.click();await page.locator('[data-auth-mode=register][aria-pressed]').click();await expect(password).toHaveAttribute('type','password');const register=page.locator('#register-form');await expect(register.locator('.password-toggle')).toHaveCount(2);
+ for(const field of ['password','confirmation']){await register.locator('[name='+field+']').fill('New testing password phrase');const control=register.locator('[name='+field+']').locator('..').locator('button');await control.click();await expect(register.locator('[name='+field+']')).toHaveAttribute('type','text');}
+ for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.screenshot({path:'.runtime/password-register-'+theme+'.png',animations:'disabled'});}
+ await register.evaluate(n=>n.reset());await expect(register.locator('input[type=password]')).toHaveCount(2);await page.locator('[data-auth-mode=login][aria-pressed]').click();await expect(eye).toHaveAttribute('aria-pressed','false');
+ expect(fake.requests.filter(r=>r.method==='POST')).toHaveLength(0);
+ await login(page);await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form button').click();await page.locator('#logout-button').click();await expect(eye).toHaveAttribute('aria-label','Rodyti slaptažodį');await password.fill('Local test only');await eye.click();await expect(eye).toHaveAttribute('aria-label','Slėpti slaptažodį');
+ await page.screenshot({path:'.runtime/password-login-lt-dark.png',animations:'disabled'});
+});

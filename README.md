@@ -432,3 +432,5 @@ and flexible any-time groups; no additional grouping request is introduced.
 Version 0.18.0 removes product-specific timing rules and shortens Gemini prompts.
 Detailed research returns manufacturer, composition, brief benefits and usage only;
 AI-selected groups are checked, while manual assignments send no group context.
+
+Version 0.18.1 adds accessible show/hide password eyes to login and registration.

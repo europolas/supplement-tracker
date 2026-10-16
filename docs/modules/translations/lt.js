@@ -409,4 +409,6 @@ export default Object.freeze({
   "appRecentAdditions": "Neseniai pridėta",
   "appReviewCombination": "Peržiūrėk suderinamumą",
   "appTimingPlan": "Ši grupė nurodo planuojamą laiką, o ne patvirtina, kad papildus saugu derinti.",
+  "appShowPassword": "Rodyti slaptažodį",
+  "appHidePassword": "Slėpti slaptažodį",
 });

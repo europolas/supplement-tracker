@@ -409,4 +409,6 @@ export default Object.freeze({
   "appRecentAdditions": "Recent additions",
   "appReviewCombination": "Review combination",
   "appTimingPlan": "This group is a timing plan, not confirmation that these supplements are safe to combine.",
+  "appShowPassword": "Show password",
+  "appHidePassword": "Hide password",
 });

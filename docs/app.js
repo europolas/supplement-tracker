@@ -5,6 +5,7 @@
 import {createConfig,createStorage,createSettings,createTheme,createI18n,createRouter,createToast,
  bindForm,trackDirty,setupViewport,setupGestures,setupPwa,watchNetwork,createAuth,setupAccount,
  element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet,productLabel,createImageViewer} from './modules/index.js';
+import {setupPasswordVisibility} from './modules/password-visibility.js';
 import {parseCustomIcon} from './custom-icon.js';
 // Local presentation icons use fixed SVG paths, never server/model markup.
 const iconPaths={
@@ -39,6 +40,10 @@ setupViewport();setupGestures(config.interaction);
 get('account-forms').append(document.createRange().createContextualFragment(await(await fetch('./account.html')).text()));
 const auth=createAuth({id:config.id,baseUrl:config.apiUrl,persistence:'persistent',timeout:100000});
 setupAccount(config,{i18n,auth});
+const passwordVisibility=setupPasswordVisibility(get('account-forms'),{selector:'#login-form input[type="password"],#register-form input[type="password"]',getLabel:shown=>i18n.t(shown?'appHidePassword':'appShowPassword'),subscribe:listener=>i18n.subscribe(listener)});
+for(const control of document.querySelectorAll('[data-auth-mode]'))control.addEventListener('click',passwordVisibility.reset);
+get('route-dialog').addEventListener('close',passwordVisibility.reset);
+auth.state.subscribe(passwordVisibility.reset);
 const api=auth.api;
 let baseRoute='/';
 const addSheet=createBottomSheet(get('add-dialog'),{onDismiss:()=>closeAdd()});

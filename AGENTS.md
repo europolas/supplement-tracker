@@ -462,3 +462,9 @@ Use compactDetailsSchema/expandCompactDetails for provider output and local 1.4
 storage compatibility. Do not reintroduce interaction/caution/routine/fallback-dose
 research or duplicate usage prose. Source binding and manual/concurrency protections
 remain mandatory; see server/ANALYSIS.md for the superseding contract.
+
+0.18.1 adds opt-in password visibility to login/register only, including confirmation.
+Reuse modules/src/password-visibility.js (canonical toolkit example) and retain native
+input/autofill/caret. Remask on form reset, auth-tab change, sheet close and auth-state
+changes. Buttons are type=button with localized show/hide labels and aria-pressed;
+right-aligned 44px touch controls use 80% opacity SVG icons. No credential persistence.
