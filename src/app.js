@@ -5,6 +5,7 @@
 import {createConfig,createStorage,createSettings,createTheme,createI18n,createRouter,createToast,
  bindForm,trackDirty,setupViewport,setupGestures,setupPwa,watchNetwork,createAuth,setupAccount,
  element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet,productLabel,createImageViewer} from './modules/index.js';
+import {parseCustomIcon} from './custom-icon.js';
 // Local presentation icons use fixed SVG paths, never server/model markup.
 const iconPaths={
  user:'M20 21v-2a7 7 0 0 0-14 0v2 M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
@@ -99,12 +100,13 @@ function renderHome(){
  groups.forEach((group,index)=>{
   const rows=state.supplements.filter(item=>item.group_id===group.id);
   const section=element('section',{className:'group-block'}),head=element('div',{className:'group-heading'}),labels=element('div');
-  const groupIcon=element('span',{className:'group-symbol'});groupIcon.append(icon(groupSymbol(group.name)));head.append(groupIcon);labels.append(heading(group.name));
+  const groupIcon=element('span',{className:'group-symbol'});groupIcon.append(renderGroupIcon(group));head.append(groupIcon);labels.append(heading(group.name));
   head.append(labels);if(group.id){const edit=button('',()=>openGroup(group),'group-edit');edit.setAttribute('aria-label',i18n.t('appEdit')+': '+group.name);edit.append(icon('chevron'));head.append(edit);}section.append(head);
   const list=element('table',{className:'supplement-table',attributes:{'aria-label':group.name}}),body=element('tbody');list.append(body);
   if(!rows.length){const emptyRow=element('tr');emptyRow.append(element('td',{text:i18n.t('appGroupEmpty'),className:'group-empty',attributes:{colspan:'2'}}));body.append(emptyRow);}
   for(const item of rows){
-   const row=element('tr',{className:'supplement-row'+(item.completed?' is-done':'')});row.dataset.id=item.id;
+   const isResearching=['queued','researching'].includes(item.analysis.enrichment?.status);
+   const row=element('tr',{className:'supplement-row'+(item.completed?' is-done':'')+(isResearching?' is-researching':''),attributes:{'aria-busy':String(isResearching)}});row.dataset.id=item.id;
    const open=button('',()=>router.navigate('/detail?id='+encodeURIComponent(item.id)),'supplement-open');
    const label=productLabel({name:item.name,manufacturer:item.analysis.manufacturer,variant:item.analysis.variant});
    open.append(element('strong',{text:label.name,className:'product-title'}));
@@ -120,17 +122,18 @@ function renderHome(){
  });
 }
 // Icons are decoration only; group assignment remains the server's decision.
+function renderGroupIcon(group){try{return parseCustomIcon(group?.icon)||icon(groupSymbol(group?.name||''));}catch{return icon(groupSymbol(group?.name||''));}}
 function groupSymbol(name){return /evening|bed|sleep|vakar|mieg/i.test(name)?'moon':/morning|empty|ryt|tušč/i.test(name)?'sun':'meal';}
 function openGroup(group){
  const form=get('group-form');resetGroup();
- if(group){form.elements.id.value=group.id;form.elements.name.value=group.name;form.elements.description.value=group.description||'';get('group-form-title').textContent=i18n.t('appEditGroup');get('cancel-group').hidden=false;}
+ if(group){form.elements.id.value=group.id;form.elements.name.value=group.name;form.elements.description.value=group.description||'';form.elements.icon.value=group.icon||'';get('group-form-title').textContent=i18n.t('appEditGroup');get('cancel-group').hidden=false;}
  groupSheet.open();
 }
 get('new-group').addEventListener('click',()=>openGroup());
 function renderGroups(){
  const list=get('group-list');list.replaceChildren();
  for(const [index,group] of state.groups.entries()){
-  const card=element('div',{className:'surface'});card.append(element('p',{text:String(index+1).padStart(2,'0'),className:'eyebrow'}),heading(group.name));
+  const card=element('div',{className:'surface'});card.append(renderGroupIcon(group),element('p',{text:String(index+1).padStart(2,'0'),className:'eyebrow'}),heading(group.name));
   if(group.description)card.append(element('p',{text:group.description,className:'muted'}));
   const actions=element('div',{className:'group-actions'});
   actions.append(button(i18n.t('appEdit'),()=>openGroup(group)));
@@ -156,7 +159,7 @@ function renderDetail(){
  const reference=fallback&&['established_adult_intake','usual_adult_supplement_range'].includes(fallback.basis)&&(!analysis.dosage?.directions||analysis.dosage?.dailyServingsMin==null);
  const section=(key,name)=>{const node=element('section',{className:'detail-tile',attributes:{'data-detail-section':name}});node.append(icon({dose:'clock',benefits:'leaf',composition:'dose'}[name]),heading(i18n.t(key),'h3'));primary.append(node);return node;};
  const prose=(target,value)=>{if(Array.isArray(value)){const list=element('ul');for(const text of value)list.append(element('li',{text}));target.append(list);}else target.append(element('p',{text:value}));};
- const assigned=state.groups.find(group=>group.id===item.group_id),badge=element('div',{className:'group-badge'});badge.append(icon(assigned?groupSymbol(assigned.name):'info'),element('span',{text:assigned?.name||i18n.t('appUnassigned')}));
+ const assigned=state.groups.find(group=>group.id===item.group_id),badge=element('div',{className:'group-badge'});badge.append(assigned?renderGroupIcon(assigned):icon('info'),element('span',{text:assigned?.name||i18n.t('appUnassigned')}));
  const productInfo=productLabel({name:item.name,manufacturer:analysis.manufacturer,variant:analysis.variant});
  card.append(element('h1',{text:productInfo.name,className:'detail-name',attributes:{id:'product-detail-title',tabindex:'-1','data-sheet-focus':'',autofocus:''}}));
  const subtitle=element('p',{className:'product-subtitle'});if(productInfo.manufacturer)subtitle.append(element('b',{text:productInfo.manufacturer}));if(productInfo.variant)subtitle.append(document.createTextNode((productInfo.manufacturer?' · ':'')+productInfo.variant));if(subtitle.textContent)card.append(subtitle);
@@ -189,6 +192,11 @@ function renderDetail(){
  else unknownDose();
  for(const value of new Set([analysis.whenToUse,analysis.howToUse].filter(Boolean)))prose(dose,value);
  prose(section('appBenefits','benefits'),analysis.benefits?.length?analysis.benefits:i18n.t(pending?'appInfo_'+analysis.enrichment.status:'appNoBenefits'));
+ if(analysis.research?.scope==='full-product-details'){
+ const compatibility=section('appCompatibility','compatibility');if(analysis.compatibility?.summary)prose(compatibility,analysis.compatibility.summary);
+ if(analysis.compatibility?.assessments?.length)prose(compatibility,analysis.compatibility.assessments.map(a=>(a.supplementName?a.supplementName+': ':'')+a.reason));
+ if(analysis.cautions?.length)prose(section('appRestrictions','restrictions'),analysis.cautions);
+ }
  if(!draft&&analysis.sources?.length){
   extra.append(heading(i18n.t('appSources'),'h3'));const list=element('ul',{className:'source-list'});
   for(const source of analysis.sources){const row=element('li');row.append(element('a',{text:source.title,attributes:{href:source.url,target:'_blank',rel:'noopener noreferrer'}}));list.append(row);}extra.append(list);
@@ -197,7 +205,7 @@ function renderDetail(){
   if(analysis.composition){const node=section('appComposition','composition');if(analysis.composition.ingredients.length)prose(node,analysis.composition.ingredients.map(n=>n.name+(n.labelAmount?' · '+n.labelAmount:'')));else prose(node,i18n.t('appDoseUnknown'));if(!analysis.composition.complete)node.append(element('p',{className:'detail-meta',text:i18n.t('appCompositionPartial')}));}
   prose(section('appBenefits','benefits'),analysis.benefitTags?.length?analysis.benefitTags.map(b=>b[i18n.language]||b.en):analysis.benefitSummary);
  }
- // Research is opt-in, never triggered by opening this sheet or adding a product.
+ // New products are researched automatically. This action retries/refreshes explicitly.
  const refresh=button(i18n.t('appGetDetailedInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});
  refresh.disabled=pending;card.append(refresh);
  if(pending||basic&&analysis.enrichment?.status==='failed')card.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status),className:'research-badge',attributes:{role:'status'}}));
@@ -258,8 +266,8 @@ function renderGroupReview(container,report){
 }
 function resetGroup(){get('group-form').reset();clearDirty(get('group-form'));get('cancel-group').hidden=true;get('group-form-title').textContent=i18n.t('appNewGroup');}
 get('cancel-group').addEventListener('click',()=>{resetGroup();void groupSheet.close();});
-bindForm(get('group-form'),async(data,form)=>{
- await api.request('/v1/groups'+(data.id?'/'+data.id:''),{method:data.id?'PATCH':'POST',body:{name:data.name,description:data.description}});
+bindForm(get('group-form'),async(data,form)=>{parseCustomIcon(data.icon);
+ await api.request('/v1/groups'+(data.id?'/'+data.id:''),{method:data.id?'PATCH':'POST',body:{name:data.name,description:data.description,icon:data.icon}});
  resetGroup();void groupSheet.close();await load();notify(i18n.t('appSaved'));
 },{onError:failure});
 bindForm(get('settings-form'),data=>{settings.update(data);clearDirty(get('settings-form'));notify(i18n.t('saved'));},{onError:failure});
@@ -452,6 +460,8 @@ function renderDiagnostics(){
   const gemini=m.pipeline==='gemini-single'||job.result?.pipeline==='gemini-single';
   if(gemini){row('appDiagGemini',ms(t.geminiMs));row('appDiagSingleCalls',m.calls);row('appDiagUsage',[m.inputTokens,m.outputTokens,m.thinkingTokens].map(v=>v??'—').join(' / '));}
   else {row('appDiagGrok',ms(t.grokMs));if(m.grokCacheHit)row('appDiagCached',i18n.t('appDiagCachedYes'));row('appDiagJev',ms(t.jevMs));}
+  if(t.detailsMs!=null)row('appDiagDetails',ms(t.detailsMs));
+  if(job.result?.items?.some(item=>item.research==='queued'||item.research==='researching'||item.research==='complete'&&!item.reused)){const items=job.result.items;row('appDiagResearchProgress',items.filter(i=>i.research==='complete').length+' / '+items.filter(i=>i.research==='failed').length+' / '+items.length);}
   row('appDiagTotal',ms(t.totalMs));
   const from=Date.parse(job.created_at),to=job.status==='running'?Date.now():Date.parse(job.finished_at);
   row('appDiagElapsed',ms(Number.isFinite(from)&&Number.isFinite(to)?Math.max(0,to-from):undefined));

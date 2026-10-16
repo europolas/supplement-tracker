@@ -12,6 +12,7 @@ import {randomUUID} from 'node:crypto';
 import {ApiError} from './security.mjs';
 import {ProviderError} from './structured-chat.mjs';
 import {analysisSchema,validAnalysis,analysisMessages,finalizeAnalysis} from './analysis.mjs';
+import {groupIcon} from './group-icon.mjs';
 import {detailsSchema,validDetails,detailsMessages} from './product-details.mjs';
 import {photoProductsSchema,validPhotoProducts,photoProductsMessages,productRequestId,uniqueProducts,productIdentity,draftAnalysis} from './photo-products.mjs';
 const jobColumns='id,status,supplement_id,error_code,total_count,processed_count,result,phase,language,created_at,finished_at';
@@ -40,7 +41,7 @@ export function validatePhotos(body){
  const images=body.images.map(validatePhoto);if(images.some(x=>!x)||images.reduce((n,x)=>n+x.length,0)>4300000)throw new ApiError(400,'IMAGE_INVALID');return images;
 }
 export class TrackerApi {
- constructor(pool,auth,{vault,chat,discover,credentialProvider='xai',review=null,singlePass=true,discoveryModel='grok-4.7',models=['grok-4.7'],now=()=>new Date()}){if(!['xai','google'].includes(credentialProvider))throw TypeError('Invalid credential provider');this.credentialProvider=credentialProvider;this.credentialTable=credentialProvider==='google'?'google_provider_credentials':'provider_credentials';this.review=review;this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
+ constructor(pool,auth,{vault,chat,discover,credentialProvider='xai',review=null,autoResearch=false,fullResearch=false,singlePass=true,discoveryModel='grok-4.7',models=['grok-4.7'],now=()=>new Date()}){if(!['xai','google'].includes(credentialProvider))throw TypeError('Invalid credential provider');this.autoResearch=autoResearch;this.fullResearch=fullResearch;this.credentialProvider=credentialProvider;this.credentialTable=credentialProvider==='google'?'google_provider_credentials':'provider_credentials';this.review=review;this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
  get providers(){return this.providerQueue.running;}
  async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
@@ -90,19 +91,19 @@ export class TrackerApi {
   }
   if(method==='GET'&&path==='/dashboard'){
    const zone=timezone(query.get('timezone')||'UTC'),day=calendarDay(zone,this.now());
-   const [groups]=await this.pool.execute('SELECT id,name,description,position FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]);
+   const [groups]=await this.pool.execute('SELECT id,name,description,position,icon FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]);
    const [rows]=await this.pool.execute('SELECT s.id,s.group_id,s.name,s.analysis,s.model,s.created_at,IF(c.supplement_id IS NULL,0,1) AS completed FROM supplements s LEFT JOIN supplement_completions c ON c.supplement_id=s.id AND c.local_day=? WHERE s.user_id=? ORDER BY s.created_at',[day,owner]);
    return [200,{day,groups,supplements:rows.map(row=>({...row,completed:Boolean(row.completed),analysis:typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis})),ai:await this.settings(owner)}];
   }
   if(method==='POST'&&path==='/groups'){
    const name=text(body.name,120),description=text(body.description||'',500,false),id=randomUUID();
    const [count]=await this.pool.execute('SELECT COUNT(*) AS n FROM day_groups WHERE user_id=?',[owner]);if(count[0].n>=30)throw new ApiError(400,'GROUP_LIMIT');
-   await this.pool.execute('INSERT INTO day_groups(id,user_id,name,description,position) VALUES (?,?,?,?,?)',[id,owner,name,description,count[0].n]);return [201,{id}];
+   await this.pool.execute('INSERT INTO day_groups(id,user_id,name,description,position,icon) VALUES (?,?,?,?,?,?)',[id,owner,name,description,count[0].n,groupIcon(body.icon)||'']);return [201,{id}];
   }
   const group=/^\/groups\/([a-f0-9-]{36})$/.exec(path);
   if(group){
    if(method==='PATCH'){
-    const [result]=await this.pool.execute('UPDATE day_groups SET name=?,description=? WHERE id=? AND user_id=?',[text(body.name,120),text(body.description||'',500,false),group[1],owner]);if(!result.affectedRows)throw new ApiError(404,'NOT_FOUND');return [200,{ok:true}];
+    const [result]=await this.pool.execute('UPDATE day_groups SET name=?,description=?,icon=COALESCE(?,icon) WHERE id=? AND user_id=?',[text(body.name,120),text(body.description||'',500,false),groupIcon(body.icon)??null,group[1],owner]);if(!result.affectedRows)throw new ApiError(404,'NOT_FOUND');return [200,{ok:true}];
    }
    if(method==='DELETE'){
     await this.auth.transaction(async db=>{
@@ -214,7 +215,7 @@ export class TrackerApi {
     const [rows]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);
     let capacity=40-rows.length;
     for(const [index,product] of products.entries()){
-     const identity=productIdentity(product),matches=rows.filter(row=>{const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;return productIdentity(a.identity||{...a,name:row.name})===identity;}),existing=matches.find(row=>row.id===product.existingId)||matches.find(row=>row.group_id)||matches[0];
+     const identity=productIdentity(product),matches=rows.filter(row=>{const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;return productIdentity(a.identity||{...a,name:row.name})===identity||(a.identityAliases||[]).includes(identity);}),existing=matches.find(row=>row.id===product.existingId)||matches.find(row=>row.group_id)||matches[0];
      if(existing){
       const a=typeof existing.analysis==='string'?JSON.parse(existing.analysis):existing.analysis;
       if(this.singlePass){
@@ -237,9 +238,9 @@ export class TrackerApi {
      if(capacity<=0){report.skipped.push({name:product.name,reasonCode:'SUPPLEMENT_LIMIT'});continue;}capacity--;
      const draft=draftAnalysis({...product,requestedName:body.name||null},{language,jobId:id}),recordId=randomUUID();
      if(productMetadata?.[identity])Object.assign(draft,productMetadata[identity]);
-     if(this.singlePass){draft.schemaVersion='basic-1';draft.enrichment={status:'complete',jobId:id,language};draft.needsReview=productMetadata?.[identity]?typeof productMetadata[identity].classification.groupConfidence==='number'&&productMetadata[identity].classification.groupConfidence<.65:product.review;draft.productName=product.name;}
+     if(this.singlePass){draft.schemaVersion='basic-1';draft.enrichment={status:this.autoResearch?'queued':'complete',jobId:id,language};draft.needsReview=productMetadata?.[identity]?typeof productMetadata[identity].classification.groupConfidence==='number'&&productMetadata[identity].classification.groupConfidence<.65:product.review;draft.productName=product.name;}
      await db.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) VALUES (?,?,?,?,?,?,?)',[recordId,owner,product.groupId,draft.productName,JSON.stringify(draft),model,productRequestId(body.requestId,index)]);
-     report.items.push({id:recordId,name:draft.productName,status:'added',research:this.singlePass?'complete':'queued'});
+     report.items.push({id:recordId,name:draft.productName,status:'added',research:this.singlePass&&!this.autoResearch?'complete':'queued'});
     }
     await db.execute('UPDATE analysis_jobs SET phase=\'enriching\',total_count=?,result=? WHERE id=? AND user_id=?',[report.items.length,JSON.stringify(report),id,owner]);
    });
@@ -251,6 +252,7 @@ export class TrackerApi {
     catch(error){item.research='failed';item.error=safeCode(error);await this.markResearchFailed(owner,item.id,id,item.error);}
     item.elapsedMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);
    }));
+   if(this.autoResearch&&report.timings){report.timings={...report.timings,detailsMs:Math.max(0,Date.now()-started-report.recognitionMs),totalMs:Date.now()-started};}
    if(this.singlePass&&this.review&&report.items.length)await this.reviewGroups(owner,id,report,authorization,sealed);
    await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status=?,error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[report.items.length?'complete':'failed',report.items.length?null:'SUPPLEMENT_NOT_IDENTIFIED',id,owner]);
   }catch(error){body.image=null;body.images=[];report.failedPhase=failurePhase;const code=safeCode(error);for(const item of report.items){if(!['queued','researching'].includes(item.research))continue;item.research='failed';item.error=code;try{await this.markResearchFailed(owner,item.id,id,code);}catch{ /* DB may be unavailable; startup also marks interrupted drafts. */ }}try{await this.jobProgress(owner,id,report,'done');await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,id,owner]);}catch{ /* Deleted accounts have no surviving private job metadata. */ }}
@@ -341,14 +343,17 @@ export class TrackerApi {
    const grouping=this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
    const groupId=grouping.groupId;result.grouping=grouping;
    if(grouping.basis==='provisional'){result.needsReview=true;}
-   result.identity=previous.identity;for(const key of ['composition','benefitTags','classification'])if(a[key])result[key]=a[key];result.enrichment={status:'complete',jobId,language};
+   result.identityAliases=[...new Set([...(a.identityAliases||[]),productIdentity(previous.identity||{...previous,name:target.name})])].slice(-8);
+   const unknown=value=>!value||/^(unknown|not visible|not readable|n\/?a|nenustatyta|nežinoma)$/i.test(value.trim());
+   if(unknown(result.manufacturer)&&!unknown(a.manufacturer))result.manufacturer=a.manufacturer;
+   result.identity={...(previous.identity||{}),name:result.productName,manufacturer:result.manufacturer,variant:result.variant||previous.identity?.variant||''};for(const key of ['composition','benefitTags','classification'])if(a[key])result[key]=a[key];if(this.fullResearch)result.composition={ingredients:result.nutrients.map(n=>({name:n.name,labelAmount:n.amount==null?'':n.amount+' '+n.unit})),complete:false,basis:'verified_research',checkedAt:this.now().toISOString()};result.enrichment={status:'complete',jobId,language};
    await db.execute('UPDATE supplements SET name=?,analysis=?,model=?,group_id=? WHERE id=? AND user_id=?',[result.productName,JSON.stringify(result),model,groupId,id,owner]);
   });
  }
  async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){
   const focused=this.singlePass;
-  const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:settings.model,messages:focused?detailsMessages({name,image,language,target}):analysisMessages({name,image,groups,supplements,language,target}),schema:focused?detailsSchema(groups,language):analysisSchema(groups,supplements,language),validate:value=>focused?validDetails(value,groups,language):validAnalysis(value,groups,supplements,language),name:focused?'supplement_product_details':'supplement_analysis_v1_4',maxTokens:focused?5000:Math.min(12000,4500+supplements.length*190)}));
-  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;if(focused)result.research.scope='product-details';await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
+  const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:settings.model,messages:focused?detailsMessages({name,image,language,target,supplements,full:this.fullResearch}):analysisMessages({name,image,groups,supplements,language,target}),schema:focused?detailsSchema(groups,language,supplements,this.fullResearch):analysisSchema(groups,supplements,language),validate:value=>focused?validDetails(value,groups,language,supplements,this.fullResearch):validAnalysis(value,groups,supplements,language),name:focused?'supplement_product_details':'supplement_analysis_v1_4',maxTokens:focused?(this.fullResearch?Math.min(12000,6000+supplements.length*140):5000):Math.min(12000,4500+supplements.length*190)}));
+  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;if(focused)result.research.scope=this.fullResearch?'full-product-details':'product-details';await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
   for(const assessment of result.compatibility.assessments){const s=supplements.find(s=>s.id===assessment.supplementId),a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;assessment.supplementName=s.name;if(assessment.status==='no_known_issue'&&a.enrichment&&a.enrichment.status!=='complete')assessment.status='insufficient_information';}
   if(result.compatibility.assessments.some(a=>a.status!=='no_known_issue')){result.needsReview=true;result.compatibility.requiresReview=true;}return data;
  }

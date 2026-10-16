@@ -125,7 +125,7 @@ export const server = http.createServer({ requestTimeout: 105000, headersTimeout
     let payload = {};
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH' || (req.method === 'DELETE' && (Number(req.headers['content-length'] || 0) > 0 || req.headers['transfer-encoding']))) {
       if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) throw new ApiError(415, "A JSON request body is required.");
-      payload = await body(req, ['/v1/supplements/analyze','/v1/supplements/jobs'].includes(path) ? 4500000 : 16384);
+      payload = await body(req, ['/v1/supplements/analyze','/v1/supplements/jobs'].includes(path) ? 4500000 : path==='/v1/groups'||/^\/v1\/groups\/[a-f0-9-]{36}$/.test(path)?65536:16384);
     }
     // Loopback-only container port; trusted local nginx must overwrite this header.
     const ip = process.env.TRUST_PROXY === 'true' ? req.headers['x-real-ip'] || req.socket.remoteAddress : req.socket.remoteAddress;

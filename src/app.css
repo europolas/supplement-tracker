@@ -158,3 +158,11 @@ html .photo-thumb .photo-zoom { bottom:0;right:0; }
 .diagnostics-card h2{font-size:1.15rem;overflow-wrap:anywhere;}
 .diagnostics-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.65rem 1rem;font-size:.875rem;}
 .diagnostics-grid dt{opacity:.7;}.diagnostics-grid dd{margin:0;text-align:right;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}
+
+/* Background research changes only color, never row size, opacity or hit targets. */
+.supplement-row.is-researching { animation:supplement-research-pulse 2.4s ease-in-out infinite; }
+@keyframes supplement-research-pulse { 0%,100% { background-color:transparent; } 50% { background-color:color-mix(in srgb,var(--accent,#607c56) 15%,transparent); } }
+@media (prefers-reduced-motion:reduce) { .supplement-row.is-researching { animation:none;background-color:var(--soft); } }
+.custom-group-svg { width:28px;height:28px;flex-shrink:0; }
+.group-symbol .bi,.group-badge .bi { font-size:28px;line-height:1; }
+.group-list .bi { font-size:24px; }

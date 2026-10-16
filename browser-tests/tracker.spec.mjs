@@ -7,7 +7,7 @@ const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-2
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
 async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false}={}){
  let completed=false,added=preloaded,started=hybrid||gemini,configured=true,release,terminalJob=null,researchRequested=false,reviewApplied=false,released=false,detailsReady=!progressive;
- const uploads=[],requests=[];release=()=>{released=true;};
+ let customGroupIcon='';const uploads=[],requests=[];release=()=>{released=true;};
  await page.route('https://perimove.com/supplement-api/**',async route=>{
   const request=route.request(),path=new URL(request.url()).pathname.replace('/supplement-api','');requests.push({path,method:request.method()});
   let result={ok:true},httpStatus=200;
@@ -28,11 +28,12 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
    }
    if(path.endsWith('/test-job'))result=result.job;
   }
+  else if(path==='/v1/groups/'+group&&request.method()==='PATCH'){customGroupIcon=request.postDataJSON().icon||'';}
   else if(path.endsWith('/apply-groups')){reviewApplied=true;}
   else if(path==='/v1/supplements'&&request.method()==='DELETE'){added=false;started=false;terminalJob=null;}
   else if(path.endsWith('/research')){researchRequested=true;result={id:'detail-job',status:'running',phase:'enriching',result:{items:[],skipped:[]}};}
   else if(path.endsWith('/completion'))completed=request.postDataJSON().completed;
-  else if(path==='/v1/dashboard')result={day:new Date().toLocaleDateString('sv-SE'),groups:[{id:group,name:'With a meal',description:'Energy and everyday support'}],supplements:added?[{id,group_id:group,name:'Example <b>supplement</b>',completed,analysis:{manufacturer:'Example',dosage:{directions:'1 tablet daily',servingSize:'1 tablet'},nutrients:[{name:'Vitamin C',amount:1000,unit:'mg',amountNote:'Per tablet',reference:{amount:80,unit:'mg'},dailyAmountMin:1000,dailyAmountMax:1000,dailyPercentMin:1250,dailyPercentMax:1250}],sources:[{url:'https://manufacturer.example/label',title:'Official product label',kind:'manufacturer'}],research:{checkedAt:'2026-10-14T10:00:00Z',omittedSourceCount:1},benefitSummary:'Energy, cellular support',benefits:['A detailed explanation of the evidence, uncertainty and potential benefit that belongs only inside the supplement information page.'],howToUse:'Check the label.',whenToUse:'With food.',labelDirections:null,cautions:['Confirm suitability.'],needsReview:true,evidenceNote:'Example only.',compatibility:{summary:'Review your routine.',assessments:[]}}}]:[],ai};
+  else if(path==='/v1/dashboard')result={day:new Date().toLocaleDateString('sv-SE'),groups:[{id:group,icon:customGroupIcon,name:'With a meal',description:'Energy and everyday support'}],supplements:added?[{id,group_id:group,name:'Example <b>supplement</b>',completed,analysis:{manufacturer:'Example',dosage:{directions:'1 tablet daily',servingSize:'1 tablet'},nutrients:[{name:'Vitamin C',amount:1000,unit:'mg',amountNote:'Per tablet',reference:{amount:80,unit:'mg'},dailyAmountMin:1000,dailyAmountMax:1000,dailyPercentMin:1250,dailyPercentMax:1250}],sources:[{url:'https://manufacturer.example/label',title:'Official product label',kind:'manufacturer'}],research:{checkedAt:'2026-10-14T10:00:00Z',omittedSourceCount:1},benefitSummary:'Energy, cellular support',benefits:['A detailed explanation of the evidence, uncertainty and potential benefit that belongs only inside the supplement information page.'],howToUse:'Check the label.',whenToUse:'With food.',labelDirections:null,cautions:['Confirm suitability.'],needsReview:true,evidenceNote:'Example only.',compatibility:{summary:'Review your routine.',assessments:[]}}}]:[],ai};
   if(path==='/v1/dashboard'&&progressive&&added){const a=result.supplements[0].analysis;a.schemaVersion=detailsReady?'1.3':'draft-1';a.language='en';a.enrichment={status:detailsReady?'complete':'researching'};}
   if(path==='/v1/dashboard'&&fallback&&added){result.supplements[0].analysis.dosage={directions:null,servingSize:null,dailyServingsMin:null};result.supplements[0].analysis.doseFallback={basis:'established_adult_intake',ingredient:'Example ingredient',dailyAmountMin:25,dailyAmountMax:50,unit:'mg',sourceUrl:'https://guideline.example/reference',explanation:'General adult reference; no verified product capsule strength.'};}
   if(path==='/v1/dashboard'&&unknownDose&&added){result.supplements[0].analysis.dosage={directions:null,servingSize:null};result.supplements[0].analysis.doseFallback={basis:'unavailable',explanation:'No verified dose.'};}
@@ -251,6 +252,15 @@ test('hybrid composition, localized tags and owner diagnostics fit the Sage shee
 
 test('Gemini account and diagnostic screen show one request without JEV',async({page})=>{
  await mock(page,{preloaded:true,gemini:true});await login(page);
- await page.goto('/#/diagnostics');await expect(page.locator('#ai-dashboard')).toContainText('gemini-3.8-flash');await expect(page.locator('#ai-dashboard')).toContainText('AI requests');await expect(page.locator('#ai-dashboard')).not.toContainText('JEV classification');
+ await page.goto('/#/diagnostics');await expect(page.locator('#ai-dashboard')).toContainText('gemini-3.8-flash');await expect(page.locator('#ai-dashboard')).toContainText('Recognition requests');await expect(page.locator('#ai-dashboard')).not.toContainText('JEV classification');
  await page.screenshot({path:'.runtime/gemini-dashboard.png'});
+});
+
+test('background research pulses rows until completion and respects reduced motion',async({page})=>{
+ const fake=await mock(page,{preloaded:true,progressive:true});await login(page);const row=page.locator('.supplement-row');await expect(row).toHaveClass(/is-researching/);await expect(row).toHaveAttribute('aria-busy','true');expect(await row.evaluate(n=>getComputedStyle(n).animationName)).toBe('supplement-research-pulse');await expect(page.locator('#route-dialog')).not.toBeVisible();await page.screenshot({path:'.runtime/auto-research-home.png'});
+ await page.emulateMedia({reducedMotion:'reduce'});expect(await row.evaluate(n=>getComputedStyle(n).animationName)).toBe('none');fake.releaseResearch();await page.reload();await expect(page.locator('.supplement-row')).not.toHaveClass(/is-researching/);await expect(page.locator('.supplement-row')).toHaveAttribute('aria-busy','false');
+});
+test('group editor saves Bootstrap icon and SVG while refusing active markup',async({page})=>{
+ await mock(page,{preloaded:true});await login(page);await page.locator('.group-edit').click();await page.locator('#group-form [name=icon]').fill('<i class="bi bi-0-circle"></i>');await page.locator('#group-form button[type=submit]').click();await expect(page.locator('#group-dialog')).not.toBeVisible();await expect(page.locator('.group-symbol .bi-0-circle')).toBeVisible();await page.screenshot({path:'.runtime/custom-group-icon.png'});
+ const result=await page.evaluate(async()=>{const {parseCustomIcon}=await import('./custom-icon.js');const svg=parseCustomIcon('<svg xmlns="http://www.w3.org/2000/svg" class="bi bi-circle" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/></svg>');let rejected=0;for(const code of ['<svg onload="alert(1)"></svg>','<svg><script>alert(1)</script></svg>','<svg><image href="https://example.com/pixel"/></svg>','<svg><path fill="url(https://example.com/pixel)"/></svg>','<i class="bi bi-0-circle" onclick="alert(1)"></i>'])try{parseCustomIcon(code);}catch{rejected++;}return {tag:svg.localName,circles:svg.querySelectorAll('circle').length,rejected};});expect(result).toEqual({tag:'svg',circles:1,rejected:5});
 });

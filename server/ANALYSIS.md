@@ -1,3 +1,26 @@
+## Current production behavior: 0.15.0
+
+Newly added supplements are committed immediately, then researched automatically
+in the bounded three-worker background queue. Recognition remains one Gemini
+3.8 Flash call; each new product then uses grounded lookup + structured extraction.
+This explicitly supersedes the earlier opt-in-only policy below. Existing/reused
+products are not automatically re-billed. Failed/interrupted research keeps the
+product, stops the Home pulse and offers the explicit retry/details action.
+
+Full research includes known composition/amounts, dose/timing/food, detailed benefits,
+existing-routine compatibility, concrete drug interactions/contraindications/adverse
+effects and sources. Only public selected identity goes to Search; private routine
+context goes to the extraction call with tools disabled. Missing manufacturer is
+resolved from grounded evidence, persisted in analysis + identity and shown by Home.
+Original identity aliases prevent duplicate rows on re-upload. Manual grouping
+and existing cancellation, key-change, account ownership and clear-all guards remain.
+
+Queued/researching Home rows pulse subtly; reduced-motion uses a static tint.
+Migration 010 adds group icon text, exposed only in the owner dashboard. Icon text
+never enters AI grouping context. SVG is reconstructed with a static-shape allowlist;
+Bootstrap `<i class="bi bi-…"></i>` uses locally hosted Bootstrap Icons 1.13.2 assets
+(MIT license included). `src/custom-icon.js` mirrors the reusable toolkit example.
+
 ## Current production design: 0.14.0 — Gemini TEST2
 
 Gemini 3.8 Flash / LOW is the default (`AI_PIPELINE=gemini`). Adding calls

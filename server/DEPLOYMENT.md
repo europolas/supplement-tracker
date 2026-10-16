@@ -76,3 +76,10 @@ copy the legacy encrypted xAI key into the Google table or use a shared fallback
 The owner’s private Google test key may be installed through their authenticated
 settings endpoint as authorized; never log request bodies or responses containing
 session tokens. Verify public health, selected model, manifest and service worker.
+
+### 0.15.0 background research and icons
+
+Build `api web migrate`, run migration 010 before restarting API, rebuild public
+assets and recreate web. No new secrets/providers. Startup marks interrupted
+background drafts failed; it never silently repeats paid work. New products start
+research automatically; existing products remain available for explicit refresh.
