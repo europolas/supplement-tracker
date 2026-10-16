@@ -941,3 +941,7 @@ Conclusion synthesis (0.27.7) translates findings into everyday language, practi
 wellbeing outcomes and simple evidence-strength descriptions. Keep years/source IDs,
 but omit jargon, biomarker statistics and detailed effect-size tables. The clinical
 lookup stays detailed for accurate synthesis; only the user-facing report is simplified.
+
+Conclusion presentation (0.27.8) hides bibliography/source IDs. Grounded sources
+remain internal report evidence; API reads strip legacy markers and do not expose
+the list. Existing text benefits from this without another AI call or DB rewrite.

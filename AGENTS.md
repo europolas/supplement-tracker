@@ -1,3 +1,10 @@
+## 0.27.8 — conclusions without displayed sources
+
+Grounded research remains mandatory, but the synthesis prompt omits source IDs,
+URLs and bibliographies. API reads strip legacy S-number markers and withhold the
+source list; stored evidence stays intact. The UI also hides sources/markers for
+legacy API responses. No regeneration or migration is required for existing reports.
+
 ## 0.27.7 — readable conclusions and research headings
 
 Conclusion synthesis explains recent findings in everyday language, short paragraphs
