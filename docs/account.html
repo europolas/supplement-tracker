@@ -35,13 +35,13 @@
         </form>
       </div>
       <div id="auth-profile" hidden>
-        <p id="profile-email"></p>
-        <form id="profile-form">
+        <div class="profile-overview"><div id="account-initials" class="profile-initials" aria-hidden="true"></div><div class="profile-identity"><strong id="account-display-name"></strong><p id="profile-email"></p></div><button id="edit-profile-name" type="button" class="secondary"><span data-icon="pencil"></span><span data-i18n="appEditName">Edit name</span></button></div>
+        <form id="profile-form" hidden>
           <label><span data-i18n="Name">Name</span><input name="name" autocomplete="name" maxlength="80" required></label>
           <button class="primary" type="submit"><span data-i18n="Save name">Save name</span></button>
         </form>
-        <details class="password-details">
-          <summary><span data-i18n="Change password">Change password</span></summary>
+        <details class="password-details" data-security-form>
+          <summary class="setting-row"><span data-icon="key"></span><span data-i18n="Change password">Change password</span><span class="setting-arrow" data-icon="chevron"></span></summary>
           <form id="password-form">
             <label><span data-i18n="Current password">Current password</span><input name="currentPassword" type="password" autocomplete="current-password" maxlength="128" required></label>
             <label><span data-i18n="New password">New password</span><input name="password" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></label>
@@ -49,8 +49,8 @@
             <button class="primary" type="submit"><span data-i18n="Change password">Change password</span></button>
           </form>
         </details>
-        <details class="password-details">
-          <summary><span data-i18n="Delete account">Delete account</span></summary>
+        <details class="password-details" data-security-form>
+          <summary class="setting-row"><span data-icon="trash"></span><span data-i18n="Delete account">Delete account</span><span class="setting-arrow" data-icon="chevron"></span></summary>
           <form id="delete-account-form">
             <p><span data-i18n="Your account and sign-in data will be deleted. This action cannot be undone.">Your account and sign-in data will be deleted. This action cannot be undone.</span></p>
             <label><span data-i18n="Current password">Current password</span><input name="currentPassword" type="password" autocomplete="current-password" maxlength="128" required></label>
@@ -58,11 +58,10 @@
             <button type="submit" class="text-button"><span data-i18n="Delete account">Delete account</span></button>
           </form>
         </details>
-        <div id="admin-panel" hidden>
-          <h3><span data-i18n="User management">User management</span></h3>
+        <details id="admin-panel" hidden><summary class="setting-row"><span data-icon="users"></span><span><span data-i18n="User management">User management</span><small data-i18n="appAdminToolsHelp">View, block or unblock users</small></span><span class="setting-arrow" data-icon="chevron"></span></summary>
           <button id="load-users" type="button" class="text-button"><span data-i18n="Show users">Show users</span></button>
           <ul id="admin-users"></ul>
-        </div>
+        </details>
         <button id="logout-button" class="text-button" type="button"><span data-i18n="Sign out">Sign out</span></button>
       </div>
     </section>

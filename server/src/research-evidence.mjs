@@ -1,6 +1,7 @@
 /** Bind short model source IDs to encountered URLs. Exact NIH label identity may
  * be checked via its fixed public endpoint; no arbitrary source URL is fetched.
- * Unsupported quantity claims become unknown, not fabricated substitutes.
+ * Legacy verification clears unsupported quantities. Focused product details may
+ * retain them as reported, keeping source provenance separate from the values.
  */
 import {citationUrl} from './structured-research.mjs';import {ProviderError} from './structured-chat.mjs';
 const norm=v=>String(v||'').normalize('NFKD').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -19,10 +20,17 @@ export async function verifiedLabels(citations,target,{fetch:send=globalThis.fet
 export function referencedSchema(schema,ids){
  if(!schema)return schema;const copy=structuredClone(schema);const visit=s=>{if(!s||typeof s!=='object')return;for(const [k,p]of Object.entries(s.properties||{})){if(k==='sourceUrl'||k==='url')p.enum=[...(Array.isArray(p.type)&&p.type.includes('null')?[null]:[]),...ids];visit(p);}if(s.items)visit(s.items);};visit(copy);return copy;
 }
-export function bindEvidence(raw,book,target,language='en'){
- const result=structuredClone(raw),resolve=value=>{if(value===null)return null;const s=book.find(s=>s.id===value);if(!s)throw new ProviderError('AI_SOURCES_UNVERIFIED');return s.url;};
+export function bindEvidence(raw,book,target,language='en',{allowReported=false}={}){
+ const result=structuredClone(raw),resolve=value=>{if(value===null)return null;const s=book.find(s=>s.id===value||allowReported&&s.url===value);if(!s){if(allowReported)return null;throw new ProviderError('AI_SOURCES_UNVERIFIED');}return s.url;};
  const walk=v=>{if(!v||typeof v!=='object')return;for(const [k,value]of Object.entries(v)){if(k==='sourceUrl'||k==='url')v[k]=resolve(value);else if(value&&typeof value==='object')walk(value);}};walk(result);
  if(!result.dosage||!Array.isArray(result.sources)||!Array.isArray(result.nutrients)||!result.compatibility)return result;
+ if(allowReported){
+  result.sources=result.sources.filter(s=>s.url);
+  // Unknown/mistyped source IDs cannot become invented links. Keep the received
+  // product facts as reported, and expose only actually encountered sources.
+  for(const b of book.filter(b=>[result.dosage,...result.nutrients].some(n=>n.sourceUrl===b.url)))if(!result.sources.some(s=>s.url===b.url))result.sources.push({url:b.url,title:b.title||b.publisherUrl||b.url,kind:b.label?'label_registry':'other'});
+  if(!result.sources.length&&book.length)result.sources.push({url:book[0].url,title:book[0].title||book[0].publisherUrl||book[0].url,kind:'other'});
+ }
  const returnedBrand=result.manufacturer;const mismatch=knownBrand(target?.manufacturer)&&knownBrand(result.manufacturer)&&!sameBrand(target.manufacturer,result.manufacturer);
  if(knownBrand(target?.manufacturer))result.manufacturer=target.manufacturer;
  for(const s of result.sources){if(book.find(b=>b.url===s.url)?.label)s.kind='label_registry';else if(/^https:\/\/dsld\.od\.nih\.gov\/label\/\d+$/.test(book.find(b=>b.url===s.url)?.publisherUrl||s.url))s.kind='regulatory';else if(s.kind==='label_registry')s.kind=/^https:\/\/dsld\.od\.nih\.gov\/label\/\d+$/.test(s.url)?'regulatory':'other';}
@@ -32,9 +40,10 @@ export function bindEvidence(raw,book,target,language='en'){
  // evidence, never an assertion that a photo was read in this request.
  for(const entry of [result.dosage,...result.nutrients])if(entry.evidence==='label_photo')entry.evidence='manufacturer';
  const d=result.dosage,label=book.find(s=>s.url===d.sourceUrl)?.label,verifiedServings=!label||label.servings?.some(s=>s.minDailyServings===d.dailyServingsMin&&s.maxDailyServings===d.dailyServingsMax),unsupported=mismatch||d.evidence==='manufacturer'&&(!validMaker(d.sourceUrl)||!verifiedServings);
- if(unsupported){Object.assign(d,{directions:null,servingSize:null,dailyServingsMin:null,dailyServingsMax:null,sourceUrl:null,evidence:'unknown'});result.labelDirections=null;result.whenToUse='';result.howToUse='';result.needsReview=true;}
- for(const n of result.nutrients)if(n.evidence==='manufacturer'&&(!validMaker(n.sourceUrl)||book.find(s=>s.url===n.sourceUrl)?.label&&!book.find(s=>s.url===n.sourceUrl).label.ingredients?.some(i=>i.quantity?.some(q=>q.quantity===n.amount&&String(q.unit).toLowerCase()===String(n.unit).toLowerCase())))){Object.assign(n,{amount:null,nrvComparable:false,sourceUrl:null,evidence:'unknown',amountNote:''});result.needsReview=true;}
- if(unsupported||result.doseFallback?.basis==='not_needed'&&d.evidence==='unknown')result.doseFallback={basis:'unavailable',ingredient:null,dailyAmountMin:null,dailyAmountMax:null,unit:null,sourceUrl:null,explanation:language==='lt'?'Nenustatyta':'Not determined'};
+ if(unsupported&&allowReported&&!mismatch){d.evidence='reported';result.needsReview=true;}
+ if(unsupported&&(!allowReported||mismatch)){Object.assign(d,{directions:null,servingSize:null,dailyServingsMin:null,dailyServingsMax:null,sourceUrl:null,evidence:'unknown'});result.labelDirections=null;result.whenToUse='';result.howToUse='';result.needsReview=true;}
+ for(const n of result.nutrients)if(n.evidence==='manufacturer'&&(!validMaker(n.sourceUrl)||book.find(s=>s.url===n.sourceUrl)?.label&&!book.find(s=>s.url===n.sourceUrl).label.ingredients?.some(i=>i.quantity?.some(q=>q.quantity===n.amount&&String(q.unit).toLowerCase()===String(n.unit).toLowerCase())))){if(allowReported&&!mismatch){n.evidence='reported';n.nrvComparable=false;}else Object.assign(n,{amount:null,nrvComparable:false,sourceUrl:null,evidence:'unknown',amountNote:''});result.needsReview=true;}
+ if((unsupported&&(!allowReported||mismatch))||result.doseFallback?.basis==='not_needed'&&d.evidence==='unknown')result.doseFallback={basis:'unavailable',ingredient:null,dailyAmountMin:null,dailyAmountMax:null,unit:null,sourceUrl:null,explanation:language==='lt'?'Nenustatyta':'Not determined'};
  // These are reserved/derived display fields, not clinical assertions.
  result.compatibility.summary='';result.compatibility.requiresReview=result.compatibility.assessments?.length>0;if(mismatch){result.groupId=null;result.reviewReason=null;}result.evidenceNote='';
  return result;

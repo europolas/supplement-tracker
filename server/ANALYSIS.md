@@ -748,3 +748,12 @@ invalid group IDs, unverified sources and quantities still fail validation. A
 nine-word preview previously caused the reported Magnesium research to fail after
 both provider calls completed. No extra provider request or automatic paid retry
 is introduced.
+
+0.21.0: the user's explicit policy is to retain every returned quantity and usage
+in focused research, including retailer evidence. bindEvidence allowReported mode
+marks unsupported manufacturer assertions as reported instead of nulling them.
+It accepts already-encountered URLs as well as catalog IDs; unknown references lose
+only their invented links, while product facts and actual source catalog survive.
+finalizeAnalysis allows these reported fields only for the focused product pipeline.
+The legacy research mode keeps its primary-source checks. Same-product identity,
+owner/manual-group protection, strict data types and bounded transport still apply.

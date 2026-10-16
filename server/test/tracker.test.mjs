@@ -309,6 +309,11 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    await assert.rejects(request(b,'PATCH','/groups/'+created.id,{name:'Bad',icon:'<svg><script>alert(1)</script></svg>'}),e=>e.status===400);
    await request(b,'DELETE','/groups/'+created.id);
   });
+  await t.test('group order is complete, atomic and owner-scoped',async()=>{
+   const before=(await request(a,'GET','/dashboard'))[1].groups.map(g=>g.id),other=(await request(b,'GET','/dashboard'))[1].groups.map(g=>g.id),ids=[...before].reverse();
+   await request(a,'PUT','/groups/order',{ids});assert.deepEqual((await request(a,'GET','/dashboard'))[1].groups.map(g=>g.id),ids);assert.deepEqual((await request(b,'GET','/dashboard'))[1].groups.map(g=>g.id),other);
+   await assert.rejects(request(a,'PUT','/groups/order',{ids:[ids[0],ids[0]]}),e=>e.status===400);await assert.rejects(request(a,'PUT','/groups/order',{ids:other}),e=>e.status===409);await assert.rejects(request(a,'PUT','/groups/order',{ids:ids.slice(1)}),e=>e.status===409);assert.deepEqual((await request(a,'GET','/dashboard'))[1].groups.map(g=>g.id),ids);await request(a,'PUT','/groups/order',{ids:before});
+  });
   await t.test('group deletion keeps supplements; account deletion cascades private records',async()=>{
    await request(a,'DELETE','/groups/'+group);assert.equal((await request(a,'GET','/dashboard',{},query))[1].supplements.find(s=>s.id===first).group_id,null);
    await auth.dispatch('DELETE','/me',{password,confirmation:'DELETE'},'Bearer '+a.token,'delete');

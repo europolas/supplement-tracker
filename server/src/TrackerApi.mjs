@@ -102,6 +102,14 @@ export class TrackerApi {
    const [count]=await this.pool.execute('SELECT COUNT(*) AS n FROM day_groups WHERE user_id=?',[owner]);if(count[0].n>=30)throw new ApiError(400,'GROUP_LIMIT');
    await this.pool.execute('INSERT INTO day_groups(id,user_id,name,description,position,icon) VALUES (?,?,?,?,?,?)',[id,owner,name,description,count[0].n,groupIcon(body.icon)||'']);return [201,{id}];
   }
+  if(method==='PUT'&&path==='/groups/order'){
+   const ids=body.ids;if(!Array.isArray(ids)||ids.length>30||ids.some(id=>!uuid(id))||new Set(ids).size!==ids.length)throw new ApiError(400,'INVALID_INPUT');
+   await this.auth.transaction(async db=>{
+    const [owned]=await db.execute('SELECT id FROM day_groups WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);
+    if(ids.length!==owned.length||owned.some(g=>!ids.includes(g.id)))throw new ApiError(409,'COLLECTION_CHANGED');
+    for(const [position,id]of ids.entries())await db.execute('UPDATE day_groups SET position=? WHERE id=? AND user_id=?',[position,id,owner]);
+   });return [200,{ok:true}];
+  }
   const group=/^\/groups\/([a-f0-9-]{36})$/.exec(path);
   if(group){
    if(method==='PATCH'){
@@ -367,7 +375,7 @@ export class TrackerApi {
    // Details can correct an AI schedule, never a concurrent/manual user choice.
    // Source verification happens before this transaction; group edits invalidate
    // timing context without discarding otherwise useful product information.
-   const timingSources=result.sources.filter(s=>s.kind==='manufacturer'||s.kind==='label_registry'&&verifiedLabelSources.includes(s.url));
+   const timingSources=result.sources.filter(s=>s.kind==='manufacturer'||s.kind==='label_registry'&&verifiedLabelSources.includes(s.url)||this.singlePass&&s.kind==='retailer');
    const source=timingSources.find(s=>s.url===result.dosage?.sourceUrl)||timingSources[0];
    const grouping=this.singlePass&&this.fullResearch?researchedGrouping({analysis:a,previous:target.group_id,current:row.group_id,proposed:result.groupId,ownedIds:owned.map(g=>g.id),groupsUnchanged:JSON.stringify(owned)===JSON.stringify(groups),reason:result.reviewReason,sourceUrl:source?.url,checkedAt:this.now().toISOString()}):this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
    const groupId=grouping.groupId;result.grouping=grouping;
@@ -375,14 +383,14 @@ export class TrackerApi {
    result.identityAliases=[...new Set([...(a.identityAliases||[]),productIdentity(previous.identity||{...previous,name:target.name})])].slice(-8);
    const unknown=value=>!value||/^(unknown|not visible|not readable|n\/?a|nenustatyta|nežinoma)$/i.test(value.trim());
    if(unknown(result.manufacturer)&&!unknown(a.manufacturer))result.manufacturer=a.manufacturer;
-   result.identity={...(previous.identity||{}),name:result.productName,manufacturer:result.manufacturer,variant:result.variant||previous.identity?.variant||''};for(const key of ['composition','benefitTags','classification'])if(a[key])result[key]=a[key];if(this.fullResearch)result.composition={ingredients:result.nutrients.map(n=>({name:n.name,labelAmount:n.amount==null?'':n.amount+' '+n.unit})),complete:false,basis:'verified_research',checkedAt:this.now().toISOString()};result.enrichment={status:'complete',jobId,language};
+   result.identity={...(previous.identity||{}),name:result.productName,manufacturer:result.manufacturer,variant:result.variant||previous.identity?.variant||''};for(const key of ['composition','benefitTags','classification'])if(a[key])result[key]=a[key];if(this.fullResearch)result.composition={ingredients:result.nutrients.map(n=>({name:n.name,labelAmount:n.amount==null?'':n.amount+' '+n.unit})),complete:false,basis:result.research?.reported?'reported_research':'verified_research',checkedAt:this.now().toISOString()};result.enrichment={status:'complete',jobId,language};
    await db.execute('UPDATE supplements SET name=?,analysis=?,model=?,group_id=? WHERE id=? AND user_id=?',[result.productName,JSON.stringify(result),model,groupId,id,owner]);
   });
  }
  async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){
   const focused=this.singlePass,timing=Boolean(this.fullResearch&&target?.groupId&&['provisional','researched'].includes(target?.groupingBasis)&&groups.some(g=>g.id===target.groupId)),detailGroups=timing?groups:[];
   const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:settings.model,messages:focused?detailsMessages({name,image,language,target,groups:detailGroups,full:timing}):analysisMessages({name,image,groups,supplements,language,target}),schema:focused?detailsSchema(detailGroups,language,[],timing):analysisSchema(groups,supplements,language),validate:value=>focused?validDetails(value,detailGroups,language,[],timing):validAnalysis(value,groups,supplements,language),name:focused?'supplement_product_details':'supplement_analysis_v1_4',maxTokens:focused?6000:Math.min(12000,4500+supplements.length*190)}));
-  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,verifiedLabelSources:data.verifiedLabelSources||[],image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;if(focused)result.research.scope=this.fullResearch?'full-product-details':'product-details';await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
+  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,verifiedLabelSources:data.verifiedLabelSources||[],allowReported:focused,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;if(focused)result.research.scope=this.fullResearch?'full-product-details':'product-details';await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
   for(const assessment of result.compatibility.assessments){const s=supplements.find(s=>s.id===assessment.supplementId),a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;assessment.supplementName=s.name;if(assessment.status==='no_known_issue'&&a.enrichment&&a.enrichment.status!=='complete')assessment.status='insufficient_information';}
   if(result.compatibility.assessments.some(a=>a.status!=='no_known_issue')){result.needsReview=true;result.compatibility.requiresReview=true;}return data;
  }

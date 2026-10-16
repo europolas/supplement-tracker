@@ -24,25 +24,27 @@
    <div id="routine-groups"></div>
    <div id="home-empty" class="empty-card" hidden><span class="empty-symbol" aria-hidden="true">＋</span><h2 data-i18n="appEmptyTitle">A fresh start.</h2><p data-i18n="appEmptyText">Add your first supplement. We'll find its place in your day.</p></div>
   </section>
-  <section data-screen="/groups" hidden>
-   <div class="eyebrow" data-i18n="appYourRhythm">YOUR DAILY RHYTHM</div><h1 data-i18n="appGroups">Day groups</h1>
-   <p class="hero-caption" data-i18n="appGroupsHelp">Make room for the moments that suit your routine.</p>
+  <section data-screen="/groups" class="groups-page" hidden>
+   <header class="groups-page-heading"><div><h1 data-i18n="appNavGroups">Groups</h1><p data-i18n="appGroupsSubtitle">Build a routine that fits your day</p></div><button class="primary" id="new-group" type="button" aria-label="New group" data-i18n-aria-label="appNewGroup"><span data-icon="plus" aria-hidden="true"></span></button></header>
+   <div class="groups-overview"><span><strong id="group-count">0</strong> <span data-i18n="appGroupsNoun">groups</span></span><span><strong id="group-supplement-count">0</strong> <span data-i18n="appSupplementsNoun">supplements</span></span></div>
    <div id="group-list"></div>
-   <button class="primary" id="new-group" type="button"><span data-icon="plus" aria-hidden="true"></span><span data-i18n="appNewGroup">New group</span></button>
+   <section class="quick-groups"><h2 data-i18n="appQuickGroup">Quick add a group</h2><div class="quick-group-grid"><button id="quick-training" type="button"><span class="quick-icon" data-icon="training"></span><span><strong data-i18n="appIcon_training">Training</strong><small data-i18n="appTrainingHelp">Pre or post workout</small></span></button><button id="quick-sleep" type="button"><span class="quick-icon" data-icon="sleep"></span><span><strong data-i18n="appIcon_sleep">Sleep</strong><small data-i18n="appSleepHelp">For better rest</small></span></button></div></section>
+   <button class="text-button create-custom-group" id="new-custom-group" type="button"><span data-icon="plus"></span><span data-i18n="appCustomGroup">Create custom group</span></button>
   </section>
   <section data-screen="/account" id="account-screen" hidden>
-   <header class="account-page-title"><span class="account-avatar" data-icon="account" aria-hidden="true"></span><div><h1 data-i18n="appAccount">Account</h1><p data-i18n="appAccountHelp">Your profile, preferences and connection.</p></div></header>
+   <h1 class="account-page-heading" data-i18n="appAccount">Account</h1>
    <div class="account-layout">
-   <div id="account-forms"></div>
-  <div id="preferences" class="surface preferences"><h2 data-i18n="settings">Settings</h2><form id="settings-form"><div class="preferences-grid"><label><span data-i18n="language">Language</span><select name="language"><option value="en">English</option><option value="lt">Lietuvių</option></select></label><label><span data-i18n="theme">Theme</span><select name="theme"><option value="light" data-i18n="light">Light</option><option value="dark" data-i18n="dark">Dark</option><option value="system" data-i18n="system">System</option></select></label></div><button class="secondary" type="submit" data-i18n="save">Save</button></form></div>
-   <div class="surface" id="ai-settings" hidden>
-    <h2 data-i18n="appAiTitle">Your AI connection</h2><p class="muted" data-i18n="appAiHelp">Use your own Google AI key to recognise supplements. It stays encrypted on the server.</p>
-    <p id="ai-key-status" role="status"></p>
-    <form id="ai-form"><label><span data-i18n="appApiKey">Google AI API key</span><input name="key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="500"></label><label><span data-i18n="appModel">Model</span><select name="model"></select></label><button class="primary" type="submit" data-i18n="appSaveKey">Save connection</button></form>
-    <button id="remove-key" class="danger-link" type="button" data-i18n="appRemoveKey">Remove saved key</button>
-   </div>
-   <a id="diagnostics-link" class="secondary diagnostics-link account-tool" href="#/diagnostics" data-i18n="appDiagnostics" hidden>AI dashboard</a>
-   <div id="clear-data-panel" class="surface" hidden><button id="clear-supplements" type="button" class="danger-link" data-i18n="appClearSupplements">Clear all supplements and requests</button></div>
+    <div id="account-forms"></div>
+    <section id="preferences" class="surface account-setting-card"><h2><span data-icon="gear"></span><span data-i18n="appPreferences">Preferences</span></h2><form id="settings-form"><label class="setting-row"><span data-icon="globe"></span><span data-i18n="language">Language</span><select name="language"><option value="en">English</option><option value="lt">Lietuvių</option></select><span class="setting-arrow" data-icon="chevron"></span></label><label class="setting-row"><span data-icon="moon"></span><span data-i18n="theme">Theme</span><select name="theme"><option value="light" data-i18n="light">Light</option><option value="dark" data-i18n="dark">Dark</option><option value="system" data-i18n="system">System</option></select><span class="setting-arrow" data-icon="chevron"></span></label></form></section>
+    <section class="surface account-setting-card" id="ai-settings" hidden><h2><span data-icon="cpu"></span><span data-i18n="appAiTitle">AI connection</span><span id="connection-badge" class="connection-badge"></span></h2>
+     <button id="edit-api-key" class="setting-row" type="button"><span data-icon="key"></span><span data-i18n="appApiKey">Google AI API key</span><span class="setting-value" id="account-key-mask"></span><span data-icon="chevron" class="setting-arrow"></span></button>
+     <button id="edit-ai-model" class="setting-row" type="button"><span data-icon="database"></span><span data-i18n="appModel">Model</span><span class="setting-value" id="account-model"></span><span data-icon="chevron" class="setting-arrow"></span></button>
+     <details id="connection-editor"><summary class="setting-row"><span data-icon="gear"></span><span><span data-i18n="appManageConnection">Manage connection</span><small data-i18n="appManageConnectionHelp">Save, update or remove your API key</small></span><span data-icon="chevron" class="setting-arrow"></span></summary><div class="setting-editor"><p id="ai-key-status" role="status"></p><form id="ai-form"><label><span data-i18n="appApiKey">Google AI API key</span><input name="key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="500"></label><label><span data-i18n="appModel">Model</span><select name="model"></select></label><button class="primary" type="submit" data-i18n="appSaveKey">Save connection</button></form><button id="remove-key" class="danger-link" type="button" data-i18n="appRemoveKey">Remove saved key</button></div></details>
+    </section>
+    <section id="account-security" class="surface account-setting-card" hidden><h2><span data-icon="lock"></span><span data-i18n="appSecurity">Security</span></h2><div id="security-forms"></div></section>
+    <section id="account-tools" class="surface account-setting-card" hidden><h2><span data-icon="wrench"></span><span data-i18n="appTools">Tools</span></h2><a id="diagnostics-link" class="setting-row" href="#/diagnostics" hidden><span data-icon="chart"></span><span><span data-i18n="appDiagnostics">AI dashboard</span><small data-i18n="appDiagnosticsShort">Diagnostics and system status</small></span><span data-icon="chevron" class="setting-arrow"></span></a><div id="admin-tools"></div></section>
+    <div id="clear-data-panel" class="surface account-setting-card" hidden><button id="clear-supplements" type="button" class="setting-row danger-link"><span data-icon="trash"></span><span><span data-i18n="appClearSupplements">Clear all supplements and requests</span><small data-i18n="appGroupsKept">Your groups are kept</small></span><span data-icon="chevron" class="setting-arrow"></span></button></div>
+    <div id="logout-slot"></div>
    </div>
    <footer class="account-version"><span id="app-version"></span></footer>
   </section>

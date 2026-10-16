@@ -9,6 +9,19 @@ import {setupPasswordVisibility} from './modules/password-visibility.js';
 import {parseCustomIcon} from './custom-icon.js';
 // Local presentation icons use fixed SVG paths, never server/model markup.
 const iconPaths={
+ pencil:'m14 4 6 6 M3 21l5-1 13-13-5-5L3 15Z',
+ ellipsis:'M5 12h.01 M12 12h.01 M19 12h.01',
+ grip:'M9 5h.01 M15 5h.01 M9 12h.01 M15 12h.01 M9 19h.01 M15 19h.01',
+ globe:'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0 M2 12h20 M12 2c-6 5-6 15 0 20 M12 2c6 5 6 15 0 20',
+ gear:'m9 3 1-2h4l1 2 3 2 2 1 2 4-2 2v3l1 2-3 3-2-1h-3l-2 2-4-2v-2l-2-3-2-1 1-4 2-1 2-3Z M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
+ cpu:'M6 6h12v12H6Z M9 2v4 M15 2v4 M9 18v4 M15 18v4 M2 9h4 M2 15h4 M18 9h4 M18 15h4',
+ key:'M14 10a5 5 0 1 0-4 4l-7 7H1v-3l2-2h2v-2l3-3 M15 6h.01',
+ database:'M3 5c0-4 18-4 18 0s-18 4-18 0v14c0 4 18 4 18 0V5 M3 10c0 4 18 4 18 0 M3 15c0 4 18 4 18 0',
+ lock:'M5 10h14v12H5Z M8 10V6a4 4 0 0 1 8 0v4',
+ wrench:'m15 3-4 4 3 3 4-4c3 7-3 11-8 9l-7 7-3-3 7-7C5 7 9 1 15 3Z',
+ chart:'M3 12h3v9H3Z M10 3h3v18h-3Z M17 8h3v13h-3Z',
+ users:'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-3c0-5 14-5 14 0v3 M16 3c5 0 5 8 0 8 M18 14c5 0 5 3 5 7',
+
  training:'M7 21H5a4 4 0 1 1 3.6-5.7c1.4-2.3 3.6-3.1 6.4-2.3l-1.5-5-2 .5-2-2 1-3L13.5 2c1.5.5 2.5 2 3.5 4l4 9c1.3 3.5-1 6-5 6H7Z M8.6 15.3 10 17 M10.5 4l3 1-.5 3 M15 13l1 2',
  sleep:'M2.5 2.5 12 3.7l-.3 2.1-6.2 5.5 5.5.7-.3 2.5-9.5-1.2.3-2.1 6.2-5.5-5.5-.7Z M13 10.5l7.5.9-.2 1.7-4.8 4.2 4.3.5-.2 2-7.5-.9.2-1.7 4.8-4.2-4.3-.5Z M19 18.5l4 .5-.1 1-2.6 2.1 2.3.3-.1 1.4-4-.5.1-1 2.6-2.1-2.3-.3Z',
  groups:'M5 3h14v18l-3.5-3-3.5 3-3.5-3L5 21Z M9 8h6 M10 12h4',
@@ -42,6 +55,9 @@ theme.set(settings.state.get().theme);
 setupViewport();setupGestures(config.interaction);
 // This is a trusted bundled template; user and AI content always use textContent.
 get('account-forms').append(document.createRange().createContextualFragment(await(await fetch('./account.html')).text()));
+for(const node of get('account-forms').querySelectorAll('[data-icon]'))node.append(icon(node.dataset.icon));
+for(const node of document.querySelectorAll('[data-security-form]'))get('security-forms').append(node);
+get('admin-tools').append(get('admin-panel'));get('logout-slot').append(get('logout-button'));
 const auth=createAuth({id:config.id,baseUrl:config.apiUrl,persistence:'persistent',timeout:100000});
 // Hold the launch screen until saved-session validation and public updates finish.
 // Never persist private dashboard/profile data just to avoid a login flash.
@@ -62,7 +78,7 @@ const groupSheet=createBottomSheet(get('group-dialog'));
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router,appReady=false;
 const localizationAttempts=new Set();let localizationSending=false;
-let uploadQueueExpanded=false;
+let uploadQueueExpanded=false,groupDrag=null;
 let collectionEpoch=0,photo=[],imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set(),jobHistory=[];
 const dirty=[...document.querySelectorAll('form')].map(form=>({form,tracker:trackDirty(form)}));
 const clearDirty=form=>dirty.find(item=>item.form===form)?.tracker.reset();
@@ -74,6 +90,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
+ groupDrag=null;get('profile-form').hidden=true;get('connection-editor').open=false;
  appReady=false;collectionEpoch++;uploadQueueExpanded=false;localizationAttempts.clear();localizationSending=false;
  void groupSheet.close({immediate:true});
  generation++;jobHistory=[];activeJobs=[];modalJobId=null;jobSignature='';recognitionShown.clear();watchedJob=null;sending=false;state={groups:[],supplements:[],ai:null,day:localDay()};analysisAbort?.abort();closeAdd(true);
@@ -90,7 +107,7 @@ async function mutate(task){
  const session=current();writes++;
  try{await task();if(session===current())await load();}
  catch(error){if(session===current())failure(error);}
- finally{writes--;}
+ finally{writes--;if(router?.current==='/groups')renderGroups();}
 }
 async function load(checkJobs=true){
  const session=current();if(!session)return;
@@ -171,18 +188,49 @@ get('group-form').elements.icon.addEventListener('input',updateGroupIconPreview)
 get('group-form').elements.name.addEventListener('input',updateGroupIconPreview);
 get('new-group').addEventListener('click',()=>openGroup());
 function renderGroups(){
- const list=get('group-list');list.replaceChildren();
- for(const [index,group] of state.groups.entries()){
-  const card=element('div',{className:'surface'});card.append(renderGroupIcon(group),element('p',{text:String(index+1).padStart(2,'0'),className:'eyebrow'}),heading(group.name));
-  if(group.description)card.append(element('p',{text:group.description,className:'muted'}));
-  const actions=element('div',{className:'group-actions'});
-  actions.append(button(i18n.t('appEdit'),()=>openGroup(group)));
-  actions.append(button(i18n.t('appDelete'),async()=>{
-   if(!await confirmDialog(i18n.t('appDeleteGroupConfirm'),{i18n}))return;
+ if(groupDrag)return;
+ get('group-count').textContent=state.groups.length;get('group-supplement-count').textContent=state.supplements.length;
+ const list=get('group-list'),openMenus=new Set([...list.querySelectorAll('.group-menu[open]')].map(n=>n.closest('[data-group-id]').dataset.groupId));list.replaceChildren();
+ for(const group of state.groups){
+  const row=element('div',{className:'managed-group',attributes:{'data-group-id':group.id}}),grip=button('',()=>{},'group-grip');
+  grip.disabled=Boolean(writes);grip.append(icon('grip'));grip.setAttribute('aria-label',i18n.t('appMoveGroupOrder',{name:group.name}));
+  grip.addEventListener('keydown',event=>{if(!['ArrowUp','ArrowDown'].includes(event.key))return;event.preventDefault();const index=state.groups.findIndex(g=>g.id===group.id);void moveGroup(group.id,index+(event.key==='ArrowUp'?-1:1));});
+  grip.addEventListener('pointerdown',event=>{
+   if(event.button!==0||writes||!event.isPrimary)return;event.preventDefault();grip.setPointerCapture(event.pointerId);groupDrag={id:group.id,pointerId:event.pointerId,start:event.clientY,moved:false,owner:current()};
+  });
+  const glyph=element('span',{className:'managed-group-icon'});glyph.append(renderGroupIcon(group));
+  const text=button('',()=>openGroup(group),'managed-group-copy');text.append(heading(group.name,'h2'));if(group.description)text.append(element('p',{text:group.description}));text.append(element('small',{text:i18n.t('appSupplementCount',{count:state.supplements.filter(s=>s.group_id===group.id).length})}));
+  const menu=element('details',{className:'group-menu'}),summary=element('summary',{attributes:{'aria-label':i18n.t('appManageGroup',{name:group.name})}});summary.append(icon('ellipsis'));
+  menu.open=openMenus.has(group.id);
+  const actions=element('div',{className:'group-menu-actions'});actions.append(button(i18n.t('appEdit'),()=>{menu.open=false;openGroup(group);}),button(i18n.t('appMoveUp'),()=>{void moveGroup(group.id,state.groups.indexOf(group)-1);}),button(i18n.t('appMoveDown'),()=>{void moveGroup(group.id,state.groups.indexOf(group)+1);}),button(i18n.t('appDelete'),async()=>{
+   menu.open=false;if(!await confirmDialog(i18n.t('appDeleteGroupConfirm'),{i18n}))return;
    await mutate(()=>api.delete('/v1/groups/'+group.id));if(get('group-form').elements.id.value===group.id)resetGroup();
-  },'danger-link'));card.append(actions);list.append(card);
+  },'danger-link'));menu.append(summary,actions);row.append(grip,glyph,text,menu);list.append(row);
  }
 }
+// Listen above the row: DOM reordering can release native pointer capture.
+// A captured grip may move, but the gesture must still commit/cancel reliably.
+window.addEventListener('pointermove',event=>{
+ if(!groupDrag||event.pointerId!==groupDrag.pointerId||groupDrag.owner!==current())return;
+ if(Math.abs(event.clientY-groupDrag.start)<5&&!groupDrag.moved)return;
+ groupDrag.moved=true;const list=get('group-list'),row=[...list.children].find(n=>n.dataset.groupId===groupDrag.id);if(!row)return;row.classList.add('is-dragging');
+ const next=[...list.children].filter(n=>n!==row).find(n=>event.clientY<n.getBoundingClientRect().top+n.getBoundingClientRect().height/2);list.insertBefore(row,next||null);
+});
+window.addEventListener('pointerup',event=>{if(!groupDrag||event.pointerId!==groupDrag.pointerId)return;const drag=groupDrag,ids=[...get('group-list').children].map(n=>n.dataset.groupId);groupDrag=null;if(drag.moved&&drag.owner===current())void saveGroupOrder(ids);else renderGroups();});
+window.addEventListener('pointercancel',()=>{if(groupDrag){groupDrag=null;renderGroups();}});
+async function saveGroupOrder(ids){if(writes)return;await mutate(()=>api.request('/v1/groups/order',{method:'PUT',body:{ids}}));renderGroups();}
+async function moveGroup(id,index){if(index<0||index>=state.groups.length)return;const ids=state.groups.map(g=>g.id),from=ids.indexOf(id);ids.splice(from,1);ids.splice(index,0,id);await saveGroupOrder(ids);}
+get('new-custom-group').addEventListener('click',()=>openGroup());
+for(const name of ['training','sleep'])get('quick-'+name).addEventListener('click',()=>{openGroup();const f=get('group-form');f.elements.name.value=i18n.t('appIcon_'+name);f.elements.description.value=i18n.t(name==='training'?'appTrainingHelp':'appSleepHelp');f.elements.icon.value=icon(name).outerHTML;renderGroupIconOptions();});
+function renderAccount(){
+ const user=auth.state.get().user;get('account-screen').dataset.authenticated=String(Boolean(user));for(const id of ['account-security','account-tools','logout-slot'])get(id).hidden=!user;
+ get('account-display-name').textContent=user?.name||'';get('account-initials').textContent=(user?.name||'').trim().split(/\s+/).slice(0,2).map(n=>Array.from(n)[0]).join('').toUpperCase();
+ get('edit-profile-name').setAttribute('aria-expanded',String(!get('profile-form').hidden));
+ const configured=Boolean(state.ai?.configured);get('connection-badge').textContent=i18n.t(configured?'appConnected':'appNotConnected');get('connection-badge').dataset.connected=String(configured);get('account-key-mask').textContent=configured?'••••':'';get('account-model').textContent=state.ai?.model||'';
+}
+get('edit-profile-name').addEventListener('click',()=>{get('profile-form').hidden=!get('profile-form').hidden;renderAccount();if(!get('profile-form').hidden)get('profile-form').elements.name.focus();});
+get('profile-form').addEventListener('app:saved',()=>{get('profile-form').hidden=true;renderAccount();});
+for(const [id,field]of [['edit-api-key','key'],['edit-ai-model','model']])get(id).addEventListener('click',()=>{get('connection-editor').open=true;get('ai-form').elements[field].focus();});
 /** Keep composition, usage, benefits and severe routine conflicts visible.
  * Native disclosure contains restrictions, evidence and management tools.
  * Preserve expansion only for this product across polling/language/theme renders;
@@ -255,7 +303,7 @@ function renderDetail(){
  select.append(element('option',{text:i18n.t('appUnassigned'),attributes:{value:''}}));
  for(const group of state.groups)select.append(element('option',{text:group.name,attributes:{value:group.id}}));select.value=item.group_id||'';
  select.addEventListener('change',async()=>{select.disabled=true;await mutate(()=>api.patch('/v1/supplements/'+item.id,{groupId:select.value||null}));});
- const groupControls=element('div',{className:'detail-group-controls'});groupControls.append(heading(i18n.t('appMoveGroup'),'h3'),select);
+ const groupControls=element('div',{className:'detail-group-controls'});groupControls.append(select);
  const remove=button(i18n.t('appDeleteSupplement'),async()=>{
   if(!await confirmDialog(i18n.t('appDeleteSupplementConfirm'),{i18n}))return;
   await mutate(async()=>{await api.delete('/v1/supplements/'+item.id);router.navigate('/');});
@@ -272,6 +320,7 @@ function renderDetail(){
  container.append(card);
 }
 function renderAi(){
+ renderAccount();
  get('clear-data-panel').hidden=!current();get('ai-settings').hidden=!current();if(!state.ai)return;
  status('ai-key-status',i18n.t(state.ai.configured?'appKeySaved':'appKeyMissing'));
  get('remove-key').disabled=!state.ai.configured;
@@ -290,7 +339,7 @@ function render(){
  get('startup-progress').setAttribute('aria-valuenow',String(applyingStartupUpdate?90:appReady?80:current()?55:30));
  finishStartup();
  const booting=restoringSession||Boolean(current()&&!appReady);document.documentElement.dataset.sessionRestoring=String(booting);document.querySelector('main').setAttribute('aria-busy',String(booting));get('add-supplement').disabled=booting;
- get('diagnostics-link').hidden=!current();renderDiagnostics();
+ get('diagnostics-link').hidden=!current();renderAccount();renderDiagnostics();
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
  get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');renderHome();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
@@ -328,7 +377,10 @@ bindForm(get('group-form'),async(data,form)=>{parseCustomIcon(data.icon);
  await api.request('/v1/groups'+(data.id?'/'+data.id:''),{method:data.id?'PATCH':'POST',body:{name:data.name,description:data.description,icon:data.icon}});
  resetGroup();void groupSheet.close();await load();notify(i18n.t('appSaved'));
 },{onError:failure});
-bindForm(get('settings-form'),data=>{settings.update(data);clearDirty(get('settings-form'));notify(i18n.t('saved'));},{onError:failure});
+// Public display preferences apply immediately, without a submit step. Keep
+// only this form's dirty state clear; no other account edits are discarded.
+get('settings-form').addEventListener('submit',event=>event.preventDefault());
+get('settings-form').addEventListener('change',()=>{try{settings.update({language:get('settings-form').elements.language.value,theme:get('settings-form').elements.theme.value});clearDirty(get('settings-form'));}catch(error){failure(error);}});
 bindForm(get('ai-form'),async(data,form)=>{
  state.ai=await api.request('/v1/settings/ai',{method:'PUT',body:{key:data.key||undefined,model:data.model}});
  form.elements.key.value='';clearDirty(form);renderAi();notify(i18n.t('appSaved'));
@@ -472,7 +524,7 @@ function showRoute(path){
  if(path!=='/account'&&!current()){location.hash='/account';return;}
  const sheet=['/detail','/diagnostics'].includes(path);
  if(path!=='/account')passwordVisibility.reset();
- if(!sheet)baseRoute=path;
+ if(!sheet)baseRoute=path;document.documentElement.dataset.tab=baseRoute;
  for(const section of document.querySelectorAll('main [data-screen]'))section.hidden=section.dataset.screen!==baseRoute;
  if(sheet)for(const section of get('route-dialog').querySelectorAll('[data-screen]'))section.hidden=section.dataset.screen!==path;
  for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===(path==='/account'?'/account':baseRoute))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
@@ -485,7 +537,7 @@ router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/deta
 // The generic router ignores query-only changes; details must follow the item ID.
 window.addEventListener('hashchange',()=>{if(router.current==='/detail')renderDetail();});
 auth.state.subscribe(async({user})=>{
- const next=user?.id||null;if(next===owner)return;owner=next;resetSession();if(user)get('profile-form').elements.name.value=user.name;render();
+ const next=user?.id||null;if(next===owner){renderAccount();return;}owner=next;resetSession();if(user)get('profile-form').elements.name.value=user.name;render();
  if(!next){router.navigate('/account');return;}
  const session=next;
  try{await api.post('/v1/bootstrap',{timezone:zone(),language:i18n.language});if(current()!==session)return;await load();router.navigate('/');}

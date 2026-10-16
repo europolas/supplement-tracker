@@ -5,9 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
-async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false,compatibilityMode='',partialDiagnostics=false,localization=false,detailFailed=false}={}){
+async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false,compatibilityMode='',partialDiagnostics=false,localization=false,detailFailed=false,design=false}={}){
  let localeReady=false,completed=false,added=preloaded,started=hybrid||gemini,configured=true,release,terminalJob=null,researchRequested=false,reviewApplied=false,released=false,detailsReady=!progressive;
- let customGroupIcon='';const uploads=[],requests=[];release=()=>{released=true;};
+ let customGroupIcon='',groupOrder=[];const uploads=[],requests=[];release=()=>{released=true;};
  await page.route('https://perimove.com/supplement-api/**',async route=>{
   const request=route.request(),path=new URL(request.url()).pathname.replace('/supplement-api','');requests.push({path,method:request.method()});
   let result={ok:true},httpStatus=200;
@@ -30,6 +30,7 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
    }
    if(path.endsWith('/test-job'))result=result.job;
   }
+  else if(path==='/v1/groups/order'&&request.method()==='PUT'){groupOrder=request.postDataJSON().ids;}
   else if(path==='/v1/groups/'+group&&request.method()==='PATCH'){customGroupIcon=request.postDataJSON().icon||'';}
   else if(path.endsWith('/apply-groups')){reviewApplied=true;}
   else if(path==='/v1/supplements'&&request.method()==='DELETE'){added=false;started=false;terminalJob=null;}
@@ -50,6 +51,11 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
   if(gemini&&result.job){Object.assign(result.job,{created_at:'2026-10-16T10:00:00Z',finished_at:'2026-10-16T10:00:10Z',total_count:16,result:{items:[],monitor:{pipeline:'gemini-single',model:'gemini-3.8-flash',geminiMs:10000,totalMs:10000,recognized:16,calls:1,inputTokens:4000,outputTokens:1000,thinkingTokens:100}}});result.recent=[result.job];}
   if(partialDiagnostics&&result.job){Object.assign(result.job,{status:'complete',error_code:null,result:{monitor:{pipeline:'gemini-single',model:'gemini-3.8-flash',calls:1,autoResearch:true},timings:{geminiMs:7980,detailsMs:185090,totalMs:193070},items:[{name:'Successful product',research:'complete'},{name:'Failed Q10',research:'failed',error:'AI_INVALID_RESPONSE'}]}});result.recent=[result.job];}
   if(hybrid&&result.job){Object.assign(result.job,{created_at:'2026-10-15T10:00:00Z',finished_at:'2026-10-15T10:00:15Z',total_count:16,result:{items:[],monitor:{pipeline:'grok-jev',grokModel:'grok-4.7',jevModel:'jev-1.14.0',grokCacheHit:true,grokMs:12000,jevMs:1000,totalMs:13000,recognized:16,grokCalls:1,jevCompleted:4,jevBatches:4,questions:1616,jevInputTokens:12345,completeComposition:0,partialComposition:15,unknownComposition:1}}});result.recent=[result.job];}
+  if(design&&path==='/v1/dashboard'){
+   result.groups=[{id:group,name:'Morning · empty stomach',description:'Kickstart your day'},{id:'44444444-4444-4444-8444-444444444444',name:'Meals · with fats',description:'Take with a meal containing fats'},{id:'55555555-5555-4555-8555-555555555555',name:'Any time day or evening',description:'Flexible timing'},{id:'66666666-6666-4666-8666-666666666666',name:'Evening · before bed',description:'Wind down for rest'}];
+   result.supplements=result.groups.flatMap((g,i)=>Array.from({length:[4,5,3,4][i]},(_,n)=>({id:g.id.slice(0,-2)+String(n).padStart(2,'0'),group_id:g.id,name:'Supplement '+n,analysis:{manufacturer:'Example',benefitSummary:'Energy',schemaVersion:'basic-1'},completed:false})));
+  }
+  if(path==='/v1/dashboard'&&groupOrder.length)result.groups.sort((a,b)=>groupOrder.indexOf(a.id)-groupOrder.indexOf(b.id));
   await route.fulfill({status:httpStatus,json:result});
  });
  return {release,requests,uploads,releaseResearch:()=>{detailsReady=true;}};
@@ -68,9 +74,9 @@ test('analysis disables send, reports completion and renders safe table/details'
  await page.locator('.supplement-open').click();await expect(page.locator('#supplement-detail')).toContainText('A detailed explanation');await expect(page.locator('#supplement-detail h1')).toHaveText('<b>supplement</b>');await expect(page.locator('#supplement-detail')).not.toContainText('Compatibility with your routine');await expect(page.locator('.composition-list')).toContainText('Vitamin C · 1,000 mg');await expect(page.locator('.source-list a')).toHaveAttribute('href','https://manufacturer.example/label');await expect(page.locator('.doctor-note')).toHaveCount(0);
 });
 test('Lithuanian and light/dark/auto preferences persist and auto follows OS',async({page})=>{
- await mock(page);await page.goto('/');await expect(page.locator('#settings-form')).toBeVisible();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#settings-form button').click();await expect(page.locator('html')).toHaveAttribute('lang','lt');await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+ await mock(page);await page.goto('/');await expect(page.locator('#settings-form')).toBeVisible();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form [name=theme]').selectOption('dark');await expect(page.locator('html')).toHaveAttribute('lang','lt');await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
  await page.reload();await expect(page.locator('html')).toHaveAttribute('lang','lt');await expect(page.locator('#settings-form [name=theme]')).toHaveValue('dark');
- await page.locator('#settings-form [name=theme]').selectOption('system');await page.locator('#settings-form button').click();await page.emulateMedia({colorScheme:'light'});await expect(page.locator('html')).toHaveAttribute('data-theme','light');await page.emulateMedia({colorScheme:'dark'});await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+ await page.locator('#settings-form [name=theme]').selectOption('system');await page.emulateMedia({colorScheme:'light'});await expect(page.locator('html')).toHaveAttribute('data-theme','light');await page.emulateMedia({colorScheme:'dark'});await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
 });
 test('PWA caches only public assets and logout clears private screen state',async({page})=>{
  await mock(page);await login(page);await page.evaluate(()=>navigator.serviceWorker.ready);await expect.poll(()=>page.evaluate(()=>!!navigator.serviceWorker.controller)).toBe(true);
@@ -139,7 +145,7 @@ test('detail shows only three primary sections and disclosure survives polling r
  await toggle.focus();await page.keyboard.press('Enter');await expect(toggle).toHaveText('Less information');await expect(extra).toBeVisible();await expect(primary).toContainText('Check the label.');await expect(page.locator('#supplement-detail')).not.toContainText('Confirm suitability.');
  await page.screenshot({path:'.runtime/focused-details.png',animations:'disabled'});fake.releaseResearch();await expect(page.locator('[data-detail-section=dose]')).toContainText('1 tablet daily');await expect(extra).toBeVisible();await expect(page.locator('.composition-list')).toBeVisible();await expect(page.locator('.source-list')).toBeVisible();
  await toggle.click();await expect(toggle).toHaveText('More information');await expect(extra).toBeHidden();await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(extra).toBeHidden();
- await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form button').click();await page.locator('#app-nav [data-route="/"]').click();await page.locator('.supplement-open').click();await expect(toggle).toHaveText('Daugiau informacijos');await expect(page.locator('.doctor-note')).toHaveCount(0);await expect(primary.locator('h3')).toHaveText(['Sudėtis','Vartojimas','Galima nauda']);await expect(extra).toBeHidden();await toggle.click();await expect(toggle).toHaveText('Mažiau informacijos');await expect(extra).toBeVisible();
+ await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#app-nav [data-route="/"]').click();await page.locator('.supplement-open').click();await expect(toggle).toHaveText('Daugiau informacijos');await expect(page.locator('.doctor-note')).toHaveCount(0);await expect(primary.locator('h3')).toHaveText(['Sudėtis','Vartojimas','Galima nauda']);await expect(extra).toBeHidden();await toggle.click();await expect(toggle).toHaveText('Mažiau informacijos');await expect(extra).toBeVisible();
 });
 
 
@@ -153,7 +159,7 @@ test('Sage routine and routed sheets preserve scroll, Back, draft and compact un
  await page.goBack();await expect(page.locator('#route-dialog')).not.toBeVisible();
  await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Magnesium bisglycinate');await page.screenshot({animations:'disabled',path:'.runtime/sage-add.png'});
  await page.keyboard.press('Escape');await expect(page.locator('#add-dialog')).not.toBeVisible();await page.locator('#add-supplement').click();await expect(page.locator('#analyze-form [name=name]')).toHaveValue('Magnesium bisglycinate');await page.locator('#close-add').click();
- await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#settings-form button').click();await page.locator('#app-nav [data-route="/"]').click();await page.locator('.supplement-open').click();await expect(page.locator('.dose-unknown em')).toHaveText('nenustatyta');await page.screenshot({animations:'disabled',path:'.runtime/sage-detail-dark.png'});
+ await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#app-nav [data-route="/"]').click();await page.locator('.supplement-open').click();await expect(page.locator('.dose-unknown em')).toHaveText('nenustatyta');await page.screenshot({animations:'disabled',path:'.runtime/sage-detail-dark.png'});
  await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('[data-route="/groups"]').click();await page.locator('#new-group').click();await expect(page.locator('#group-dialog')).toBeVisible();await page.locator('#group-form [name=name]').fill('Test draft');await page.locator('#group-dialog [data-sheet-close]').click();await expect(page.locator('[data-screen="/groups"]')).toBeVisible();
  expect(errors).toEqual([]);
 });
@@ -252,7 +258,7 @@ test('hybrid composition, localized tags and owner diagnostics fit the Sage shee
  await page.screenshot({path:'.runtime/hybrid-detail.png'});
  await page.evaluate(()=>location.hash='/account');await page.locator('#diagnostics-link').click();await expect(page.locator('#route-title')).toHaveText('AI dashboard');await expect(page.locator('#ai-dashboard')).toContainText('grok-jev');await expect(page.locator('#ai-dashboard')).toContainText('12 s');await expect(page.locator('#ai-dashboard')).toContainText('1616');await expect(page.locator('#ai-dashboard')).toContainText('Reused (no Grok call)');
  expect(await page.locator('#ai-dashboard').evaluate(n=>n.scrollWidth<=n.clientWidth)).toBe(true);await page.screenshot({path:'.runtime/hybrid-dashboard.png'});
- await page.evaluate(()=>location.hash='/account');await page.locator('#settings-form select[name="language"]').selectOption('lt');await page.locator('#settings-form button').click();await page.locator('#diagnostics-link').click();await expect(page.locator('#route-title')).toHaveText('AI diagnostika');await expect(page.locator('#ai-dashboard')).toContainText('Atpažinti produktai');
+ await page.evaluate(()=>location.hash='/account');await page.locator('#settings-form select[name="language"]').selectOption('lt');await page.locator('#diagnostics-link').click();await expect(page.locator('#route-title')).toHaveText('AI diagnostika');await expect(page.locator('#ai-dashboard')).toContainText('Atpažinti produktai');
  await page.evaluate(()=>location.hash='/');await page.locator('.supplement-open').click();await expect(page.locator('[data-detail-section="benefits"]')).toContainText('Imunitetas');
 });
 
@@ -324,7 +330,7 @@ test('login and registration password eyes preserve values and caret, remask on 
  for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.screenshot({path:'.runtime/password-register-'+theme+'.png',animations:'disabled'});}
  await register.evaluate(n=>n.reset());await expect(register.locator('input[type=password]')).toHaveCount(2);await page.locator('[data-auth-mode=login][aria-pressed]').click();await expect(eye).toHaveAttribute('aria-pressed','false');
  expect(fake.requests.filter(r=>r.method==='POST')).toHaveLength(0);
- await login(page);await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form button').click();await page.locator('#logout-button').click();await expect(eye).toHaveAttribute('aria-label','Rodyti slaptažodį');await password.fill('Local test only');await eye.click();await expect(eye).toHaveAttribute('aria-label','Slėpti slaptažodį');
+ await login(page);await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#logout-button').click();await expect(eye).toHaveAttribute('aria-label','Rodyti slaptažodį');await password.fill('Local test only');await eye.click();await expect(eye).toHaveAttribute('aria-label','Slėpti slaptažodį');
  await page.screenshot({path:'.runtime/password-login-lt-dark.png',animations:'disabled'});
 });
 
@@ -363,7 +369,7 @@ test('photo picker cancellation keeps the sheet and draft without an upload',asy
 });
 test('saved session launches through themed loader without ever opening login',async({page})=>{
  await mock(page,{preloaded:true});await login(page);
- await page.locator('.account-link').click();await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#settings-form button').click();
+ await page.locator('.account-link').click();await page.locator('#settings-form [name=theme]').selectOption('dark');
  let release;const gate=new Promise(resolve=>release=resolve);
  await page.route('**/v1/me',async route=>{await gate;await route.fulfill({json:{user,expiresAt:null}});});
  await page.addInitScript(()=>{window.loginFlashes=0;new MutationObserver(()=>{if(document.querySelector('#route-dialog')?.open&&document.querySelector('#login-form')?.getBoundingClientRect().height&&!document.querySelector('#startup-screen')?.checkVisibility())window.loginFlashes++;}).observe(document,{subtree:true,attributes:true,childList:true});});
@@ -397,7 +403,7 @@ test('Account is a main page with reachable navigation, editable profile and set
   await page.locator('main').evaluate(n=>n.scrollTop=n.scrollHeight);await expect(page.locator('#app-nav')).toBeVisible();
  }
  await page.setViewportSize({width:402,height:874});await page.locator('main').evaluate(n=>n.scrollTop=0);
- await page.locator('#profile-form [name=name]').fill('Changed name');await page.locator('#app-nav [data-route="/groups"]').click();await page.locator('#app-nav [data-route="/account"]').click();await expect(page.locator('#profile-form [name=name]')).toHaveValue('Changed name');
+ await page.locator('#edit-profile-name').click();await page.locator('#profile-form [name=name]').fill('Changed name');await page.locator('#app-nav [data-route="/groups"]').click();await page.locator('#app-nav [data-route="/account"]').click();await expect(page.locator('#profile-form [name=name]')).toHaveValue('Changed name');
  await page.locator('#diagnostics-link').click();await expect(page.locator('#route-dialog')).toBeVisible();await page.locator('#route-dialog [data-sheet-close]').click();await expect(page.locator('#account-screen')).toBeVisible();await expect(page.locator('#app-nav')).toBeVisible();
  await page.locator('#app-nav [data-route="/"]').click();await expect(page.locator('[data-screen="/"]')).toBeVisible();
 });
@@ -414,4 +420,30 @@ test('logo-free Home has balanced summary spacing and ends above navigation; ver
 
 test('failed basic information has no empty disclosure and always offers refresh and delete',async({page})=>{
  const m=await mock(page,{preloaded:true,basic:true,detailFailed:true});await login(page);await page.locator('.supplement-open').click();await expect(page.locator('.detail-more')).toHaveCount(0);await expect(page.locator('.doctor-note')).toHaveCount(0);await expect(page.locator('.detail-research-button')).toBeVisible();await expect(page.locator('.detail-actions .danger-link')).toHaveText('Delete supplement');await expect(page.locator('.detail-actions .danger-link')).toBeVisible();await expect(page.locator('.detail-group-controls select')).toBeVisible();await expect(page.locator('#supplement-detail')).toContainText('Details unavailable');await page.locator('.detail-research-button').click();expect(m.requests.filter(r=>r.path.endsWith('/research'))).toHaveLength(1);await expect(page.locator('.detail-research-button')).toBeDisabled();
+});
+
+test('selected Groups B offers counts, working quick templates and group menus without removed controls',async({page})=>{
+ await mock(page,{preloaded:true});await login(page);await page.locator('#app-nav [data-route="/groups"]').click();await expect(page.locator('.groups-page-heading h1')).toHaveText('Groups');await expect(page.locator('#group-count')).toHaveText('1');await expect(page.locator('#group-supplement-count')).toHaveText('1');await expect(page.locator('.groups-page')).not.toContainText('Daily order');await expect(page.getByRole('button',{name:'Reorder',exact:true})).toHaveCount(0);
+ await page.locator('#quick-training').click();await expect(page.locator('#group-form [name=name]')).toHaveValue('Training');await expect(page.locator('#group-form [name=icon]')).toHaveValue(/svg/);await page.locator('#group-dialog [data-sheet-close]').click();
+ await page.locator('#quick-sleep').click();await expect(page.locator('#group-form [name=name]')).toHaveValue('Sleep');await page.locator('#group-dialog [data-sheet-close]').click();await page.locator('.group-menu summary').click();await page.locator('.group-menu-actions').getByRole('button',{name:'Edit',exact:true}).click();await expect(page.locator('#group-form [name=name]')).toHaveValue('With a meal');
+});
+test('Account A applies preferences immediately, preserves them after reload and edits profile inline',async({page})=>{
+ await mock(page);await login(page);await page.locator('#app-nav [data-route="/account"]').click();await expect(page.locator('#account-display-name')).toHaveText('Test');await expect(page.locator('#account-initials')).toHaveText('T');await expect(page.locator('#settings-form button')).toHaveCount(0);await expect(page.locator('#profile-form')).toBeHidden();
+ await page.locator('#settings-form [name=theme]').selectOption('dark');await expect(page.locator('html')).toHaveAttribute('data-theme','dark');await page.locator('#settings-form [name=language]').selectOption('lt');await expect(page.locator('html')).toHaveAttribute('lang','lt');await page.reload();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');await expect(page.locator('html')).toHaveAttribute('lang','lt');await page.locator('#app-nav [data-route="/account"]').click();await expect(page.locator('#settings-form [name=language]')).toHaveValue('lt');await page.locator('#edit-profile-name').click();await expect(page.locator('#profile-form')).toBeVisible();await page.locator('#edit-api-key').click();await expect(page.locator('#ai-form')).toBeVisible();await expect(page.locator('#ai-form [name=key]')).toBeFocused();
+});
+
+test('selected reference layouts render comparable light previews',async({page})=>{
+ await mock(page,{preloaded:true,design:true});await login(page);await page.setViewportSize({width:862,height:1825});await page.locator('#app-nav [data-route="/groups"]').click();await page.screenshot({path:'.runtime/selected-groups-B.png',animations:'disabled'});
+ await page.setViewportSize({width:821,height:1916});await page.locator('#app-nav [data-route="/account"]').click();await page.screenshot({path:'.runtime/selected-account-A.png',animations:'disabled'});
+ for(const width of [320,402]){await page.setViewportSize({width,height:874});for(const path of ['/groups','/account']){await page.locator('#app-nav [data-route="'+path+'"]').click();expect(await page.locator('main').evaluate(n=>n.scrollWidth>n.clientWidth)).toBe(false);await page.screenshot({path:'.runtime/selected-'+path.slice(1)+'-'+width+'.png',animations:'disabled'});}}
+});
+
+test('detail has connected information, equal spacing and equal confirmation actions',async({page})=>{
+ const m=await mock(page,{preloaded:true,compatibilityMode:'benign'});await login(page);await page.locator('.supplement-open').click();await expect(page.locator('.detail-group-controls h3')).toHaveCount(0);const more=page.locator('.detail-more');await more.locator('summary').click();await expect(more.locator('.detail-extra-content')).toBeVisible();expect(await more.evaluate(n=>getComputedStyle(n).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');await expect(page.locator('.detail-group-controls')).toHaveCSS('margin-top','12px');await expect(page.locator('.detail-actions')).toHaveCSS('gap','12px');
+ await page.locator('.detail-actions .danger-link').click();const confirmation=page.locator('dialog[open][aria-labelledby^="dialog-"]'),buttons=confirmation.locator(':scope>button');await expect.poll(()=>confirmation.evaluate(n=>n.getAnimations().length)).toBe(0);const cancel=await buttons.nth(0).boundingBox(),confirm=await buttons.nth(1).boundingBox();expect(Math.abs(cancel.width-confirm.width)).toBeLessThan(1);expect(Math.abs(cancel.y-confirm.y)).toBeLessThan(1);expect(confirm.x-cancel.x-cancel.width).toBeGreaterThanOrEqual(11);await page.screenshot({path:'.runtime/confirmation-equal-buttons.png',animations:'disabled'});await buttons.nth(0).click();expect(m.requests.some(r=>r.method==='DELETE'&&r.path.includes('/supplements/'))).toBe(false);await more.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/connected-information-block.png',animations:'disabled'});
+});
+
+test('group order saves from keyboard and pointer grip without a Reorder button',async({page})=>{
+ await mock(page,{preloaded:true,design:true});await login(page);await page.locator('#app-nav [data-route="/groups"]').click();const first=page.locator('.managed-group').first();const id=await first.getAttribute('data-group-id');await first.locator('.group-grip').focus();let request=page.waitForRequest(r=>r.url().endsWith('/groups/order')&&r.method()==='PUT');await page.keyboard.press('ArrowDown');expect((await request).postDataJSON().ids[1]).toBe(id);await expect(page.locator('.managed-group').nth(1)).toHaveAttribute('data-group-id',id);
+ await expect(page.locator('.managed-group').first().locator('.group-grip')).toBeEnabled();const grip=await page.locator('.managed-group').first().locator('.group-grip').boundingBox(),target=await page.locator('.managed-group').nth(1).boundingBox();request=page.waitForRequest(r=>r.url().endsWith('/groups/order')&&r.method()==='PUT');await page.mouse.move(grip.x+grip.width/2,grip.y+grip.height/2);await page.mouse.down();await page.mouse.move(target.x+grip.width,target.y+target.height-2,{steps:6});await page.mouse.up();await request;await expect(page.locator('.managed-group').first()).toHaveAttribute('data-group-id',id);
 });

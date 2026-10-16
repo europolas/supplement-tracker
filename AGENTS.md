@@ -516,3 +516,25 @@ an exact label is unavailable; retailer quantities remain unverified.
 Product details always show Refresh information and Delete supplement below the
 group selector. More information contains only actual researched extra content and
 is absent for basic/draft records. The generic consultation footer is removed.
+
+## 0.21.0 — selected Groups B / Account A
+
+The chosen reference images are mandatory: Groups B uses the summary strip, joined
+icon/count rows, overflow menus, Training/Sleep quick templates and custom creation.
+Daily order, the Reorder action and the generic Edit group row are omitted. Grip
+dragging, arrow keys and menu move actions persist all owned IDs atomically via
+PUT /groups/order; failed/cancelled movement restores the server state.
+Account A uses a profile/edit card, automatically persisted language/theme rows,
+AI connection management, Security and Tools cards, clear data, logout and version.
+Native auth forms and ownership rules remain; administrator controls stay role-bound.
+There is no preferences Save button. API key suffixes are not invented or exposed.
+
+Latest explicit research policy supersedes earlier primary-only quantity rules:
+show all returned AI quantities and usage, including retailer-reported data. The
+focused pipeline stores those values with evidence=reported instead of erasing
+them or failing the whole request; no invented citation becomes a link. Source
+kinds and reported status are retained separately, with manual groups preserved.
+Unrelated-brand substitution and invalid payload types still cannot overwrite
+the selected product. Raw requests/photos/keys remain private and out of Git.
+Product controls use a 12px gap with no visible Day group label. More information
+is one connected sage surface; confirmation actions share one 50/50 row with gap.
