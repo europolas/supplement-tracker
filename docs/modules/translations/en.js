@@ -655,5 +655,4 @@ export default Object.freeze({
   "appRoutineGoal_fertility_support": "Reproductive wellbeing",
   "appRoutineGoal_liver_support": "Liver support",
   "appRoutineGoal_respiratory_support": "Respiratory wellbeing",
-  "appRoutineTenths": "Tenths",
 });

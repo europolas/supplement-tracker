@@ -606,4 +606,3 @@ html .routine-personal-field input,html .routine-personal-field select{box-sizin
 html .routine-personal-field input[type="date"]{display:block;-webkit-appearance:none;appearance:none;inline-size:100%;min-inline-size:0;max-inline-size:100%;padding:10px 12px}
 .routine-personal-field input[type="date"]::-webkit-date-and-time-value{min-width:0;text-align:left;min-height:1.2em}
 .routine-personal-field input[type="date"]::-webkit-datetime-edit{padding:0;min-width:0}
-.routine-measurement{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px;min-width:0;width:100%}

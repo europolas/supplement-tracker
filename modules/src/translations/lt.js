@@ -655,5 +655,4 @@ export default Object.freeze({
   "appRoutineGoal_fertility_support": "Reprodukcinė savijauta",
   "appRoutineGoal_liver_support": "Kepenys",
   "appRoutineGoal_respiratory_support": "Kvėpavimo sistema",
-  "appRoutineTenths": "Dešimtosios",
 });

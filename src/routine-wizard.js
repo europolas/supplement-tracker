@@ -70,19 +70,14 @@ export function createRoutineWizard({dialog,editorDialog,goalsDialog,i18n,icon,c
     control=node('input');control.type='date';control.dataset.personalInput=key;control.setAttribute('aria-label',t(label));control.min=min;control.max=max;control.value=p[key]||'';control.required=true;inputs=[control];
     control.addEventListener('input',()=>p[key]=control.value||null);
    }else{
-    // Native selects provide iPhone wheel pickers without a text keyboard. Split
-    // whole/tenths to keep scrolling and DOM size bounded, retaining 0.1 precision.
-    control=node('div',undefined,'routine-measurement');const whole=node('select'),fraction=node('select');whole.dataset.personalInput=key;fraction.dataset.personalFraction=key;
-    whole.setAttribute('aria-label',t(label));fraction.setAttribute('aria-label',t(label)+' · '+t('Tenths'));whole.required=true;
-    const blank=node('option',t('Choose'));blank.value='';whole.append(blank);
-    for(let n=min;n<=max;n++){const o=node('option',String(n));o.value=String(n);whole.append(o);}
-    for(let n=0;n<10;n++){const o=node('option',new Intl.NumberFormat(i18n.language,{minimumFractionDigits:1,maximumFractionDigits:1}).format(n/10));o.value=String(n);fraction.append(o);}
-    whole.value=specified?String(Math.floor(p[key])):'';fraction.value=specified?String(Math.round(p[key]*10)%10):'0';
-    const update=()=>{const atMax=Number(whole.value)===max;for(const o of fraction.options)o.disabled=atMax&&o.value!=='0';if(atMax)fraction.value='0';p[key]=whole.value===''?null:Number((Number(whole.value)+Number(fraction.value)/10).toFixed(1));};
-    whole.addEventListener('change',update);fraction.addEventListener('change',update);update();control.append(whole,fraction);inputs=[whole,fraction];
+    // Native integer choices use the iPhone wheel without a free-text keyboard.
+    control=node('select');control.dataset.personalInput=key;control.setAttribute('aria-label',t(label));control.required=true;
+    const blank=node('option',t('Choose'));blank.value='';control.append(blank);
+    for(let n=min;n<=max;n++){const o=node('option',String(n));o.value=String(n);control.append(o);}
+    control.value=specified?String(p[key]):'';control.addEventListener('change',()=>p[key]=control.value===''?null:Number(control.value));inputs=[control];
    }
    control.hidden=!specified;for(const input of inputs)input.disabled=!specified;
-   choice.addEventListener('change',()=>{const enabled=choice.value==='set';control.hidden=!enabled;for(const input of inputs)input.disabled=!enabled;if(!enabled){p[key]=null;inputs[0].value='';if(inputs[1])inputs[1].value='0';}else inputs[0].focus();});field.append(choice,control);card.append(field);
+   choice.addEventListener('change',()=>{const enabled=choice.value==='set';control.hidden=!enabled;for(const input of inputs)input.disabled=!enabled;if(!enabled){p[key]=null;inputs[0].value='';}else inputs[0].focus();});field.append(choice,control);card.append(field);
   }
   card.append(node('p',t('MuscleHelp'),'routine-help'));body.append(card);
   const goals=button('',openGoals,'routine-card routine-goals-open');goals.append(glyph('target'));const text=node('span');text.append(node('strong',t('Goals')),node('small',p.goals.length?p.goals.map(k=>t('Goal_'+k)).join(' · '):t('Unspecified')));goals.append(text,glyph('chevron'));body.append(goals);
@@ -117,5 +112,5 @@ export function createRoutineWizard({dialog,editorDialog,goalsDialog,i18n,icon,c
   const actions=node('div',undefined,'button-row routine-editor-actions');actions.append(button(t('Cancel'),()=>void editSheet.close(),'secondary'),button(t('Save'),()=>{if(!editDraft.timing){error.textContent=t('ChooseTime');return;}if(editing==='sleep')draft.sleep=clone(editDraft);else if(editing==='exercise')draft.exercise=clone(editDraft);else draft.meals[editing]=clone(editDraft);render();void editSheet.close();},'primary'));editRoot.append(actions);
  }
  async function saveRoutine(){if(saving||!complete())return;const version=serial;saving=true;render();try{const saved=await onSave(clone(draft),revision);if(version!==serial)return;if(saved===false)return;baseline=clone(draft);await sheet.close();}catch(error){if(version===serial){root.querySelector('[data-routine-error]').textContent=onError(error);}}finally{if(version===serial){saving=false;root.querySelector('.routine-wizard-actions button').disabled=false;}}}
- return {open({routine=null,routineRevision=0,firstIncomplete=false}={}){serial++;draft={...clone(routine||initial()),version:2,personal:clone(routine?.personal||emptyPersonal())};if(!['female','male'].includes(draft.personal.sex))draft.personal.sex=null;baseline=clone(draft);revision=routineRevision;personalReviewed=routine?.version===2;step=firstIncomplete&&routine?.version===1?1:0;saving=false;render();void sheet.open();},reset(){serial++;goalDraft=[];personalReviewed=false;editing=null;editDraft=null;draft=null;baseline=null;saving=false;editRoot.replaceChildren();root.replaceChildren();void goalsSheet.close({immediate:true});goalsDialog.querySelector('[data-routine-goals]').replaceChildren();void editSheet.close({immediate:true});void sheet.close({immediate:true});},get dirty(){return Boolean(draft&&!equal(draft,baseline));},get saving(){return saving;}};
+ return {open({routine=null,routineRevision=0,firstIncomplete=false}={}){serial++;draft={...clone(routine||initial()),version:2,personal:clone(routine?.personal||emptyPersonal())};if(!['female','male'].includes(draft.personal.sex))draft.personal.sex=null;for(const key of ['heightCm','weightKg','muscleKg'])if(draft.personal[key]!==null)draft.personal[key]=Math.round(draft.personal[key]);baseline=clone(draft);revision=routineRevision;personalReviewed=routine?.version===2;step=firstIncomplete&&routine?.version===1?1:0;saving=false;render();void sheet.open();},reset(){serial++;goalDraft=[];personalReviewed=false;editing=null;editDraft=null;draft=null;baseline=null;saving=false;editRoot.replaceChildren();root.replaceChildren();void goalsSheet.close({immediate:true});goalsDialog.querySelector('[data-routine-goals]').replaceChildren();void editSheet.close({immediate:true});void sheet.close({immediate:true});},get dirty(){return Boolean(draft&&!equal(draft,baseline));},get saving(){return saving;}};
 }

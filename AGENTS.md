@@ -1,3 +1,11 @@
+## 0.27.2 — integer-only personal measurements
+
+Height, weight and muscle mass each use one full-width native integer select.
+Decimal controls are removed. Existing fractional measurements are rounded in the
+editor draft and written only on explicit Save; opening/cancelling never changes
+stored data. The server remains compatible with older profiles. Date sizing and
+unspecified/consent behavior are preserved. No API/schema change.
+
 ## 0.27.1 — native personal measurement pickers
 
 About me no longer offers Other for sex. A legacy Other value opens as unspecified
