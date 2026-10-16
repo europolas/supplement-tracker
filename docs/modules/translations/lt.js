@@ -616,7 +616,7 @@ export default Object.freeze({
   "appConclusionSection_benefits": "Galima nauda",
   "appConclusionSection_overlaps": "Dubliavimasis ir svarbios pastabos",
   "appConclusionSection_recommendations": "Rekomendacijos",
-  "appConclusionSection_uncertainties": "Trūkstama informacija ir ribotumai",
+  "appConclusionSection_research": "Tyrimai ir pagrindimas",
   "appConclusionRetry": "Kartoti",
   "ROUTINE_INCOMPLETE": "Pirmiausia užpildyk visas „Daily routine“ skiltis.",
   "appRoutineGoal_general_wellbeing": "Bendra savijauta",

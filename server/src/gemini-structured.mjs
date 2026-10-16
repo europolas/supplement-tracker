@@ -4,7 +4,7 @@
  */
 import {ProviderError} from './structured-chat.mjs';
 import {citationUrl} from './structured-research.mjs';
-export function createGeminiStructured({fetch:send=globalThis.fetch,timeout=90000,requireSearch=false}={}){
+export function createGeminiStructured({fetch:send=globalThis.fetch,timeout=90000,requireSearch=false,searchInstruction=null}={}){
  return async({key,model='gemini-3.8-flash',messages,schema,validate,maxTokens=6000,textOnly=false})=>{
   if(!/^[a-z0-9.-]+$/.test(model))throw new ProviderError('AI_INVALID_RESPONSE');
   const parts=content=>typeof content==='string'?[{text:content}]:content.map(p=>{
@@ -18,7 +18,7 @@ export function createGeminiStructured({fetch:send=globalThis.fetch,timeout=9000
   body.generationConfig.responseJsonSchema=cleanSchema(schema);
   if(textOnly){delete body.generationConfig.responseJsonSchema;delete body.generationConfig.responseMimeType;}
   if(requireSearch&&!textOnly){body.systemInstruction.parts.push({text:'Return only a JSON object matching this schema, without Markdown: '+JSON.stringify(body.generationConfig.responseJsonSchema)});delete body.generationConfig.responseJsonSchema;delete body.generationConfig.responseMimeType;}
-  if(requireSearch)body.systemInstruction.parts.unshift({text:'You MUST use the Google Search tool to look up the exact product before answering. Return grounded official product sources; do not answer from memory alone. References to web_search mean the available Google Search tool.'});
+  if(requireSearch)body.systemInstruction.parts.unshift({text:searchInstruction||'You MUST use the Google Search tool to look up the exact product before answering. Return grounded official product sources; do not answer from memory alone. References to web_search mean the available Google Search tool.'});
   const signal=AbortSignal.timeout(timeout);let response;
   try{response=await send('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',redirect:'error',signal,headers:{'x-goog-api-key':key,'Content-Type':'application/json'},body:JSON.stringify(body)});}catch{throw new ProviderError('AI_CONNECTION_FAILED');}
   if(!response.ok){await response.body?.cancel();throw new ProviderError([401,403].includes(response.status)?'AI_KEY_REJECTED':response.status===429?'AI_RATE_LIMITED':'AI_PROVIDER_FAILED');}

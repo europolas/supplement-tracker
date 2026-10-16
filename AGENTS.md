@@ -1,3 +1,19 @@
+## 0.27.6 — research-backed benefit conclusions
+
+Explicit conclusion generation performs a grounded Google clinical-literature search
+using public product/ingredient identities only, followed by private routine-aware
+synthesis. Search receives no owner/product IDs, profile, goals or group context.
+Require grounding metadata and encountered HTTPS sources; missing grounding fails
+the refresh while retaining the previous report. Recheck consent/revision and job
+existence between calls. Research does not update facts or automatically move groups.
+
+Reports emphasize body-system benefits and recent human evidence with study years
+and source IDs. Research replaces the missing-information/limitations section in
+the schema, API reads and UI, including legacy reports. Grounded source links are
+persisted with the report and rendered as safe external HTTPS links using existing
+card styles. Evidence strength stays beside claims; never fabricate efficacy.
+No migration; existing reports and unresolved group proposals remain supported.
+
 ## Conclusion inventory count correction
 
 Conclusion prompts include server-calculated total, active, paused and per-group

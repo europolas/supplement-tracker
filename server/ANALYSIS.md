@@ -918,3 +918,21 @@ profile itself never starts AI or rewrites groups. Revision checks cancel outdat
 recognition/review commits and reject old pending acceptances. Existing detail facts
 can still save while their stale automatic group decision is rejected. No automatic
 paid retry is introduced. See README for migration 011, payload and UI lifecycle.
+
+
+### Research in routine conclusions (0.27.6)
+
+Generating a conclusion now makes two bounded calls: a grounded public clinical
+literature lookup (180s transport bound) and the existing private synthesis (90s).
+Only public product names, manufacturers and nutrient names enter Search. Date
+context favors the last five years, human RCTs/meta-analyses and primary journal
+sources; publication recency is not treated as evidence of efficacy. Grounding
+metadata proves encountered URLs, not accuracy or applicability of a study.
+
+Server-computed inventory counts still cover every grouped product, including
+paused/context-only records. Synthesis receives the retrieved text as untrusted
+evidence and permitted routine context; it preserves dose, consent and individual
+acceptance contracts. Schema sections are overview, benefits, overlaps, research
+and recommendations. Old uncertainties sections are omitted on read and render.
+Source IDs/titles/HTTPS links persist in the owner-scoped report. Search or synthesis
+failure keeps the old report; reading/closing the sheet never triggers paid work.
