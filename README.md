@@ -607,3 +607,17 @@ unchanged. Recognition classification.policyVersion is 2 for new results.
 
 Previously stored analyses/groups are not silently rewritten or re-billed. Recheck
 uses the new policy to save individual proposals; acceptance remains explicit.
+
+
+## 0.22.4 — permitted timing versus a useful routine preference
+
+Shared AI policy distinguishes mandatory timing, supported preferences and merely
+allowed alternatives. An explicit permitted bedtime option or documented compatible rest/sleep
+purpose supports a bedtime scheduling preference; allowance of morning does not
+justify demoting an already compatible bedtime group to Any time. Do not apply
+a bedtime rule to every form of the same mineral/ingredient or claim sleep efficacy.
+The same grounded lookup now includes official product usage/FAQ timing notes,
+keeping these separate from exact label requirements. No extra search stage,
+product-name rule, automatic rewrite or manual-assignment override is introduced.
+New recognition classification.policyVersion is 3. Existing records can receive
+individual explicit Recheck proposals; full research still obeys owner/snapshot guards.
