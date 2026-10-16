@@ -439,3 +439,7 @@ sources and management. Composition, usage, benefits and explicit severe routine
 conflicts remain primary. The full-width research action follows the disclosure,
 with consistent touch padding and spacing in both themes. Preserve pending-action
 disabling and disclosure expansion through polling redraws; no AI/API changes.
+
+0.16.4: the full-width Refresh information / Atnaujinti informaciją action is
+inside More information, after the management controls, hidden until expanded.
+Pending research still disables it; closing the disclosure never cancels work.

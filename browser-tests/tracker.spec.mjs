@@ -196,7 +196,7 @@ test('Home omits historical compatibility badges and details omit ungraded asses
 });
 
  test('compact product only requests details on explicit click and disables the pending action',async({page})=>{
- const m=await mock(page,{preloaded:true,basic:true,labelProduct:true});await login(page);await expect(page.locator('#routine-note')).toBeHidden();await page.locator('.supplement-open').click();await expect(page.locator('#detail-primary section')).toHaveCount(1);await expect(page.locator('[data-detail-section=benefits]')).toContainText('Energy, cellular support');await expect(page.getByRole('button',{name:'Refresh information'})).toHaveCount(0);await expect(page.locator('#route-dialog')).toBeVisible();await expect.poll(()=>page.locator('#route-dialog').evaluate(d=>d.getAnimations().length)).toBe(0);await page.screenshot({path:'.runtime/basic-detail.png',animations:'disabled'});expect(m.requests.filter(r=>r.path.endsWith('/research'))).toHaveLength(0);const action=page.getByRole('button',{name:'Get detailed information'});await action.click();await expect(action).toBeDisabled();expect(m.requests.filter(r=>r.path.endsWith('/research'))).toHaveLength(1);
+ const m=await mock(page,{preloaded:true,basic:true,labelProduct:true});await login(page);await expect(page.locator('#routine-note')).toBeHidden();await page.locator('.supplement-open').click();await expect(page.locator('#detail-primary section')).toHaveCount(1);await expect(page.locator('[data-detail-section=benefits]')).toContainText('Energy, cellular support');await expect(page.getByRole('button',{name:'Refresh information'})).toBeHidden();await expect(page.locator('#route-dialog')).toBeVisible();await expect.poll(()=>page.locator('#route-dialog').evaluate(d=>d.getAnimations().length)).toBe(0);await page.screenshot({path:'.runtime/basic-detail.png',animations:'disabled'});expect(m.requests.filter(r=>r.path.endsWith('/research'))).toHaveLength(0);await page.locator('.detail-more>summary').click();const action=page.getByRole('button',{name:'Refresh information'});await action.click();await expect(action).toBeDisabled();expect(m.requests.filter(r=>r.path.endsWith('/research'))).toHaveLength(1);
  });
 
 test('account clear requires confirmation, removes supplements and keeps groups',async({page})=>{
@@ -285,12 +285,12 @@ test('diagnostics distinguishes a completed partial batch and full workflow dura
  await mock(page,{preloaded:true,gemini:true,partialDiagnostics:true});await login(page);await page.goto('/#/diagnostics');const panel=page.locator('#ai-dashboard');await expect(panel).toContainText('Completed with issues');await expect(panel).not.toContainText('REQUEST_FAILED');await expect(panel).toContainText('193.07 s');await expect(panel).toContainText('1 / 1 / 2');
 });
 
-test('restrictions are disclosed and the full-width research action follows the disclosure',async({page})=>{
+test('restrictions and the full-width refresh action stay inside the disclosure',async({page})=>{
  await mock(page,{preloaded:true,compatibilityMode:'benign',labelProduct:true});await login(page);await page.locator('.supplement-open').click();
  const restrictions=page.locator('[data-detail-section=restrictions]'),more=page.locator('.detail-more'),action=page.locator('.detail-research-button');
  await expect(page.locator('#detail-primary section')).toHaveCount(3);await expect(restrictions).toBeHidden();await expect(more.locator('[data-detail-section=restrictions]')).toHaveCount(1);
- await expect(action).toHaveText('Get detailed information');await expect(action).toBeEnabled();
- expect(await action.evaluate(n=>n.previousElementSibling.matches('.detail-more'))).toBe(true);
+ await expect(action).toHaveText('Refresh information');await expect(action).toBeHidden();await more.locator('summary').click();await expect(action).toBeVisible();await expect(action).toBeEnabled();
+ expect(await action.evaluate(n=>n.parentElement.id==='detail-extra-content')).toBe(true);
  for(const theme of ['light','dark']){
   await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
   for(const width of [320,402]){
@@ -300,6 +300,6 @@ test('restrictions are disclosed and the full-width research action follows the 
    await page.screenshot({path:`.runtime/detail-actions-${theme}-${width}.png`,animations:'disabled'});
   }
  }
- await more.locator('summary').click();await expect(restrictions).toBeVisible();await expect(restrictions).toContainText('Confirm suitability.');await action.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/detail-actions-expanded.png',animations:'disabled'});
- await more.locator('summary').click();await expect(restrictions).toBeHidden();
+ await expect(restrictions).toBeVisible();await expect(restrictions).toContainText('Confirm suitability.');await action.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/detail-actions-expanded.png',animations:'disabled'});
+ await more.locator('summary').click();await expect(restrictions).toBeHidden();await expect(action).toBeHidden();
 });

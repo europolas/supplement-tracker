@@ -224,7 +224,7 @@ function renderDetail(){
   prose(section('appBenefits','benefits'),analysis.benefitTags?.length?analysis.benefitTags.map(b=>b[i18n.language]||b.en):analysis.benefitSummary);
  }
  // New products are researched automatically. This action retries/refreshes explicitly.
- const refresh=button(i18n.t('appGetDetailedInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});
+ const refresh=button(i18n.t('appRefreshInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});
  refresh.disabled=pending;refresh.className='secondary detail-research-button';
  const select=element('select',{attributes:{'aria-label':i18n.t('appMoveGroup')}});
  select.append(element('option',{text:i18n.t('appUnassigned'),attributes:{value:''}}));
@@ -238,7 +238,7 @@ function renderDetail(){
  const disclosure=element('details',{className:'detail-more',attributes:{'data-supplement-id':item.id}}),toggle=element('summary',{className:'secondary',attributes:{'aria-controls':extra.id}});
  const label=()=>{toggle.textContent=i18n.t(disclosure.open?'appLessInfo':'appMoreInfo');};
  disclosure.open=Boolean(expanded);label();disclosure.addEventListener('toggle',label);
- disclosure.append(toggle,extra);card.append(disclosure,refresh);
+ extra.append(refresh);disclosure.append(toggle,extra);card.append(disclosure);
  if(pending||basic&&analysis.enrichment?.status==='failed')card.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status),className:'research-badge',attributes:{role:'status'}}));
  card.append(element('p',{text:i18n.t('appDoctorConsultation'),className:'detail-meta doctor-note'}));container.append(card);
 }

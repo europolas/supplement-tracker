@@ -365,7 +365,7 @@ export default Object.freeze({
   "appClearSupplementsConfirm": "Ištrinti visus tavo papildus, vartojimo istoriją ir AI užklausas? Grupės ir išsaugotas AI raktas liks. Šio veiksmo atšaukti negalima.",
   "appClearSupplementsDone": "Papildai ir užklausos išvalyti. Grupės išsaugotos.",
   "appGetDetailedInfo": "Gauti išsamią informaciją",
-  "appRefreshInfo": "Atnaujinti informaciją pasirinkta kalba",
+  "appRefreshInfo": "Atnaujinti informaciją",
   "appAnalysisLanguage": "Išsaugotos analizės kalba: {language}. Atnaujink, kad gautum informaciją pasirinkta kalba.",
   "appCompatibilityStale": "Tavo papildų sąrašas pasikeitė tyrimo metu. Suderinamumą reikia peržiūrėti.",
   "appUploadQueue": "Įkėlimų eilė",

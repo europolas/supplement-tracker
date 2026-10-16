@@ -365,7 +365,7 @@ export default Object.freeze({
   "appClearSupplementsConfirm": "Delete all your supplements, completion history and AI requests? Groups and your saved AI key will remain. This cannot be undone.",
   "appClearSupplementsDone": "Supplements and requests cleared. Groups kept.",
   "appGetDetailedInfo": "Get detailed information",
-  "appRefreshInfo": "Refresh information in selected language",
+  "appRefreshInfo": "Refresh information",
   "appAnalysisLanguage": "Saved analysis language: {language}. Refresh to use your selected language.",
   "appCompatibilityStale": "Your routine changed while this information was researched. Compatibility needs review.",
   "appUploadQueue": "Upload queue",

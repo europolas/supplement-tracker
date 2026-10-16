@@ -421,3 +421,5 @@ is owner-only diagnostic data; credentials and images are never shown.
 Version 0.16.3 refines supplement details: restrictions/interactions are inside
 More information, followed by a full-width Get detailed information action.
 The Sage light/dark presentation, pending state and expanded disclosure are preserved.
+
+Version 0.16.4 moves Refresh information into the More information disclosure.
