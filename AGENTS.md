@@ -502,3 +502,8 @@ Version 0.20.0 makes Account a normal main-scroller tab beside Home and Groups;
 the floating navigation stays interactive. Profile, preferences, AI connection and
 data actions have separate Sage cards. Only product details and diagnostics use
 the routed sheet. Home's summary-to-groups gap is 8px, reduced by 40px.
+
+Version 0.20.2 removes the header wordmark and global brand footer. Version is
+shown only in Account. The Home summary has 18px above (after the status safe area)
+and below, increasing its gap to groups by 10px. Main bottom scroll clearance uses
+the actual navigation height/offset plus 16px, with no trailing group margin.

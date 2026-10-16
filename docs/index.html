@@ -16,7 +16,6 @@
 <body>
  <div id="startup-screen"><div id="startup-progress" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10"><span></span></div></div>
  <main>
-  <header class="brand"><div><a href="#/" class="wordmark">supplement.</a></div></header>
   <p id="app-error" role="alert" hidden></p><p id="network-status" role="status"></p>
   <section data-screen="/" hidden>
    <div class="daily-summary"><div class="progress-ring" role="img" id="progress-ring"><svg viewBox="0 0 108 108" aria-hidden="true"><circle class="progress-track" cx="54" cy="54" r="46"></circle><circle id="progress-arc" cx="54" cy="54" r="46" pathLength="100" stroke-dasharray="0 100"></circle></svg><div class="progress-label"><strong id="progress-count">0 / 0</strong><span data-i18n="appTakenLabel">taken</span></div></div><div class="progress-copy"><div class="today-heading"><h1 data-i18n="appTodayTitle">Today</h1><span id="today-date"></span></div><strong id="progress-message" hidden></strong><p id="progress-caption" hidden></p><button id="add-supplement" class="primary add-primary" type="button"><span data-icon="plus" aria-hidden="true"></span><span data-i18n="appAdd">Add supplement</span></button></div><p id="today-progress" class="sr-only" role="status"></p></div>
@@ -45,9 +44,9 @@
    <a id="diagnostics-link" class="secondary diagnostics-link account-tool" href="#/diagnostics" data-i18n="appDiagnostics" hidden>AI dashboard</a>
    <div id="clear-data-panel" class="surface" hidden><button id="clear-supplements" type="button" class="danger-link" data-i18n="appClearSupplements">Clear all supplements and requests</button></div>
    </div>
+   <footer class="account-version"><span id="app-version"></span></footer>
   </section>
   <section id="update-card" class="surface" hidden><p data-i18n="update">An update is available. Save your changes before updating.</p><button id="update-button" class="primary" type="button" data-i18n="updateButton">Update</button></section>
-  <footer><span>supplement.</span><span id="app-version"></span></footer>
  </main>
  <nav class="app-nav" id="app-nav" aria-label="Main screens" hidden>
   <a href="#/" data-route="/"><span data-icon="home" aria-hidden="true"></span><span data-i18n="appHome">Home</span></a>

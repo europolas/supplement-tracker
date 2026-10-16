@@ -458,3 +458,8 @@ the routed sheet. Home's summary-to-groups gap is 8px, reduced by 40px.
 
 Version 0.20.1 adds Training (flexed arm) and Sleep (Zzz) group icons. Leaf,
 Time, Home, Calendar and Information leave the picker; saved custom SVGs remain valid.
+
+Version 0.20.2 removes the header wordmark and global brand footer. Version is
+shown only in Account. The Home summary has 18px above (after the status safe area)
+and below, increasing its gap to groups by 10px. Main bottom scroll clearance uses
+the actual navigation height/offset plus 16px, with no trailing group margin.

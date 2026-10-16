@@ -388,7 +388,7 @@ test('revoked saved session reveals login only after validation',async({page})=>
 });
 
 test('Account is a main page with reachable navigation, editable profile and settings',async({page})=>{
- await mock(page,{preloaded:true});await login(page);await expect(page.locator('.daily-summary')).toHaveCSS('margin-bottom','8px');
+ await mock(page,{preloaded:true});await login(page);await expect(page.locator('.daily-summary')).toHaveCSS('margin-bottom','18px');
  await page.locator('#app-nav [data-route="/account"]').click();await expect(page.locator('main #account-screen')).toBeVisible();await expect(page.locator('#route-dialog')).toBeHidden();await expect(page.locator('#profile-email')).toHaveText(user.email);
  for(const width of [320,402,1024]){
   await page.setViewportSize({width,height:874});await expect(page.locator('#app-nav')).toBeVisible();
@@ -399,4 +399,14 @@ test('Account is a main page with reachable navigation, editable profile and set
  await page.locator('#profile-form [name=name]').fill('Changed name');await page.locator('#app-nav [data-route="/groups"]').click();await page.locator('#app-nav [data-route="/account"]').click();await expect(page.locator('#profile-form [name=name]')).toHaveValue('Changed name');
  await page.locator('#diagnostics-link').click();await expect(page.locator('#route-dialog')).toBeVisible();await page.locator('#route-dialog [data-sheet-close]').click();await expect(page.locator('#account-screen')).toBeVisible();await expect(page.locator('#app-nav')).toBeVisible();
  await page.locator('#app-nav [data-route="/"]').click();await expect(page.locator('[data-screen="/"]')).toBeVisible();
+});
+
+test('logo-free Home has balanced summary spacing and ends above navigation; version belongs to Account',async({page})=>{
+ await mock(page,{preloaded:true});await login(page);await expect(page.locator('.brand,.wordmark')).toHaveCount(0);await expect(page.locator('main>footer')).toHaveCount(0);await expect(page.locator('#app-version')).toBeHidden();
+ const top=await page.locator('.daily-summary').boundingBox(),first=await page.locator('#routine-groups').boundingBox();expect(Math.round(top.y)).toBe(18);expect(Math.round(first.y-top.y-top.height)).toBe(18);
+ await page.evaluate(()=>{const groups=document.querySelector('#routine-groups');for(let i=0;i<8;i++)groups.append(groups.firstElementChild.cloneNode(true));});
+ const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets:{top:54,left:0,bottom:34,right:0}});
+ await page.locator('main').evaluate(n=>n.scrollTop=n.scrollHeight);const last=await page.locator('#routine-groups>.group-block').last().boundingBox(),nav=await page.locator('#app-nav').boundingBox();expect(Math.round(nav.y-last.y-last.height)).toBe(16);
+ await page.screenshot({path:'.runtime/home-footer-compact.png',animations:'disabled'});
+ await page.locator('#app-nav [data-route="/account"]').click();await expect(page.locator('#account-screen #app-version')).toBeVisible();
 });

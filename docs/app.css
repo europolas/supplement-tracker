@@ -259,7 +259,8 @@ html[data-starting="true"] body>:not(#startup-screen){visibility:hidden!importan
 @media(prefers-reduced-motion:reduce){#startup-progress span{transition:none}}
 /* The floating pill sits closer to the home indicator than a conventional tab
    bar. Avoid adding a second gap above the full iPhone bottom safe area. */
-.app-nav{--nav-height:clamp(64px,16vw,91px);--nav-bottom:max(12px,calc(env(safe-area-inset-bottom) - 14px));height:var(--nav-height);top:calc(var(--app-height,100dvh) - var(--nav-bottom) - var(--nav-height))}
+:root{--nav-height:clamp(64px,16vw,91px);--nav-bottom:max(12px,calc(env(safe-area-inset-bottom) - 14px))}
+.app-nav{height:var(--nav-height);top:calc(var(--app-height,100dvh) - var(--nav-bottom) - var(--nav-height))}
 html .app-nav a,html[data-theme="light"] .app-nav a{min-height:0;font-size:clamp(11px,2.75vw,15.5px);gap:clamp(4px,1vw,6px)}
 .app-nav .icon{width:clamp(25px,6.25vw,35px);height:clamp(25px,6.25vw,35px)}
 
@@ -292,7 +293,7 @@ main{max-width:1096px;padding-left:clamp(22px,5.24vw,38px);padding-right:clamp(2
 
 /* Account is a regular tab: native forms remain in the shared iPhone scroller,
    leaving the floating navigation reachable while editing or reading settings. */
-.daily-summary{margin-bottom:8px}
+.daily-summary{margin-bottom:18px}
 .account-page-title{display:flex;align-items:center;gap:16px;margin:0 0 26px}
 .account-avatar{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:var(--soft);color:var(--green);flex:none}
 .account-avatar .icon{width:28px;height:28px}
@@ -325,3 +326,9 @@ main{max-width:1096px;padding-left:clamp(22px,5.24vw,38px);padding-right:clamp(2
 #account-screen #clear-supplements{font-size:13px;text-align:left;line-height:1.5;padding:0;min-height:44px}
 @media(min-width:900px){.account-layout{grid-template-columns:1fr 1fr;gap:20px}#account-forms{grid-column:1;grid-row:1/4}#ai-settings,.preferences,.account-tool{grid-column:2}#clear-data-panel{grid-column:1/-1}}
 @media(max-width:360px){#account-screen .surface,#account-screen .account-card{padding:18px}#account-screen #profile-form{grid-template-columns:1fr}#account-screen .preferences-grid{grid-template-columns:1fr}}
+
+/* Equal breathing room around the daily summary, measured below the status area.
+   End the list just above the floating tabs; no extra brand footer scroll space. */
+main{padding-top:calc(env(safe-area-inset-top) + 18px);padding-bottom:calc(var(--nav-bottom) + var(--nav-height) + 16px)}
+#routine-groups>.group-block:last-child{margin-bottom:0}
+#account-screen .account-version{display:flex;justify-content:center;margin:24px 0 0;padding:0;color:var(--muted);font-size:12px;line-height:1.5}
