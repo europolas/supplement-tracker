@@ -571,3 +571,12 @@ match the proposal, then moves only that supplement atomically as a manual choic
 Completion and translation caches do not invalidate proposals. Remove discards only
 the proposal. Clear/account deletion cancels late writes and erases private jobs.
 No credentials, raw prompts or photos are stored in proposals/browser persistence.
+
+
+## 0.22.1 — routine loading on the Taken ring
+
+Home has no separate routine-loading/status paragraph. Dashboard reads, completion
+writes and active upload/research/localization work animate a dedicated stroke on
+the Taken circle without rotating its count or shifting groups. Settled reads,
+failures and session reset clear the indicator; reduced motion uses a static arc.
+Detailed job progress/errors remain in Upload queue and action errors use toasts.

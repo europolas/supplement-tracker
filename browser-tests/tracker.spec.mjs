@@ -92,7 +92,7 @@ test('PWA caches only public assets and logout clears private screen state',asyn
 });
 
 test('server job resumes after reload and the next add form is usable',async({page})=>{
- const fake=await mock(page,{waitAnalysis:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('A public test product');await page.locator('#analyze-form button[type=submit]').click();await expect(page.locator('#analysis-status')).toContainText('Recognizing');await page.locator('#close-add').click();await page.reload();await expect(page.locator('#home-status')).toContainText('Recognizing');fake.release();await expect(page.locator('.supplement-row')).toHaveCount(1);await expect(page.locator('#home-status')).toHaveText('');await page.locator('#add-supplement').click();await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();await expect(page.locator('#analyze-form [name=name]')).toHaveValue('');
+ const fake=await mock(page,{waitAnalysis:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('A public test product');await page.locator('#analyze-form button[type=submit]').click();await expect(page.locator('#analysis-status')).toContainText('Recognizing');await page.locator('#close-add').click();await page.reload();await expect(page.locator('#progress-ring')).toHaveAttribute('aria-busy','true');await expect(page.locator('#upload-queue-spinner')).toHaveJSProperty('hidden',false);fake.release();await expect(page.locator('.supplement-row')).toHaveCount(1);await expect(page.locator('#progress-ring')).toHaveAttribute('aria-busy','false');await page.locator('#add-supplement').click();await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();await expect(page.locator('#analyze-form [name=name]')).toHaveValue('');
 });
 test('a failed source check shows an error and never adds an item',async({page})=>{
  await mock(page,{failAnalysis:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Unconfirmed product');await page.locator('#analyze-form button[type=submit]').click();await expect(page.locator('#analysis-status')).toContainText('Nothing was added');await expect(page.locator('#analyze-form button[type=submit]')).toBeEnabled();await expect(page.locator('.supplement-row')).toHaveCount(0);
@@ -366,7 +366,7 @@ test('photo picker cancellation keeps the sheet and draft without an upload',asy
  const m=await mock(page);await login(page);await page.locator('#add-supplement').click();
  const input=page.locator('#analyze-form input[type=file]');
  await page.locator('#analyze-form [name=name]').fill('Keep this draft');
- await expect(page.locator('#home-status')).toHaveText('');const dashboards=m.requests.filter(r=>r.path==='/v1/dashboard').length;
+ await expect(page.locator('#progress-ring')).toHaveAttribute('aria-busy','false');const dashboards=m.requests.filter(r=>r.path==='/v1/dashboard').length;
  await page.evaluate(()=>{window.homeMutations=0;new MutationObserver(()=>window.homeMutations++).observe(document.querySelector('#routine-groups'),{childList:true,subtree:true});});
  const chooser=page.waitForEvent('filechooser');await page.locator('.photo-picker').click();await chooser;
  await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));document.dispatchEvent(new Event('visibilitychange'));});
@@ -486,4 +486,27 @@ test('recheck sheet resumes after reload and accepts or removes persisted sugges
  const m=await mock(page,{preloaded:true,routine:true});await login(page);await page.locator('#recheck-all').scrollIntoViewIfNeeded();await page.locator('#recheck-all').click();await expect(page.locator('#recheck-dialog')).toBeVisible();await expect(page.locator('.recheck-progress')).toContainText('3 supplements');await expect(page.locator('.recheck-progress progress')).not.toHaveAttribute('value');expect(m.requests.filter(r=>r.path==='/v1/rechecks'&&r.method==='POST')).toHaveLength(1);await page.screenshot({path:'.runtime/recheck-progress.png',animations:'disabled'});
  await page.locator('#recheck-dialog [data-sheet-close]').click();await page.locator('#recheck-all').click();expect(m.requests.filter(r=>r.path==='/v1/rechecks'&&r.method==='POST')).toHaveLength(1);await page.reload();await expect(page.locator('#recheck-all')).toHaveText('Checking groups…');await page.locator('#recheck-all').click();await expect(page.locator('.recheck-progress')).toBeVisible();m.releaseRecheck();await expect(page.locator('.recheck-proposal')).toHaveCount(2);await expect(page.locator('.recheck-proposals')).not.toContainText('Unchanged supplement');await page.reload();await expect(page.locator('#recheck-pending')).toContainText('(2)');await page.locator('#recheck-pending').click();await expect(page.locator('.recheck-proposal')).toHaveCount(2);expect(m.requests.filter(r=>r.path==='/v1/rechecks'&&r.method==='POST')).toHaveLength(1);
  const first=page.locator('.recheck-proposal').first();await expect(first.locator('h3')).toHaveText('Example supplement');await expect(first.locator('.recheck-manufacturer')).toHaveText('Example');await expect(first.locator('.recheck-move')).toHaveText('With a meal → With fats');await page.setViewportSize({width:320,height:874});expect(await page.locator('#recheck-dialog').evaluate(n=>n.scrollWidth>n.clientWidth)).toBe(false);await page.screenshot({path:'.runtime/recheck-suggestions-320.png',animations:'disabled'});await page.setViewportSize({width:402,height:874});await page.screenshot({path:'.runtime/recheck-suggestions-light.png',animations:'disabled'});await page.evaluate(()=>document.documentElement.dataset.theme='dark');await page.screenshot({path:'.runtime/recheck-suggestions-dark.png',animations:'disabled'});await page.evaluate(()=>document.documentElement.dataset.theme='light');await first.getByRole('button',{name:'Accept',exact:true}).click();await expect(page.locator('.recheck-proposal')).toHaveCount(1);await expect(page.locator('#recheck-pending')).toContainText('(1)');await page.locator('.recheck-proposal').getByRole('button',{name:'Remove',exact:true}).click();await expect(page.locator('.recheck-proposal')).toHaveCount(0);await expect(page.locator('#recheck-pending')).toBeHidden();await expect(page.locator('#recheck-content')).toContainText('All suggestions have been reviewed.');expect(m.requests.filter(r=>r.method==='DELETE'&&r.path.includes('/supplements'))).toHaveLength(0);await page.locator('#recheck-dialog [data-sheet-close]').click();await expect(page.locator('.supplement-row')).toHaveCount(3);await expect(page.locator('.group-block').filter({has:page.getByRole('heading',{name:'With fats',exact:true})})).toContainText('supplement');
+});
+
+
+test('Taken ring reports completion writes and routine reads without shifting Home, and settles on failure',async({page})=>{
+ await mock(page,{preloaded:true});await login(page);
+ const ring=page.locator('#progress-ring'),arc=page.locator('.routine-loading-arc');
+ await expect(ring).toHaveAttribute('aria-busy','false');await expect(page.locator('#home-status')).toHaveCount(0);
+ const top=await page.locator('#routine-groups').evaluate(el=>el.getBoundingClientRect().top);
+ let releaseWrite,releaseRead;const writeGate=new Promise(resolve=>releaseWrite=resolve),readGate=new Promise(resolve=>releaseRead=resolve);
+ await page.route('**/v1/supplements/*/completion',async route=>{await writeGate;await route.fallback();});
+ await page.route('**/v1/dashboard?**',async route=>{await readGate;await route.fallback();});
+ await page.locator('.check-button').click();await expect(ring).toHaveAttribute('aria-busy','true');
+ await expect(arc).toHaveCSS('animation-name','routine-ring-spin');await expect(page.locator('#progress-count')).toHaveText('0 / 1');
+ expect(await page.locator('#routine-groups').evaluate(el=>el.getBoundingClientRect().top)).toBe(top);
+ await page.screenshot({path:'.runtime/taken-loading-light.png'});
+ await page.evaluate(()=>document.documentElement.dataset.theme='dark');await page.screenshot({path:'.runtime/taken-loading-dark.png'});
+ await page.emulateMedia({reducedMotion:'reduce'});await expect(arc).toHaveCSS('animation-name','none');
+ releaseWrite();await page.waitForTimeout(150);await expect(ring).toHaveAttribute('aria-busy','true');
+ releaseRead();await expect(page.locator('#progress-count')).toHaveText('1 / 1');await expect(ring).toHaveAttribute('aria-busy','false');
+ await expect(page.locator('#progress-arc')).toHaveAttribute('stroke-dasharray','100 100');
+ expect(await page.locator('#routine-groups').evaluate(el=>el.getBoundingClientRect().top)).toBe(top);
+ await page.route('**/v1/supplements/*/completion',route=>route.fulfill({status:500,json:{error:'REQUEST_FAILED'}}));
+ await page.locator('.check-button').click();await expect(ring).toHaveAttribute('aria-busy','false');await expect(page.locator('#progress-count')).toHaveText('1 / 1');await expect(page.locator('.check-button')).toBeEnabled();
 });

@@ -88,7 +88,7 @@ html .bottom-sheet { padding-left:22px;padding-right:22px;border-bottom:0; }
 .photo-picker { display:flex;position:relative;border:1px dashed #a2ad9b;border-radius:15px;background:transparent;color:var(--ink);cursor:pointer;overflow:hidden; }.photo-picker input { position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%; }.photo-picker .icon { width:29px;height:29px; }
 
 .ai-consent { padding:0;border:0;color:var(--muted); }.ai-consent>summary { display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:var(--ink);padding:8px 0;list-style:none; }.ai-consent>summary::-webkit-details-marker { display:none; }.ai-consent .icon { width:18px;height:18px; }.ai-consent p { padding-top:8px; }
-#analysis-status,#home-status { font-size:12px;line-height:1.7; }[data-error="true"],#app-error { color:#ae493e; }.send-button[disabled] { opacity:.5; }.app-toast { background:var(--green);color:var(--on-green);font-size:13px;pointer-events:none; }
+#analysis-status { font-size:12px;line-height:1.7; }[data-error="true"],#app-error { color:#ae493e; }.send-button[disabled] { opacity:.5; }.app-toast { background:var(--green);color:var(--on-green);font-size:13px;pointer-events:none; }
 html .auth-tabs button,html[data-theme="light"] .auth-tabs button { background:var(--soft);color:var(--ink);font-size:13px; }.auth-tabs { gap:6px; }
 html .text-button,html[data-theme="light"] .text-button { color:var(--green);font-size:13px; }
 html #auth-status,html[data-theme="light"] #auth-status,html .account-card label,html[data-theme="light"] .account-card label,html .form-help,html[data-theme="light"] .form-help,.muted { color:var(--muted); }
@@ -96,7 +96,7 @@ html #auth-status,html[data-theme="light"] #auth-status,html .account-card label
 .preferences-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
 footer { display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:10px;margin-top:28px; }
 html :focus-visible { outline:2px solid var(--green);outline-offset:3px; }
-#network-status:empty,#home-status:empty { display:none; }#network-status { font-size:12px;color:var(--muted); }.account-card .delete-confirm { font-size:12px; }html .account-card .delete-confirm input { width:22px; }
+#network-status:empty { display:none; }#network-status { font-size:12px;color:var(--muted); }.account-card .delete-confirm { font-size:12px; }html .account-card .delete-confirm input { width:22px; }
 details,summary { color:var(--ink);border-color:var(--line); }
 @media (max-width:360px) { main,html .bottom-sheet { padding-left:16px;padding-right:16px; }.daily-summary { gap:16px;padding-left:4px;padding-right:4px; }.progress-copy { padding-left:16px; }.wordmark { font-size:29px; } }
 @media (prefers-reduced-motion:reduce) { #progress-arc,.supplement-row { transition:none; } }
@@ -484,3 +484,10 @@ html .photo-picker:focus-within{outline:none}
 html .recheck-dialog{width:calc(100% - 20px);max-width:600px}.recheck-dialog .dialog-heading h2{font-size:26px}
 .recheck-progress{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--soft);margin-bottom:16px}.recheck-progress p{font-size:13px;line-height:1.5;margin:0 0 12px}.recheck-progress progress{width:100%;height:6px;accent-color:var(--green)}
 .recheck-proposals{display:grid;gap:12px}.recheck-proposal{padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow-wrap:anywhere}.recheck-proposal h3{font-size:15px;font-weight:600;line-height:1.4;margin:0 0 4px}.recheck-manufacturer{font-size:12px;color:var(--muted);margin:0}.recheck-move{font-size:13px;line-height:1.6;margin:14px 0}.recheck-proposal .button-row{gap:10px}.recheck-proposal button{min-width:0;min-height:44px;padding:10px;margin:0;font-size:13px}.recheck-empty{font-size:14px;line-height:1.6;color:var(--muted)}
+
+/* Animate only the ring stroke; counts and routine layout stay steady during refresh. */
+.routine-loading-arc { display:none;stroke:var(--green);stroke-linecap:round;transform-origin:54px 54px; }
+.progress-ring.is-loading #progress-arc { opacity:0; }
+.progress-ring.is-loading .routine-loading-arc { display:block;animation:routine-ring-spin 1s linear infinite; }
+@keyframes routine-ring-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .progress-ring.is-loading .routine-loading-arc { animation:none; } }

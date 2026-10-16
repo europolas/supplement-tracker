@@ -79,6 +79,9 @@ const recheckSheet=createBottomSheet(get('recheck-dialog'));
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router,appReady=false;
 const localizationAttempts=new Set();let localizationSending=false;
+let routineReading=false,routineJobLoading=false;
+/** One fixed-size ring reports reads, writes and background work without shifting the routine. */
+function renderRoutineLoading(){const busy=Boolean(current()&&(routineReading||writes||routineJobLoading));get('progress-ring').classList.toggle('is-loading',busy);get('progress-ring').setAttribute('aria-busy',String(busy));}
 let uploadQueueExpanded=false,groupDrag=null;
 let routineChecks={active:null,latest:null,proposals:[]},recheckBusy=false,recheckStarting=false,recheckWatcher=null,recheckAbort;
 let collectionEpoch=0,photo=[],imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set(),jobHistory=[];
@@ -99,7 +102,7 @@ function resetSession(){
  generation++;jobHistory=[];activeJobs=[];modalJobId=null;jobSignature='';recognitionShown.clear();watchedJob=null;sending=false;state={groups:[],supplements:[],ai:null,day:localDay()};analysisAbort?.abort();closeAdd(true);
  for(const {form} of dirty){if(form.id==='settings-form')continue;form.reset();clearDirty(form);}
  get('supplement-detail').replaceChildren();get('ai-form').elements.key.value='';
- get('app-error').hidden=true;get('home-status').textContent='';
+ get('app-error').hidden=true;routineReading=false;routineJobLoading=false;renderRoutineLoading();
  renderUploadQueue();
 }
 function heading(text,tag='h2'){return element(tag,{text});}
@@ -107,21 +110,22 @@ function button(text,action,className='secondary'){
  const node=element('button',{text,className,attributes:{type:'button'}});node.addEventListener('click',action);return node;
 }
 async function mutate(task){
- const session=current();writes++;
+ const session=current();writes++;renderRoutineLoading();
  try{await task();if(session===current())await load();}
  catch(error){if(session===current())failure(error);}
- finally{writes--;if(router?.current==='/groups')renderGroups();}
+ finally{writes--;renderRoutineLoading();if(router?.current==='/groups')renderGroups();}
 }
 async function load(checkJobs=true){
  const session=current();if(!session)return;
- const version=++generation;status('home-status',i18n.t('appLoading'));
+ const version=++generation;routineReading=true;renderRoutineLoading();
  try{
   const [result,checks]=await Promise.all([api.get('/v1/dashboard?timezone='+encodeURIComponent(zone())+'&language='+i18n.language),api.get('/v1/rechecks')]);
   if(session!==current()||version!==generation)return;
   routineChecks=Array.isArray(checks.proposals)?checks:{active:null,latest:null,proposals:[]};if(routineChecks.active&&!recheckWatcher)void watchRoutineChecks(session,collectionEpoch);
-  state=result;appReady=true;get('app-error').hidden=true;status('home-status','');render();
+  state=result;appReady=true;get('app-error').hidden=true;render();
   if(checkJobs){const latest=await api.get('/v1/supplements/jobs');if(version!==generation)return;await observeJobs(latest,session);}
- }catch(error){if(session===current()&&version===generation){status('home-status','');get('app-error').hidden=false;get('app-error').textContent=err(error);appReady=true;render();}}
+ }catch(error){if(session===current()&&version===generation){get('app-error').hidden=false;get('app-error').textContent=err(error);appReady=true;render();}}
+ finally{if(session===current()&&version===generation){routineReading=false;renderRoutineLoading();}}
 }
 async function ensureLanguage(){
  const session=current();if(!session||localizationSending||!state.ai?.configured||activeJobs.some(j=>j.result?.kind==='localization'))return;
@@ -518,9 +522,7 @@ async function observeJobs(data,session,refresh=false){
  if(refresh&&signature!==jobSignature)await load(false);if(session!==current()||epoch!==collectionEpoch)return;jobSignature=signature;activeJobs=active;
  const history=new Map(jobHistory.map(job=>[job.id,job]));for(const job of [...(data.recent||[]),...(data.job?[data.job]:[]),...active])history.set(job.id,job);
  jobHistory=[...history.values()].sort((a,b)=>Date.parse(b.finished_at||b.created_at||0)-Date.parse(a.finished_at||a.created_at||0)).filter((job,index)=>job.status==='running'||index<20);
- const recognizing=active.some(job=>!job.phase||job.phase==='recognizing'),queued=active.some(job=>job.phase==='queued');
- const progress=active.reduce((sum,job)=>({done:sum.done+(job.processed_count||0),total:sum.total+(job.total_count||0)}),{done:0,total:0});
- status('home-status',active.length&&active.every(j=>j.result?.kind==='localization')?i18n.t('appTranslatingInfo'):active.some(j=>j.result?.review?.status==='checking')?i18n.t('appGroupReview_checking'):recognizing?i18n.t('appRecognizing'):queued?i18n.t('appUpload_queued'):active.length?i18n.t(active.some(j=>j.result?.monitor?.pipeline==='grok-jev')?'appJevClassifying':'appEnrichingProgress',progress):data.job?.status==='failed'?err(new Error(data.job.error_code||'REQUEST_FAILED')):'',data.job?.status==='failed');
+ routineJobLoading=active.length>0;renderRoutineLoading();
  const job=history.get(modalJobId);
  if(job&&!sending){
   if(job.status==='failed')status('analysis-status',err(new Error(job.error_code||'REQUEST_FAILED')),true);
@@ -537,7 +539,7 @@ async function watchJobs(session){
  const marker={};watchedJob=marker;analysisAbort=new AbortController();const signal=analysisAbort.signal;
  const wait=()=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},1200);function abort(){clearTimeout(timer);reject(new Error('AI_JOB_INTERRUPTED'));}signal.addEventListener('abort',abort,{once:true});});
  try{while(session===current()&&activeJobs.length){await wait();const data=await api.get('/v1/supplements/jobs',{signal});if(signal.aborted)return;await observeJobs(data,session,true);}}
- catch(error){if(session===current()&&!signal.aborted)status('home-status',err(error),true);}
+ catch(error){if(session===current()&&!signal.aborted){routineJobLoading=false;renderRoutineLoading();failure(error);}}
  finally{if(watchedJob===marker)watchedJob=null;}
 }
 get('clear-supplements').addEventListener('click',async()=>{
