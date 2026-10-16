@@ -25,7 +25,7 @@ test('unspecified values and nonconsenting data are absent from all AI prompt fa
 test('conclusion schema rejects partial, duplicate and foreign assignments; fingerprints ignore Taken and translations',()=>{
  assert.equal(validConclusion(output,groups,rows),true);assert.equal(validConclusion({...output,benefits:''},groups,rows),false);assert.equal(validConclusion({...output,assignments:[{...output.assignments[0],groupId:'foreign'}]},groups,rows),false);assert.equal(conclusionSchema(groups,rows).properties.assignments.minItems,1);
  const data={routine,groups,rows},hash=conclusionFingerprint(data);assert.equal(conclusionFingerprint({...data,rows:rows.map(r=>({...r,completed:true,analysis:{...r.analysis,localizations:{lt:'cache'}}}))}),hash);assert.notEqual(conclusionFingerprint({...data,rows:rows.map(r=>({...r,analysis:{...r.analysis,cautions:['New label restriction']}}))}),hash);assert.notEqual(conclusionFingerprint({...data,groups:groups.map(g=>({...g,name:g.name+' changed'}))}),hash);assert.notEqual(conclusionFingerprint({...data,routine:{...routine,personal:{...personal,allowAI:true}}}),hash);
- assert.match(conclusionMessages(data,'lt')[0].content,/Lithuanian/);assert.match(conclusionMessages(data,'en')[0].content,/BMI alone/);
+ assert.match(conclusionMessages(data,'lt')[0].content,/Lithuanian/);assert.match(conclusionMessages(data,'en')[0].content,/BMI alone/);const prompt=conclusionMessages(data,'lt')[0].content;assert.match(prompt,/everyday reader/);assert.match(prompt,/Omit p-values/);assert.match(prompt,/700–1100 words/);
 });
 
 test('conclusion sends all 16 products with authoritative totals despite missing details or pauses',()=>{

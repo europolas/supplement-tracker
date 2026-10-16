@@ -936,3 +936,8 @@ acceptance contracts. Schema sections are overview, benefits, overlaps, research
 and recommendations. Old uncertainties sections are omitted on read and render.
 Source IDs/titles/HTTPS links persist in the owner-scoped report. Search or synthesis
 failure keeps the old report; reading/closing the sheet never triggers paid work.
+
+Conclusion synthesis (0.27.7) translates findings into everyday language, practical
+wellbeing outcomes and simple evidence-strength descriptions. Keep years/source IDs,
+but omit jargon, biomarker statistics and detailed effect-size tables. The clinical
+lookup stays detailed for accurate synthesis; only the user-facing report is simplified.

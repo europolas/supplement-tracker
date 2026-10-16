@@ -1,3 +1,11 @@
+## 0.27.7 — readable conclusions and research headings
+
+Conclusion synthesis explains recent findings in everyday language, short paragraphs
+and practical benefits, without statistical tables or unexplained scientific jargon.
+Grounded search and source references remain required. Research heading is localized
+in EN/LT; a legacy-dictionary fallback uses the established Sources translation
+rather than exposing the section key when static assets span releases.
+
 ## 0.27.6 — research-backed benefit conclusions
 
 Explicit conclusion generation performs a grounded Google clinical-literature search

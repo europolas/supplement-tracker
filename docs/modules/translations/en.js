@@ -616,7 +616,7 @@ export default Object.freeze({
   "appConclusionSection_benefits": "Potential benefits",
   "appConclusionSection_overlaps": "Overlaps and considerations",
   "appConclusionSection_recommendations": "Recommendations",
-  "appConclusionSection_research": "Research and evidence",
+  "appConclusionSection_research": "What recent studies show",
   "appConclusionRetry": "Retry",
   "ROUTINE_INCOMPLETE": "Complete all Daily routine sections first.",
   "appRoutineGoal_general_wellbeing": "General wellbeing",
