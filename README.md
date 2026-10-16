@@ -450,3 +450,8 @@ continue to use the existing unsaved-edit guard. No private profile is cached.
 
 Version 0.19.1 lowers the floating navigation to match the bottom placement in the
 reference, with a 20px bottom gap on a 34px iPhone safe area (12px minimum elsewhere).
+
+Version 0.20.0 makes Account a normal main-scroller tab beside Home and Groups;
+the floating navigation stays interactive. Profile, preferences, AI connection and
+data actions have separate Sage cards. Only product details and diagnostics use
+the routed sheet. Home's summary-to-groups gap is 8px, reduced by 40px.

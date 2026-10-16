@@ -458,18 +458,19 @@ settings.state.subscribe(value=>{
  theme.set(value.theme);i18n.setLanguage(value.language);get('settings-form').elements.language.value=value.language;get('settings-form').elements.theme.value=value.theme;render();if(current())void load();
 },true);
 network.state.subscribe(()=>render());
-// Home/day are tab pages. Account/details are routed native sheets, so Back,
-// close and swipe reveal the same underlying tab and its retained scroll offset.
+// Home, Groups and Account share the main scroller and persistent navigation.
+// Details/diagnostics alone are sheets, returning to the originating tab.
 function showRoute(path){
  if(starting)return;
  if(restoringSession&&!current()){baseRoute='/';for(const section of document.querySelectorAll('main [data-screen]'))section.hidden=section.dataset.screen!=='/';void routeSheet.close({immediate:true});render();return;}
  if(path!=='/account'&&!current()){location.hash='/account';return;}
- const sheet=['/account','/detail','/diagnostics'].includes(path);
+ const sheet=['/detail','/diagnostics'].includes(path);
+ if(path!=='/account')passwordVisibility.reset();
  if(!sheet)baseRoute=path;
  for(const section of document.querySelectorAll('main [data-screen]'))section.hidden=section.dataset.screen!==baseRoute;
  if(sheet)for(const section of get('route-dialog').querySelectorAll('[data-screen]'))section.hidden=section.dataset.screen!==path;
  for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===(path==='/account'?'/account':baseRoute))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
- if(sheet){get('preferences').hidden=path!=='/account';get('route-title').textContent=path==='/account'?i18n.t('appAccount'):path==='/diagnostics'?i18n.t('appDiagnostics'):'';get('route-dialog').classList.toggle('product-sheet',path==='/detail');get('route-dialog').setAttribute('aria-labelledby',path==='/detail'?'product-detail-title':'route-title');}
+ if(sheet){get('route-title').textContent=path==='/diagnostics'?i18n.t('appDiagnostics'):'';get('route-dialog').classList.toggle('product-sheet',path==='/detail');get('route-dialog').setAttribute('aria-labelledby',path==='/detail'?'product-detail-title':'route-title');}
  get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();
  if(path==='/detail')renderDetail();if(path==='/diagnostics')renderDiagnostics();
  if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open)get('supplement-detail').replaceChildren();});if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}

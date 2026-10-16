@@ -269,7 +269,7 @@ Dose fallback qualification and stale compatibility stay in the relevant primary
 section; do not expose draft dosage as verified. No backend or AI changes in 0.8.1.
 
 0.8.1 uses canonical bottom-sheet (library 1.10.0). Keep main as the underlying tab
-scroller; native route-dialog hosts account/details and returns to baseRoute. Do not
+scroller; native route-dialog hosts product details/diagnostics and returns to baseRoute. Account is a main tab (0.20.0). Do not
 hide/clear the outgoing sheet contents before the close animation completes. All
 new sheet actions preserve existing in-memory drafts until explicit save/logout.
 Group creation/edit uses group-dialog. The upload queue stays in add-dialog and
@@ -474,9 +474,9 @@ right-aligned 44px touch controls use 80% opacity SVG icons. No credential persi
 Navigation is outside main, fixed above its bottom mask, with Home/Groups/Account
 and the selected pill from the user's reference. Keep the footer/last-row scroll
 clearance, safe-area inset, 44px touch targets, keyboard hiding and EN/LT labels.
-Account remains a native routed sheet; its tab is selected while open, then the
-retained Home/Groups tab is restored. Do not duplicate the account control in the
-header. No Recent additions/analysis result block lives on Home; upload dialog
+Account is a main-scroller page (0.20.0), with its tab selected and navigation
+visible. Details/diagnostics return to their originating tab. Do not duplicate the
+account control in the header. No Recent additions/analysis result block lives on Home; upload dialog
 retains server-backed history/results and grouping-review actions.
 
 0.19.0 also projects historical AI information into the selected EN/LT locale.
@@ -497,3 +497,8 @@ Launch shows only a theme-aware central progress bar while session/dashboard and
 public worker updates are checked; available updates activate before opening Home.
 The update check is bounded at 3.5 seconds for offline/slow connections; later updates
 continue to use the existing unsaved-edit guard. No private profile is cached.
+
+Version 0.20.0 makes Account a normal main-scroller tab beside Home and Groups;
+the floating navigation stays interactive. Profile, preferences, AI connection and
+data actions have separate Sage cards. Only product details and diagnostics use
+the routed sheet. Home's summary-to-groups gap is 8px, reduced by 40px.

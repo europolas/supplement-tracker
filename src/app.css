@@ -289,3 +289,39 @@ main{max-width:1096px;padding-left:clamp(22px,5.24vw,38px);padding-right:clamp(2
  .today-heading h1{font-size:18px}#today-date{font-size:11px}
  .daily-summary .add-primary{font-size:13px;gap:6px;padding:10px 6px;min-height:44px}.add-primary .icon{width:20px;height:20px}
 }
+
+/* Account is a regular tab: native forms remain in the shared iPhone scroller,
+   leaving the floating navigation reachable while editing or reading settings. */
+.daily-summary{margin-bottom:8px}
+.account-page-title{display:flex;align-items:center;gap:16px;margin:0 0 26px}
+.account-avatar{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:var(--soft);color:var(--green);flex:none}
+.account-avatar .icon{width:28px;height:28px}
+.account-page-title h1{font:500 32px/1.2 var(--serif);letter-spacing:-.6px;margin:0 0 5px}
+.account-page-title p{font-size:14px;line-height:1.5;color:var(--muted);margin:0}
+.account-layout{display:grid;gap:16px;align-items:start}
+#account-screen .surface,#account-screen .account-card{margin:0;border:1px solid var(--line);border-radius:22px;background:var(--surface);padding:24px;box-shadow:none}
+#account-screen h2{font-size:18px;line-height:1.4;margin:0 0 16px;letter-spacing:-.2px}
+#account-screen h3{font-size:16px}
+#account-screen p{overflow-wrap:anywhere}
+#account-screen form{gap:14px}
+#account-screen label>span{font-size:13px;line-height:1.5;color:var(--muted)}
+#account-screen button.primary,#account-screen button.secondary{min-height:46px;border-radius:12px}
+#account-screen #auth-status{font-size:13px;color:var(--muted);margin:0 0 16px}
+#account-screen #profile-email{font-size:15px;font-weight:500;margin:0 0 20px;color:var(--ink)}
+#account-screen #profile-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;margin-bottom:22px}
+#account-screen #profile-form button{padding:12px 16px}
+#account-screen .password-details{padding:0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;margin:0}
+#account-screen .password-details>summary{padding:17px 0;font-size:14px;font-weight:500;cursor:pointer}
+#account-screen .password-details form{padding:0 0 18px}
+#account-screen #logout-button{width:100%;margin-top:16px;background:var(--soft);color:var(--ink);min-height:46px;border-radius:12px;text-align:center}
+#account-screen .preferences-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#account-screen #settings-form>button{justify-self:stretch;background:var(--soft)}
+#account-screen #ai-settings .muted{font-size:13px;line-height:1.6;margin:0 0 16px}
+#account-screen #ai-key-status{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:16px}
+#account-screen #remove-key{font-size:12px;margin-top:12px}
+#account-screen .account-tool{display:block;margin:0;padding:20px 24px;border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--ink);text-decoration:none;font-size:15px;font-weight:500}
+#account-screen .account-tool::after{content:'›';float:right;color:var(--muted);font-size:22px;line-height:1}
+#account-screen #clear-data-panel{padding:18px 24px;background:transparent}
+#account-screen #clear-supplements{font-size:13px;text-align:left;line-height:1.5;padding:0;min-height:44px}
+@media(min-width:900px){.account-layout{grid-template-columns:1fr 1fr;gap:20px}#account-forms{grid-column:1;grid-row:1/4}#ai-settings,.preferences,.account-tool{grid-column:2}#clear-data-panel{grid-column:1/-1}}
+@media(max-width:360px){#account-screen .surface,#account-screen .account-card{padding:18px}#account-screen #profile-form{grid-template-columns:1fr}#account-screen .preferences-grid{grid-template-columns:1fr}}

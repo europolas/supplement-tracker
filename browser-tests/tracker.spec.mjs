@@ -138,7 +138,7 @@ test('detail shows only three primary sections and disclosure survives polling r
  await toggle.focus();await page.keyboard.press('Enter');await expect(toggle).toHaveText('Less information');await expect(extra).toBeVisible();await expect(primary).toContainText('Check the label.');await expect(page.locator('#supplement-detail')).not.toContainText('Confirm suitability.');
  await page.screenshot({path:'.runtime/focused-details.png',animations:'disabled'});fake.releaseResearch();await expect(page.locator('[data-detail-section=dose]')).toContainText('1 tablet daily');await expect(extra).toBeVisible();await expect(page.locator('.composition-list')).toBeVisible();await expect(page.locator('.source-list')).toBeVisible();
  await toggle.click();await expect(toggle).toHaveText('More information');await expect(extra).toBeHidden();await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(extra).toBeHidden();
- await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form button').click();await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('.supplement-open').click();await expect(toggle).toHaveText('Daugiau informacijos');await expect(page.locator('.doctor-note')).toHaveText('Dėl kiekvieno papildo vartojimo būtina pasitarti su gydytoju.');await expect(primary.locator('h3')).toHaveText(['Sudėtis','Vartojimas','Galima nauda']);await expect(extra).toBeHidden();await toggle.click();await expect(toggle).toHaveText('Mažiau informacijos');await expect(extra).toBeVisible();
+ await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form button').click();await page.locator('#app-nav [data-route="/"]').click();await page.locator('.supplement-open').click();await expect(toggle).toHaveText('Daugiau informacijos');await expect(page.locator('.doctor-note')).toHaveText('Dėl kiekvieno papildo vartojimo būtina pasitarti su gydytoju.');await expect(primary.locator('h3')).toHaveText(['Sudėtis','Vartojimas','Galima nauda']);await expect(extra).toBeHidden();await toggle.click();await expect(toggle).toHaveText('Mažiau informacijos');await expect(extra).toBeVisible();
 });
 
 
@@ -152,7 +152,7 @@ test('Sage routine and routed sheets preserve scroll, Back, draft and compact un
  await page.goBack();await expect(page.locator('#route-dialog')).not.toBeVisible();
  await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Magnesium bisglycinate');await page.screenshot({animations:'disabled',path:'.runtime/sage-add.png'});
  await page.keyboard.press('Escape');await expect(page.locator('#add-dialog')).not.toBeVisible();await page.locator('#add-supplement').click();await expect(page.locator('#analyze-form [name=name]')).toHaveValue('Magnesium bisglycinate');await page.locator('#close-add').click();
- await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#settings-form button').click();await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('.supplement-open').click();await expect(page.locator('.dose-unknown em')).toHaveText('nenustatyta');await page.screenshot({animations:'disabled',path:'.runtime/sage-detail-dark.png'});
+ await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#settings-form button').click();await page.locator('#app-nav [data-route="/"]').click();await page.locator('.supplement-open').click();await expect(page.locator('.dose-unknown em')).toHaveText('nenustatyta');await page.screenshot({animations:'disabled',path:'.runtime/sage-detail-dark.png'});
  await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('[data-route="/groups"]').click();await page.locator('#new-group').click();await expect(page.locator('#group-dialog')).toBeVisible();await page.locator('#group-form [name=name]').fill('Test draft');await page.locator('#group-dialog [data-sheet-close]').click();await expect(page.locator('[data-screen="/groups"]')).toBeVisible();
  expect(errors).toEqual([]);
 });
@@ -334,7 +334,7 @@ test('floating reference navigation has three tabs, stays at the bottom and leav
  await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets:{top:0,left:0,bottom:0,right:0}});
  for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.screenshot({path:'.runtime/bottom-nav-'+theme+'.png',animations:'disabled'});}
  await nav.locator('[data-route="/groups"]').click();await expect(page.locator('[data-screen="/groups"]')).toBeVisible();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/groups');
- await nav.locator('[data-route="/account"]').click();await expect(page.locator('#route-dialog')).toBeVisible();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/account');await page.locator('#route-dialog [data-sheet-close]').click();await expect(page.locator('#route-dialog')).toBeHidden();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/groups');
+ await nav.locator('[data-route="/account"]').click();await expect(page.locator('#account-screen')).toBeVisible();await expect(page.locator('#route-dialog')).toBeHidden();await expect(nav).toBeVisible();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/account');await nav.locator('[data-route="/groups"]').click();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/groups');
  await nav.locator('[data-route="/"]').click();await expect(page.locator('[data-screen="/"]')).toBeVisible();await page.evaluate(()=>document.documentElement.dataset.keyboard='true');await expect(nav).toBeHidden();await page.evaluate(()=>delete document.documentElement.dataset.keyboard);await expect(nav).toBeVisible();
 });
 
@@ -379,4 +379,18 @@ test('a waiting app update activates during loading before login is displayed',a
 test('revoked saved session reveals login only after validation',async({page})=>{
  await mock(page);await login(page);await page.route('**/v1/me',route=>route.fulfill({status:401,json:{error:'UNAUTHORIZED'}}));
  await page.reload();await expect(page.locator('#startup-screen')).toBeHidden();await expect(page.locator('#login-form')).toBeVisible();await expect(page.locator('#app-nav')).toBeHidden();
+});
+
+test('Account is a main page with reachable navigation, editable profile and settings',async({page})=>{
+ await mock(page,{preloaded:true});await login(page);await expect(page.locator('.daily-summary')).toHaveCSS('margin-bottom','8px');
+ await page.locator('#app-nav [data-route="/account"]').click();await expect(page.locator('main #account-screen')).toBeVisible();await expect(page.locator('#route-dialog')).toBeHidden();await expect(page.locator('#profile-email')).toHaveText(user.email);
+ for(const width of [320,402,1024]){
+  await page.setViewportSize({width,height:874});await expect(page.locator('#app-nav')).toBeVisible();
+  expect(await page.locator('#account-screen').evaluate(n=>n.scrollWidth>n.clientWidth)).toBe(false);
+  await page.locator('main').evaluate(n=>n.scrollTop=n.scrollHeight);await expect(page.locator('#app-nav')).toBeVisible();
+ }
+ await page.setViewportSize({width:402,height:874});await page.locator('main').evaluate(n=>n.scrollTop=0);
+ await page.locator('#profile-form [name=name]').fill('Changed name');await page.locator('#app-nav [data-route="/groups"]').click();await page.locator('#app-nav [data-route="/account"]').click();await expect(page.locator('#profile-form [name=name]')).toHaveValue('Changed name');
+ await page.locator('#diagnostics-link').click();await expect(page.locator('#route-dialog')).toBeVisible();await page.locator('#route-dialog [data-sheet-close]').click();await expect(page.locator('#account-screen')).toBeVisible();await expect(page.locator('#app-nav')).toBeVisible();
+ await page.locator('#app-nav [data-route="/"]').click();await expect(page.locator('[data-screen="/"]')).toBeVisible();
 });
