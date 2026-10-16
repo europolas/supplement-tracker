@@ -522,3 +522,14 @@ composition/directions without applying a move. Foreign groups and invalid produ
 facts still fail validation. Failed jobs/products store only closed stage/reason
 enums (lookup/extraction; invalid_json/incomplete_output/invalid_fields/provider_error),
 never provider bodies, prompts or keys. Legacy/recognition transports stay unchanged.
+
+## 0.21.5 — compact upload results and actual group changes
+
+Upload results are full-width compact product buttons, grey while pending, green
+for completed/reused research and rose for failure. Status is accessible without
+repeated visible text or list bullets. Actual automatic group moves are captured
+in the enrichment transaction with before/after IDs and name snapshots, saved
+in the product and owning job, and listed below the products. Manual/concurrent
+choices and rejected proposals never become move events. Legacy upload history
+may use matching researched analysis/initial identity only; new tracked jobs never
+infer moves. No extra provider calls or database migration.

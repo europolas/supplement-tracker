@@ -350,11 +350,21 @@ function renderReport(id,report){
  const container=get(id);container.replaceChildren();container.hidden=!report;if(!report)return;
  const items=report.items||[],added=items.filter(item=>item.status==='added');
  container.append(heading(report.running?i18n.t('appBatchProgress',{done:items.filter(item=>['complete','reused','failed'].includes(item.research)).length,total:report.total}):i18n.t('appBatchSummary',{added:added.length,total:items.length}),'h3'));
- const list=element('ul');
- for(const item of items){const row=element('li');
-  if(item.status==='added'&&state.supplements.some(s=>s.id===item.id))row.append(button('✓ '+item.name,()=>{void addSheet.close({immediate:true});router.navigate('/detail?id='+encodeURIComponent(item.id));}));
-  else row.textContent=item.name+(item.status==='failed'?' — '+i18n.message(item.error):'');if(item.research)row.append(element('span',{text:' · '+i18n.t('appInfo_'+item.research)+(item.error?' — '+i18n.message(item.error):''),className:'research-badge'}));list.append(row);
+ const list=element('div',{className:'upload-product-list'});
+ for(const item of items){
+  const available=item.status==='added'&&state.supplements.some(s=>s.id===item.id),phase=item.status==='failed'?'failed':item.research||'queued';
+  const tone=phase==='failed'?'failed':['complete','reused'].includes(phase)?'complete':'pending';
+  const control=button(item.name,()=>{void addSheet.close({immediate:true});router.navigate('/detail?id='+encodeURIComponent(item.id));},'upload-product-button');
+  control.disabled=!available;control.dataset.state=tone;control.setAttribute('aria-label',item.name+' — '+i18n.t('appInfo_'+(['queued','researching','complete','failed'].includes(phase)?phase:tone==='complete'?'complete':'queued')));list.append(control);
  }container.append(list);
+ // Persisted job snapshots describe actual AI moves, even after later edits. For
+ // older jobs only infer a move from a matching research job and AI provenance.
+ const changes=items.flatMap(item=>{const a=state.supplements.find(s=>s.id===item.id)?.analysis;let change=item.groupChange||(a?.grouping?.change?.jobId===report.jobId?a.grouping.change:null);
+  if(!change&&!report.groupChangesTracked&&report.submission&&a?.enrichment?.jobId===report.jobId&&a.grouping?.basis==='researched'&&a.identity?.groupId&&a.identity.groupId!==a.grouping.groupId)change={from:{id:a.identity.groupId},to:{id:a.grouping.groupId}};
+  return change&&change.from.id!==change.to.id?[{name:item.name,...change}]:[];});
+ if(changes.length){const section=element('section',{className:'upload-group-changes'});section.append(heading(i18n.t('appResearchGroupChanges'),'h3'));const rows=element('div',{className:'upload-group-change-list'});
+  for(const change of changes){const label=group=>group.name||state.groups.find(g=>g.id===group.id)?.name||i18n.t('appUnassigned'),row=element('div',{className:'upload-group-change'});row.append(element('strong',{text:change.name}),element('p',{text:label(change.from)+' → '+label(change.to)}));rows.append(row);}section.append(rows);container.append(section);
+ }
  renderGroupReview(container,report);
  if(report.skipped?.length){container.append(heading(i18n.t('appPhotoSkipped'),'h3'));const skipped=element('ul');for(const item of report.skipped)skipped.append(element('li',{text:[item.name||item.location,item.reasonCode?i18n.message(item.reasonCode):item.reason].filter(Boolean).join(' — ')}));container.append(skipped);}
 }

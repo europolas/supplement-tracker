@@ -1,5 +1,6 @@
 /** Lithuanian translations; missing keys fall back to the English dictionary. */
 export default Object.freeze({
+  "appResearchGroupChanges": "Grupių pakeitimai po išsamios analizės",
   "appGroupsSubtitle": "Susikurk sau tinkamą dienos ritmą",
   "appGroupsNoun": "grupės",
   "appSupplementsNoun": "papildų",

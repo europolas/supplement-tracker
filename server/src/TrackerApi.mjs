@@ -179,7 +179,7 @@ export class TrackerApi {
    }
    const [active]=await db.execute("SELECT phase FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active.length>=4)throw new ApiError(409,'AI_QUEUE_FULL');
    await this.auth.limit('ai-minute',owner,4,60);await this.auth.limit('ai-day',owner,30,86400);
-   const report={submission:{kind:image?'photo':'name',name},items:[],skipped:[],language};
+   const report={groupChangesTracked:true,submission:{kind:image?'photo':'name',name},items:[],skipped:[],language};
    await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language,result) VALUES (?,?,?,'running','queued',?,?)",[id,owner,body.requestId,language,JSON.stringify(report)]);result={id,status:'running',phase:'queued',language,result:report,created_at:new Date().toISOString(),supplement_id:null,error_code:null};
   });}catch(error){this.activeJobs.delete(id);throw error;}
   if(result.id!==id||result.status==='complete'){this.activeJobs.delete(id);return result;}
@@ -200,7 +200,7 @@ export class TrackerApi {
  }
  async runProgressive(owner,body,authorization,id){
   const workflowStarted=Date.now();
-  let report={submission:{kind:body.image?'photo':'name',name:body.name},items:[],skipped:[],language:body.language};
+  let report={groupChangesTracked:true,submission:{kind:body.image?'photo':'name',name:body.name},items:[],skipped:[],language:body.language};
   let sealed,failurePhase='queued';
   try{
    let recognition=this.recognitionQueues.get(owner);if(!recognition){recognition=createTaskQueue({concurrency:1,maxPending:3});this.recognitionQueues.set(owner,recognition);}
@@ -219,7 +219,7 @@ export class TrackerApi {
    body.image=null;body.images=[]; // No background research request resends a photo.
    if(!validPhotoProducts(result,groups,supplements,language))throw new ApiError(502,'AI_INVALID_RESPONSE');
    await this.auth.authenticate(authorization);await this.checkKey(owner,keys[0].encrypted_key);
-   report={submission:report.submission,...(report.monitor?{monitor:report.monitor}:{}),items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started,recognitionModel:model,...(timings?{timings,pipeline}:{}),...(inventory?{photoInventory:inventory}:{})};
+   report={groupChangesTracked:true,submission:report.submission,...(report.monitor?{monitor:report.monitor}:{}),items:[],skipped:[...result.skipped],language,recognitionMs:Date.now()-started,recognitionModel:model,...(timings?{timings,pipeline}:{}),...(inventory?{photoInventory:inventory}:{})};
    const products=uniqueProducts(result.products);if(!products.length&&!report.skipped.length)report.skipped.push({location:'',reasonCode:'SUPPLEMENT_NOT_IDENTIFIED'});if(result.overflow)report.skipped.push({location:'',reasonCode:'PHOTO_PRODUCT_LIMIT'});
    await this.auth.transaction(async db=>{
     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
@@ -262,7 +262,7 @@ export class TrackerApi {
    const detailsStarted=Date.now();
    await Promise.all(report.items.filter(item=>item.research==='queued').map(async item=>{
     const queuedAt=Date.now();
-    try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';item.queueMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);await this.enrich(owner,item.id,body.language,authorization,id,sealed);});item.research='complete';}
+    try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';item.queueMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);const change=await this.enrich(owner,item.id,body.language,authorization,id,sealed);if(change)item.groupChange=change;});item.research='complete';}
     catch(error){item.research='failed';item.error=safeCode(error);item.failure=researchFailure(error);await this.markResearchFailed(owner,item.id,id,item.error,item.failure);}
     item.elapsedMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);
    }));
@@ -340,12 +340,12 @@ export class TrackerApi {
    if(['queued','researching'].includes(a.enrichment?.status)){const [live]=await db.execute("SELECT id FROM analysis_jobs WHERE id=? AND user_id=? AND status='running'",[a.enrichment.jobId,owner]);if(live.length)throw new ApiError(409,'AI_BUSY');}
    const [active]=await db.execute("SELECT COUNT(*) AS n FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active[0].n>=4)throw new ApiError(409,'AI_BUSY');
    await this.auth.limit('ai-minute',owner,4,60);await this.auth.limit('ai-day',owner,30,86400);
-   const id=randomUUID(),report={items:[{id:supplementId,name:rows[0].name,status:'added',research:'queued',reused:true}],skipped:[],language};a.enrichment={status:'queued',jobId:id,language};
+   const id=randomUUID(),report={groupChangesTracked:true,items:[{id:supplementId,name:rows[0].name,status:'added',research:'queued',reused:true}],skipped:[],language};a.enrichment={status:'queued',jobId:id,language};
    await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),supplementId,owner]);
    await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language,total_count,result) VALUES (?,?,?,'running','enriching',?,1,?)",[id,owner,body.requestId,language,JSON.stringify(report)]);job={id,status:'running',phase:'enriching',language,total_count:1,processed_count:0,result:report};
   });
   if(job.status!=='running'||this.activeJobs.has(job.id))return job;this.activeJobs.add(job.id);
-  void (async()=>{const item=job.result.items[0];try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';await this.jobProgress(owner,job.id,job.result);await this.enrich(owner,supplementId,language,authorization,job.id,sealed);});item.research='complete';}
+  void (async()=>{const item=job.result.items[0];try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';await this.jobProgress(owner,job.id,job.result);const change=await this.enrich(owner,supplementId,language,authorization,job.id,sealed);if(change)item.groupChange=change;});item.research='complete';}
    catch(error){item.research='failed';item.error=safeCode(error);item.failure=researchFailure(error);await this.markResearchFailed(owner,supplementId,job.id,item.error,item.failure);}
    finally{try{await this.jobProgress(owner,job.id,job.result,'done');await this.pool.execute("UPDATE analysis_jobs SET status='complete',finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[job.id,owner]);}catch{ /* Deleted account. */ }this.activeJobs.delete(job.id);}
   })().catch(()=>{this.activeJobs.delete(job.id);});return job;
@@ -366,7 +366,7 @@ export class TrackerApi {
   await this.pool.execute("UPDATE supplements SET analysis=JSON_SET(analysis,'$.enrichment.status','researching') WHERE id=? AND user_id=?",[id,owner]);
   const supplements=rows.filter(row=>row.id!==id),snapshot=JSON.stringify(rows.map(row=>[row.id,row.name,row.group_id,row.id===id?null:row.analysis]));
   const {result,model,verifiedLabelSources=[]}=await this.requestResearch(owner,{name:target.name,image:null,language,target:{...(previous.identity||{name:target.name,manufacturer:previous.manufacturer||null,variant:previous.variant||null}),groupId:target.group_id,groupingBasis:previous.grouping?.basis||(previous.identity?.groupId===target.group_id?'provisional':'unknown'),originalBenefit:previous.benefitSummary,originalComposition:previous.composition?.ingredients||[]},groups,supplements,settings,sealed},authorization);
-  await this.auth.transaction(async db=>{
+  return this.auth.transaction(async db=>{
    const [latest]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const row=latest.find(r=>r.id===id);if(!row)throw new ApiError(404,'NOT_FOUND');
    const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;if(a.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
    const changed=JSON.stringify(latest.map(r=>[r.id,r.name,r.group_id,r.id===id?null:r.analysis]))!==snapshot;
@@ -381,12 +381,17 @@ export class TrackerApi {
    const source=timingSources.find(s=>s.url===result.dosage?.sourceUrl)||timingSources[0];
    const grouping=this.singlePass&&this.fullResearch?researchedGrouping({analysis:a,previous:target.group_id,current:row.group_id,proposed:result.groupId,ownedIds:owned.map(g=>g.id),groupsUnchanged:JSON.stringify(owned)===JSON.stringify(groups),reason:result.reviewReason,sourceUrl:source?.url,checkedAt:this.now().toISOString()}):this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
    const groupId=grouping.groupId;result.grouping=grouping;
+   // Capture the actual transaction's before/after groups, never a proposed or
+   // blocked manual move. Names are snapshots so later renames do not alter history.
+   const change=grouping.basis==='researched'&&row.group_id!==groupId?{jobId,from:{id:row.group_id,name:owned.find(g=>g.id===row.group_id)?.name||null},to:{id:groupId,name:owned.find(g=>g.id===groupId)?.name||null}}:null;
+   if(change)grouping.change=change;
    if(grouping.basis==='provisional'){result.needsReview=true;}
    result.identityAliases=[...new Set([...(a.identityAliases||[]),productIdentity(previous.identity||{...previous,name:target.name})])].slice(-8);
    const unknown=value=>!value||/^(unknown|not visible|not readable|n\/?a|nenustatyta|nežinoma)$/i.test(value.trim());
    if(unknown(result.manufacturer)&&!unknown(a.manufacturer))result.manufacturer=a.manufacturer;
    result.identity={...(previous.identity||{}),name:result.productName,manufacturer:result.manufacturer,variant:result.variant||previous.identity?.variant||''};for(const key of ['composition','benefitTags','classification'])if(a[key])result[key]=a[key];if(this.fullResearch)result.composition={ingredients:result.nutrients.map(n=>({name:n.name,labelAmount:n.amount==null?'':n.amount+' '+n.unit})),complete:false,basis:result.research?.reported?'reported_research':'verified_research',checkedAt:this.now().toISOString()};result.enrichment={status:'complete',jobId,language};
    await db.execute('UPDATE supplements SET name=?,analysis=?,model=?,group_id=? WHERE id=? AND user_id=?',[result.productName,JSON.stringify(result),model,groupId,id,owner]);
+   return change;
   });
  }
  async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){

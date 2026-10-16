@@ -1,5 +1,6 @@
 /** English is the canonical default; add each new key to both dictionaries. */
 export default Object.freeze({
+  "appResearchGroupChanges": "Group changes after detailed analysis",
   "appGroupsSubtitle": "Build a routine that fits your day",
   "appGroupsNoun": "groups",
   "appSupplementsNoun": "supplements",
