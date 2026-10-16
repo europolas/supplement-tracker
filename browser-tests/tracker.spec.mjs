@@ -272,6 +272,12 @@ test('group editor saves Bootstrap icon and SVG while refusing active markup',as
 
 test('original app icons can be picked, saved and restored to automatic without code',async({page})=>{
  await mock(page,{preloaded:true});await login(page);await page.locator('.group-edit').click();
+ await expect(page.locator('#group-icon-options button span')).toHaveText(['Automatic','Morning','Meal','Evening','Training','Sleep','Supplement','Shield']);
+ for(const name of ['Training','Sleep']){
+  const selected=page.locator('#group-icon-options button').filter({hasText:name});await selected.click();const svg=await page.locator('#group-form [name=icon]').inputValue();await expect(selected).toHaveAttribute('aria-pressed','true');
+  await page.locator('#group-form button[type=submit]').click();await expect(page.locator('#group-dialog')).toBeHidden();await expect(page.locator('.group-symbol svg')).toBeVisible();
+  await page.locator('.group-edit').click();await expect(page.locator('#group-form [name=icon]')).toHaveValue(svg);await expect(page.locator('#group-icon-options button').filter({hasText:name})).toHaveAttribute('aria-pressed','true');
+ }
  const moon=page.locator('#group-icon-options button').filter({hasText:'Evening'});await moon.click();await expect(moon).toHaveAttribute('aria-pressed','true');await expect(page.locator('#group-form [name=icon]')).toHaveValue(/M20 15A9/);await expect(page.locator('#group-icon-preview svg')).toHaveCount(1);
  await page.screenshot({path:'.runtime/app-icon-picker.png'});await page.locator('#group-form button[type=submit]').click();await expect(page.locator('#group-dialog')).not.toBeVisible();await expect(page.locator('.group-symbol svg path')).toHaveAttribute('d',/M20 15A9/);
  await page.locator('.group-edit').click();await expect(page.locator('#group-icon-options button').filter({hasText:'Evening'})).toHaveAttribute('aria-pressed','true');await page.locator('#group-icon-options button').filter({hasText:'Automatic'}).click();await expect(page.locator('#group-form [name=icon]')).toHaveValue('');await page.locator('#group-form button[type=submit]').click();await expect(page.locator('#group-dialog')).not.toBeVisible();await expect(page.locator('.group-symbol svg path')).toHaveAttribute('d',/^M5 3v7/);

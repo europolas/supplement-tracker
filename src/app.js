@@ -9,6 +9,8 @@ import {setupPasswordVisibility} from './modules/password-visibility.js';
 import {parseCustomIcon} from './custom-icon.js';
 // Local presentation icons use fixed SVG paths, never server/model markup.
 const iconPaths={
+ training:'M7 21H5a4 4 0 1 1 3.6-5.7c1.4-2.3 3.6-3.1 6.4-2.3l-1.5-5-2 .5-2-2 1-3L13.5 2c1.5.5 2.5 2 3.5 4l4 9c1.3 3.5-1 6-5 6H7Z M8.6 15.3 10 17 M10.5 4l3 1-.5 3 M15 13l1 2',
+ sleep:'M2.5 2.5 12 3.7l-.3 2.1-6.2 5.5 5.5.7-.3 2.5-9.5-1.2.3-2.1 6.2-5.5-5.5-.7Z M13 10.5l7.5.9-.2 1.7-4.8 4.2 4.3.5-.2 2-7.5-.9.2-1.7 4.8-4.2-4.3-.5Z M19 18.5l4 .5-.1 1-2.6 2.1 2.3.3-.1 1.4-4-.5.1-1 2.6-2.1-2.3-.3Z',
  groups:'M5 3h14v18l-3.5-3-3.5 3-3.5-3L5 21Z M9 8h6 M10 12h4',
  account:'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0 M15 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0 M4 18c2-5 14-5 16 0',
  user:'M20 21v-2a7 7 0 0 0-14 0v2 M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
@@ -29,7 +31,7 @@ const iconPaths={
  dose:'M9 3h6v3H9Z M7 6h10l2 4v11H5V10Z M9 13h6 M12 10v6',
  check:'m5 12 4 4 10-10',chevron:'m9 5 7 7-7 7'
 };
-function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');for(const[k,v]of Object.entries({viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'1.6','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',class:'icon'}))svg.setAttribute(k,v);const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',iconPaths[name]||iconPaths.leaf);svg.append(path);return svg;}
+function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');for(const[k,v]of Object.entries({viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':name==='sleep'?'1.1':'1.6','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',class:'icon'}))svg.setAttribute(k,v);const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',iconPaths[name]||iconPaths.leaf);svg.append(path);return svg;}
 for(const node of document.querySelectorAll('[data-icon]'))node.append(icon(node.dataset.icon));
 const confirmDialog=(message,options)=>nativeConfirmDialog(message,{...options,presentation:'sheet'});
 const config=createConfig(await(await fetch('./app.config.json')).json());
@@ -153,7 +155,7 @@ function openGroup(group){
 }
 /** The original hand-drawn app glyphs are persisted as ordinary safe SVG. This
  * reuses the existing icon contract/API; no remote icon service or new format. */
-const groupIconPresets=['sun','meal','moon','leaf','clock','dose','shield','home','calendar','info'];
+const groupIconPresets=['sun','meal','moon','training','sleep','dose','shield'];
 function renderGroupIconOptions(){
  const root=get('group-icon-options');root.replaceChildren();
  for(const name of ['',...groupIconPresets]){const svg=icon(name||groupSymbol(get('group-form').elements.name.value)),value=name?svg.outerHTML:'';

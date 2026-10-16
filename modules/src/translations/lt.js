@@ -1,5 +1,7 @@
 /** Lithuanian translations; missing keys fall back to the English dictionary. */
 export default Object.freeze({
+  "appIcon_training": "Treniruotė",
+  "appIcon_sleep": "Miegas",
   "appAccountHelp": "Tavo profilis, nuostatos ir ryšys su AI.",
   "appSuggestedGroup": "Siūloma grupė: {name}",
   "appSevereConflicts": "Svarbūs nesuderinamumai",

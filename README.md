@@ -455,3 +455,6 @@ Version 0.20.0 makes Account a normal main-scroller tab beside Home and Groups;
 the floating navigation stays interactive. Profile, preferences, AI connection and
 data actions have separate Sage cards. Only product details and diagnostics use
 the routed sheet. Home's summary-to-groups gap is 8px, reduced by 40px.
+
+Version 0.20.1 adds Training (flexed arm) and Sleep (Zzz) group icons. Leaf,
+Time, Home, Calendar and Information leave the picker; saved custom SVGs remain valid.

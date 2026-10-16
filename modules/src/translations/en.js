@@ -1,5 +1,7 @@
 /** English is the canonical default; add each new key to both dictionaries. */
 export default Object.freeze({
+  "appIcon_training": "Training",
+  "appIcon_sleep": "Sleep",
   "appAccountHelp": "Your profile, preferences and connection.",
   "appSuggestedGroup": "Suggested group: {name}",
   "appSevereConflicts": "Significant incompatibilities",
