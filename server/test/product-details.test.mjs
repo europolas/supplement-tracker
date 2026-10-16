@@ -44,3 +44,8 @@ test('verbose research preview is bounded without discarding full benefits or pr
  raw.benefitSummary=Array(20).fill('Atsipalaidavimas').join(' ');assert.equal(validDetails(expandCompactDetails(raw,'lt',false),[],'lt'),true);
  raw.benefitSummary=42;assert.equal(validDetails(expandCompactDetails(raw,'en',false),[],'en'),false);
 });
+
+test('optional timing metadata cannot discard valid product facts or move without a reason',()=>{
+ const raw={identified:true,productName:'Generic product',manufacturer:'Brand',variant:null,nutrients:[],dosage:{directions:'Two tablets daily with food.',servingSize:'Two tablets',dailyServingsMin:1,dailyServingsMax:1,sourceUrl:'S1'},benefits:['Brief benefit.'],benefitSummary:'Energy',sources:[],groupId:null,reviewReason:'Timing is not established.'};
+ for(const decision of [{groupId:null,reviewReason:raw.reviewReason},{groupId:'meal',reviewReason:null},{groupId:'meal',reviewReason:''}]){const result=expandCompactDetails({...raw,...decision},'en',true);assert.equal(result.groupId,null);assert.equal(result.reviewReason,null);assert.equal(result.dosage.directions,raw.dosage.directions);assert.equal(validDetails(result,[{id:'meal'}],'en',[],true),true);}
+});

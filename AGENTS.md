@@ -554,3 +554,15 @@ Native select padding/min-height no longer inflate rows; the parent retains its
 now lives in Tools, retaining key/model save/removal and connection status inside
 the disclosure. Setting cards use a reduced bottom inset because rows already
 provide vertical padding; preferences retain 44px touch targets.
+
+## 0.21.4 — bounded focused extraction recovery
+
+Focused Gemini detail research may repair an invalid extraction exactly once using
+the existing grounded evidence; it never repeats search or retries key/network/rate
+errors. Normal success remains two calls. This supersedes the earlier no-repair
+policy for focused extraction only. Successful records store extractionAttempts.
+An unpaired optional group decision becomes null, preserving independently valid
+composition/directions without applying a move. Foreign groups and invalid product
+facts still fail validation. Failed jobs/products store only closed stage/reason
+enums (lookup/extraction; invalid_json/incomplete_output/invalid_fields/provider_error),
+never provider bodies, prompts or keys. Legacy/recognition transports stay unchanged.

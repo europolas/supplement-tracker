@@ -44,3 +44,14 @@ test('compact research transports only product facts and optional AI timing, the
   assert.equal(out.result.compatibility.assessments.length,0);assert.equal(out.result.cautions.length,0);assert.equal(out.result.groupId,manual?null:'meal');assert.equal(out.result.dosage.sourceUrl,'https://manufacturer.example/label');
  }
 });
+
+test('invalid focused extraction is repaired once from the same evidence; key failures are not retried',async()=>{
+ const {createGeminiResearch}=await import('../src/providers/gemini.mjs'),{detailsMessages,detailsSchema,validDetails}=await import('../src/product-details.mjs');
+ const raw={identified:true,productName:'Generic product',manufacturer:'Brand',variant:null,nutrients:[{name:'Ingredient',amount:400,unit:'mg',originalUnit:null,amountNote:'Per serving',sourceUrl:'S1'}],dosage:{directions:'Two tablets daily with food.',servingSize:'Two tablets',dailyServingsMin:1,dailyServingsMax:1,sourceUrl:'S1'},benefits:['Brief benefit.'],benefitSummary:'Energy',sources:[{url:'S1',title:'Official label',kind:'manufacturer'}]};
+ for(const mode of ['repair','invalid','key']){
+  let searches=0,extracts=0;const research=createGeminiResearch({search:async()=>{searches++;return {result:{text:'Exact-product label'},citations:['https://manufacturer.example/label'],searches:1};},extract:createGeminiStructured({fetch:async()=>{extracts++;if(mode==='key')return new Response('private key response',{status:403});return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:mode==='invalid'||extracts===1?'broken JSON secret body':JSON.stringify(raw)}]}}]});}})});
+  const request={name:'supplement_product_details',key:'private',messages:detailsMessages({name:'Generic product',language:'en',target:{name:'Generic product',manufacturer:'Brand',groupingBasis:'manual'},full:true}),schema:detailsSchema([],'en'),validate:v=>validDetails(v,[],'en')};
+  if(mode==='repair'){const out=await research(request);assert.equal(out.extractionAttempts,2);assert.equal(out.result.nutrients[0].amount,400);assert.equal(out.result.dosage.directions,raw.dosage.directions);assert.equal(out.result.groupId,null);}else await assert.rejects(research(request),e=>{assert.equal(e.code,mode==='key'?'AI_KEY_REJECTED':'AI_INVALID_RESPONSE');assert.equal(e.diagnostic.stage,'extraction');assert.equal(e.diagnostic.reason,mode==='key'?'provider_error':'invalid_json');assert.doesNotMatch(JSON.stringify(e),/secret body|private key/);return true;});
+  assert.equal(searches,1);assert.equal(extracts,mode==='key'?1:2);
+ }
+});

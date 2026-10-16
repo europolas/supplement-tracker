@@ -24,7 +24,10 @@ export function createGeminiStructured({fetch:send=globalThis.fetch,timeout=9000
   if(!response.ok){await response.body?.cancel();throw new ProviderError([401,403].includes(response.status)?'AI_KEY_REJECTED':response.status===429?'AI_RATE_LIMITED':'AI_PROVIDER_FAILED');}
   let data,result;const reader=response.body.getReader(),chunks=[];let size=0;
   try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>512*1024){await reader.cancel();throw new ProviderError('AI_INVALID_RESPONSE');}chunks.push(value);}}catch(e){throw e instanceof ProviderError?e:new ProviderError('AI_CONNECTION_FAILED');}
-  try{data=JSON.parse(Buffer.concat(chunks).toString());const c=data.candidates?.[0];if(c?.finishReason!=='STOP')throw Error();const text=c.content.parts.filter(p=>p.text&&!p.thought).map(p=>p.text).join('');result=textOnly?{text}:JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,''));if(validate(result)!==true)throw Error();}catch{throw new ProviderError('AI_INVALID_RESPONSE');}
+  // Only fixed reason codes escape the transport. Never attach provider bodies,
+  // product text or credentials to errors or persistent diagnostics.
+  let reason='invalid_json';
+  try{data=JSON.parse(Buffer.concat(chunks).toString());const c=data.candidates?.[0];reason='incomplete_output';if(c?.finishReason!=='STOP')throw Error();reason='invalid_json';const text=c.content.parts.filter(p=>p.text&&!p.thought).map(p=>p.text).join('');result=textOnly?{text}:JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,''));reason='invalid_fields';if(validate(result)!==true)throw Error();}catch{const error=new ProviderError('AI_INVALID_RESPONSE');error.diagnostic={reason};throw error;}
   const grounding=data.candidates[0].groundingMetadata,urls=new Set(),citationTitles={},citationAliases={};
   for(const chunk of grounding?.groundingChunks||[]){const url=citationUrl(chunk.web?.uri);if(!url)continue;urls.add(url);citationTitles[url]=String(chunk.web?.title||'').slice(0,250);
    // Google may return opaque grounding redirects. Resolve only Google's own

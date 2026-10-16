@@ -757,3 +757,15 @@ only their invented links, while product facts and actual source catalog survive
 finalizeAnalysis allows these reported fields only for the focused product pipeline.
 The legacy research mode keeps its primary-source checks. Same-product identity,
 owner/manual-group protection, strict data types and bounded transport still apply.
+
+## 0.21.4 — bounded focused extraction recovery
+
+Focused Gemini detail research may repair an invalid extraction exactly once using
+the existing grounded evidence; it never repeats search or retries key/network/rate
+errors. Normal success remains two calls. This supersedes the earlier no-repair
+policy for focused extraction only. Successful records store extractionAttempts.
+An unpaired optional group decision becomes null, preserving independently valid
+composition/directions without applying a move. Foreign groups and invalid product
+facts still fail validation. Failed jobs/products store only closed stage/reason
+enums (lookup/extraction; invalid_json/incomplete_output/invalid_fields/provider_error),
+never provider bodies, prompts or keys. Legacy/recognition transports stay unchanged.

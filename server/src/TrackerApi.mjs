@@ -19,6 +19,8 @@ import {photoProductsSchema,validPhotoProducts,photoProductsMessages,productRequ
 const jobColumns='id,status,supplement_id,error_code,total_count,processed_count,result,phase,language,created_at,finished_at';
 const jobResult=row=>row?{...row,result:typeof row.result==='string'?JSON.parse(row.result):row.result}:null;
 const safeCode=error=>error instanceof ProviderError?error.code:error instanceof ApiError?(/^[A-Z_]+$/.test(error.message)?error.message:error.status===429?'AI_RATE_LIMITED':error.status===401?'SESSION_EXPIRED':'REQUEST_FAILED'):'REQUEST_FAILED';
+// Persist only closed diagnostic enums, never raw provider output or messages.
+const researchFailure=error=>error instanceof ProviderError&&['lookup','extraction'].includes(error.diagnostic?.stage)?{stage:error.diagnostic.stage,reason:['invalid_json','incomplete_output','invalid_fields'].includes(error.diagnostic.reason)?error.diagnostic.reason:'provider_error'}:undefined;
 const uuid=value=>typeof value==='string'&&/^[a-f0-9-]{36}$/.test(value);
 function text(value,max,required=true){if(typeof value!=='string'||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)||required&&!value.trim())throw new ApiError(400,'INVALID_INPUT');return value.trim();}
 export function timezone(value){try{if(typeof value!=='string'||value.length>80)throw Error();return new Intl.DateTimeFormat('en',{timeZone:value}).resolvedOptions().timeZone;}catch{throw new ApiError(400,'INVALID_TIMEZONE');}}
@@ -261,7 +263,7 @@ export class TrackerApi {
    await Promise.all(report.items.filter(item=>item.research==='queued').map(async item=>{
     const queuedAt=Date.now();
     try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';item.queueMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);await this.enrich(owner,item.id,body.language,authorization,id,sealed);});item.research='complete';}
-    catch(error){item.research='failed';item.error=safeCode(error);await this.markResearchFailed(owner,item.id,id,item.error);}
+    catch(error){item.research='failed';item.error=safeCode(error);item.failure=researchFailure(error);await this.markResearchFailed(owner,item.id,id,item.error,item.failure);}
     item.elapsedMs=Date.now()-queuedAt;await this.jobProgress(owner,id,report);
    }));
    if(this.autoResearch&&report.timings){report.timings={...report.timings,detailsMs:Date.now()-detailsStarted,totalMs:Date.now()-workflowStarted};}
@@ -344,13 +346,13 @@ export class TrackerApi {
   });
   if(job.status!=='running'||this.activeJobs.has(job.id))return job;this.activeJobs.add(job.id);
   void (async()=>{const item=job.result.items[0];try{await this.backgroundQueue.enqueue(async()=>{item.research='researching';await this.jobProgress(owner,job.id,job.result);await this.enrich(owner,supplementId,language,authorization,job.id,sealed);});item.research='complete';}
-   catch(error){item.research='failed';item.error=safeCode(error);await this.markResearchFailed(owner,supplementId,job.id,item.error);}
+   catch(error){item.research='failed';item.error=safeCode(error);item.failure=researchFailure(error);await this.markResearchFailed(owner,supplementId,job.id,item.error,item.failure);}
    finally{try{await this.jobProgress(owner,job.id,job.result,'done');await this.pool.execute("UPDATE analysis_jobs SET status='complete',finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[job.id,owner]);}catch{ /* Deleted account. */ }this.activeJobs.delete(job.id);}
   })().catch(()=>{this.activeJobs.delete(job.id);});return job;
  }
  async checkKey(owner,encrypted){const [keys]=await this.pool.execute(`SELECT encrypted_key FROM ${this.credentialTable} WHERE user_id=?`,[owner]);if(!keys.length)throw new ApiError(400,'AI_KEY_REQUIRED');if(encrypted&&keys[0].encrypted_key!==encrypted)throw new ApiError(409,'AI_KEY_CHANGED');return keys[0].encrypted_key;}
- async markResearchFailed(owner,id,jobId,error){
-  await this.auth.transaction(async db=>{const [rows]=await db.execute('SELECT analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!rows.length)return;const a=typeof rows[0].analysis==='string'?JSON.parse(rows[0].analysis):rows[0].analysis;if(a.enrichment?.jobId!==jobId)return;a.enrichment={...a.enrichment,status:'failed',error};await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),id,owner]);});
+ async markResearchFailed(owner,id,jobId,error,failure){
+  await this.auth.transaction(async db=>{const [rows]=await db.execute('SELECT analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[id,owner]);if(!rows.length)return;const a=typeof rows[0].analysis==='string'?JSON.parse(rows[0].analysis):rows[0].analysis;if(a.enrichment?.jobId!==jobId)return;a.enrichment={...a.enrichment,status:'failed',error,...(failure?{failure}:{})};await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),id,owner]);});
  }
  /** Up to three background tasks see ALL drafts immediately; reserve the fourth
   * provider slot for recognition. Each result rechecks live collection state. Concurrent
@@ -390,7 +392,7 @@ export class TrackerApi {
  async requestResearch(owner,{name,image,language,target,groups,supplements,settings,sealed},authorization){
   const focused=this.singlePass,timing=Boolean(this.fullResearch&&target?.groupId&&['provisional','researched'].includes(target?.groupingBasis)&&groups.some(g=>g.id===target.groupId)),detailGroups=timing?groups:[];
   const started=Date.now();const data=await this.provider(()=>this.chat({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),model:settings.model,messages:focused?detailsMessages({name,image,language,target,groups:detailGroups,full:timing}):analysisMessages({name,image,groups,supplements,language,target}),schema:focused?detailsSchema(detailGroups,language,[],timing):analysisSchema(groups,supplements,language),validate:value=>focused?validDetails(value,detailGroups,language,[],timing):validAnalysis(value,groups,supplements,language),name:focused?'supplement_product_details':'supplement_analysis_v1_4',maxTokens:focused?6000:Math.min(12000,4500+supplements.length*190)}));
-  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,verifiedLabelSources:data.verifiedLabelSources||[],allowReported:focused,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;if(focused)result.research.scope=this.fullResearch?'full-product-details':'product-details';await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
+  const {result,citations}=data;if(!result.identified)throw new ApiError(422,'SUPPLEMENT_NOT_IDENTIFIED');finalizeAnalysis(result,{citations,verifiedLabelSources:data.verifiedLabelSources||[],allowReported:focused,image:Boolean(image),now:this.now()});result.research.elapsedMs=Date.now()-started;if(data.extractionAttempts)result.research.extractionAttempts=data.extractionAttempts;if(focused)result.research.scope=this.fullResearch?'full-product-details':'product-details';await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
   for(const assessment of result.compatibility.assessments){const s=supplements.find(s=>s.id===assessment.supplementId),a=typeof s.analysis==='string'?JSON.parse(s.analysis):s.analysis;assessment.supplementName=s.name;if(assessment.status==='no_known_issue'&&a.enrichment&&a.enrichment.status!=='complete')assessment.status='insufficient_information';}
   if(result.compatibility.assessments.some(a=>a.status!=='no_known_issue')){result.needsReview=true;result.compatibility.requiresReview=true;}return data;
  }
