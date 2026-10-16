@@ -417,3 +417,7 @@ Open **Account → AI dashboard** for the latest 20 requests: persisted stages,
 provider timings, queue-inclusive elapsed time, models, calls, product counts,
 composition coverage and errors. Older jobs may have no detailed metrics. This
 is owner-only diagnostic data; credentials and images are never shown.
+
+Version 0.16.3 refines supplement details: restrictions/interactions are inside
+More information, followed by a full-width Get detailed information action.
+The Sage light/dark presentation, pending state and expanded disclosure are preserved.

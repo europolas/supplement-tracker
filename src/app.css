@@ -62,7 +62,12 @@ textarea { resize:vertical; }fieldset { padding:0;border:0;margin:0;display:grid
 .detail-section p,.detail-section li { font-size:13px;line-height:1.7;overflow-wrap:anywhere;color:var(--muted); }.detail-tile p { margin:4px 0 0; }.detail-section ul { padding-left:17px;margin:5px 0; }
 .detail-section .detail-meta { font-size:11px;line-height:1.6;color:var(--muted); }.detail-section .dose-unknown { font-size:11px;line-height:1.6; }.dose-unknown em { font-style:italic; }
 .review-note { padding:12px;background:var(--soft);border-radius:11px;line-height:1.7;font-size:12px; }
-.detail-more { margin-top:20px;border:0;padding:0; }.detail-more>summary { display:flex;align-items:center;justify-content:space-between;min-height:46px;cursor:pointer;list-style:none; }.detail-more>summary::-webkit-details-marker { display:none; }.detail-more>summary::after { content:'+';font-size:20px; }.detail-more[open]>summary::after { content:'−'; }.detail-extra-content { padding-top:12px; }
+.detail-more { margin-top:20px;border:0;padding:0; }
+/* Both actions share the sheet width and touch spacing, including after expansion. */
+.detail-section .detail-research-button { display:flex;align-items:center;justify-content:center;width:100%;min-height:50px;padding:14px 18px;margin:12px 0 0;border:1px solid var(--line);background:transparent;color:var(--ink);font-size:13px;line-height:1.5;border-radius:14px; }
+.detail-section .detail-research-button:disabled { opacity:.55; }
+.detail-section .doctor-note { margin:16px 0 4px; }.detail-more>summary { display:flex;align-items:center;justify-content:space-between;min-height:50px;padding:14px 18px;border-radius:14px;gap:16px;line-height:1.5;cursor:pointer;list-style:none; }.detail-more>summary::-webkit-details-marker { display:none; }.detail-more>summary::after { content:'+';font-size:20px; }.detail-more[open]>summary::after { content:'−'; }.detail-extra-content { padding:14px 0 4px; }
+.detail-extra-content>.detail-tile { margin-bottom:18px; }
 html .app-dialog,html[data-theme="light"] .app-dialog { border:1px solid var(--line);background:var(--paper);color:var(--ink);box-shadow:0 -12px 60px #17231318; }
 html .bottom-sheet { padding-left:22px;padding-right:22px;border-bottom:0; }
 .app-dialog::backdrop { background:#20271c55;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px); }

@@ -431,3 +431,11 @@ manufacturer facts take precedence over reference screenshots; no hardcoded
 product/group table. Recognition cache is owner/key/input scoped, 15min/32 entries,
 text-only/process-local. New photos remain ~25–31s in observed tests; cache repeats
 ~1.25s. Do not describe cold speed or all grouping as solved/medically verified.
+
+## 0.16.3 — compact supplement details
+
+Keep restrictions/interactions in the collapsed More information disclosure with
+sources and management. Composition, usage, benefits and explicit severe routine
+conflicts remain primary. The full-width research action follows the disclosure,
+with consistent touch padding and spacing in both themes. Preserve pending-action
+disabling and disclosure expansion through polling redraws; no AI/API changes.

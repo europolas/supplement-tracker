@@ -1,7 +1,7 @@
 {
   "id": "supplement-tracker",
   "name": "Supplement Tracker",
-  "version": "0.16.2",
+  "version": "0.16.3",
   "apiUrl": "https://perimove.com/supplement-api/",
   "language": "en",
   "theme": "light",

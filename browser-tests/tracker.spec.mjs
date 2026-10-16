@@ -284,3 +284,22 @@ test('details omit the compatibility section when no severe alert exists',async(
 test('diagnostics distinguishes a completed partial batch and full workflow duration',async({page})=>{
  await mock(page,{preloaded:true,gemini:true,partialDiagnostics:true});await login(page);await page.goto('/#/diagnostics');const panel=page.locator('#ai-dashboard');await expect(panel).toContainText('Completed with issues');await expect(panel).not.toContainText('REQUEST_FAILED');await expect(panel).toContainText('193.07 s');await expect(panel).toContainText('1 / 1 / 2');
 });
+
+test('restrictions are disclosed and the full-width research action follows the disclosure',async({page})=>{
+ await mock(page,{preloaded:true,compatibilityMode:'benign',labelProduct:true});await login(page);await page.locator('.supplement-open').click();
+ const restrictions=page.locator('[data-detail-section=restrictions]'),more=page.locator('.detail-more'),action=page.locator('.detail-research-button');
+ await expect(page.locator('#detail-primary section')).toHaveCount(3);await expect(restrictions).toBeHidden();await expect(more.locator('[data-detail-section=restrictions]')).toHaveCount(1);
+ await expect(action).toHaveText('Get detailed information');await expect(action).toBeEnabled();
+ expect(await action.evaluate(n=>n.previousElementSibling.matches('.detail-more'))).toBe(true);
+ for(const theme of ['light','dark']){
+  await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  for(const width of [320,402]){
+   await page.setViewportSize({width,height:874});await action.scrollIntoViewIfNeeded();
+   const sizes=await action.evaluate(n=>({button:n.getBoundingClientRect().width,container:n.parentElement.getBoundingClientRect().width,gap:n.getBoundingClientRect().top-n.previousElementSibling.getBoundingClientRect().bottom,overflow:n.closest('dialog').scrollWidth>n.closest('dialog').clientWidth}));
+   expect(Math.abs(sizes.button-sizes.container)).toBeLessThan(1);expect(sizes.gap).toBeGreaterThanOrEqual(12);expect(sizes.overflow).toBe(false);
+   await page.screenshot({path:`.runtime/detail-actions-${theme}-${width}.png`,animations:'disabled'});
+  }
+ }
+ await more.locator('summary').click();await expect(restrictions).toBeVisible();await expect(restrictions).toContainText('Confirm suitability.');await action.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/detail-actions-expanded.png',animations:'disabled'});
+ await more.locator('summary').click();await expect(restrictions).toBeHidden();
+});

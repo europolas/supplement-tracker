@@ -158,8 +158,8 @@ function renderGroups(){
   },'danger-link'));card.append(actions);list.append(card);
  }
 }
-/** Keep the everyday detail view limited to dose, benefit, compatibility and
- * timing. Native disclosure contains the unchanged evidence and management tools.
+/** Keep composition, usage, benefits and severe routine conflicts visible.
+ * Native disclosure contains restrictions, evidence and management tools.
  * Preserve expansion only for this product across polling/language/theme renders;
  * navigating to a different product or signing out resets it. Nothing is persisted.
  */
@@ -172,7 +172,7 @@ function renderDetail(){
  const analysis=item.analysis,card=element('div',{className:'surface detail-section'}),primary=element('div',{attributes:{id:'detail-primary'}}),extra=element('div',{className:'detail-extra-content',attributes:{id:'detail-extra-content'}});
  const pending=['queued','researching'].includes(analysis.enrichment?.status),draft=analysis.schemaVersion==='draft-1',fallback=analysis.doseFallback;
  const reference=fallback&&['established_adult_intake','usual_adult_supplement_range'].includes(fallback.basis)&&(!analysis.dosage?.directions||analysis.dosage?.dailyServingsMin==null);
- const section=(key,name)=>{const node=element('section',{className:'detail-tile',attributes:{'data-detail-section':name}});node.append(icon({dose:'clock',benefits:'leaf',composition:'dose'}[name]),heading(i18n.t(key),'h3'));primary.append(node);return node;};
+ const section=(key,name,parent=primary)=>{const node=element('section',{className:'detail-tile',attributes:{'data-detail-section':name}});node.append(icon({dose:'clock',benefits:'leaf',composition:'dose',restrictions:'shield',compatibility:'shield'}[name]),heading(i18n.t(key),'h3'));parent.append(node);return node;};
  const prose=(target,value)=>{if(Array.isArray(value)){const list=element('ul');for(const text of value)list.append(element('li',{text}));target.append(list);}else target.append(element('p',{text:value}));};
  const assigned=state.groups.find(group=>group.id===item.group_id),badge=element('div',{className:'group-badge'});badge.append(assigned?renderGroupIcon(assigned):icon('info'),element('span',{text:assigned?.name||i18n.t('appUnassigned')}));
  const productInfo=productLabel({name:item.name,manufacturer:analysis.manufacturer,variant:analysis.variant});
@@ -213,7 +213,7 @@ function renderDetail(){
  for(const a of severe){const block=element('div',{className:'interaction-alert'});if(a.supplementName)block.append(heading(a.supplementName,'h4'));prose(block,a.reason);
  const recommended=state.groups.find(g=>g.id===a.recommendedGroupId);if(a.recommendation&&(!a.recommendedGroupId||recommended&&recommended.id!==item.group_id))prose(block,a.recommendation);
  if(recommended&&recommended.id!==item.group_id)block.append(element('p',{text:i18n.t('appSuggestedGroup',{name:recommended.name}),className:'detail-meta'}));compatibility.append(block);}}
- if(analysis.cautions?.length)prose(section('appRestrictions','restrictions'),analysis.cautions);
+ if(analysis.cautions?.length)prose(section('appRestrictions','restrictions',extra),analysis.cautions);
  }
  if(!draft&&analysis.sources?.length){
   extra.append(heading(i18n.t('appSources'),'h3'));const list=element('ul',{className:'source-list'});
@@ -225,8 +225,7 @@ function renderDetail(){
  }
  // New products are researched automatically. This action retries/refreshes explicitly.
  const refresh=button(i18n.t('appGetDetailedInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});
- refresh.disabled=pending;card.append(refresh);
- if(pending||basic&&analysis.enrichment?.status==='failed')card.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status),className:'research-badge',attributes:{role:'status'}}));
+ refresh.disabled=pending;refresh.className='secondary detail-research-button';
  const select=element('select',{attributes:{'aria-label':i18n.t('appMoveGroup')}});
  select.append(element('option',{text:i18n.t('appUnassigned'),attributes:{value:''}}));
  for(const group of state.groups)select.append(element('option',{text:group.name,attributes:{value:group.id}}));select.value=item.group_id||'';
@@ -239,7 +238,9 @@ function renderDetail(){
  const disclosure=element('details',{className:'detail-more',attributes:{'data-supplement-id':item.id}}),toggle=element('summary',{className:'secondary',attributes:{'aria-controls':extra.id}});
  const label=()=>{toggle.textContent=i18n.t(disclosure.open?'appLessInfo':'appMoreInfo');};
  disclosure.open=Boolean(expanded);label();disclosure.addEventListener('toggle',label);
- disclosure.append(toggle,extra);card.append(disclosure,element('p',{text:i18n.t('appDoctorConsultation'),className:'detail-meta doctor-note'}));container.append(card);
+ disclosure.append(toggle,extra);card.append(disclosure,refresh);
+ if(pending||basic&&analysis.enrichment?.status==='failed')card.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status),className:'research-badge',attributes:{role:'status'}}));
+ card.append(element('p',{text:i18n.t('appDoctorConsultation'),className:'detail-meta doctor-note'}));container.append(card);
 }
 function renderAi(){
  get('clear-data-panel').hidden=!current();get('ai-settings').hidden=!current();if(!state.ai)return;
