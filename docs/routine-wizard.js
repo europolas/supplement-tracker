@@ -61,11 +61,28 @@ export function createRoutineWizard({dialog,editorDialog,goalsDialog,i18n,icon,c
  function renderPersonal(body){
   const card=node('section',undefined,'routine-card routine-personal');
   const p=draft.personal;
-  const sex=node('label',undefined,'routine-personal-field');sex.append(node('span',t('Sex')));const select=node('select');select.setAttribute('aria-label',t('Sex'));for(const [v,k]of [['','Unspecified'],['female','Female'],['male','Male'],['other','Other']]){const o=node('option',t(k));o.value=v;select.append(o);}select.value=p.sex||'';select.addEventListener('change',()=>p.sex=select.value||null);sex.append(select);card.append(sex);
+  const sex=node('label',undefined,'routine-personal-field');sex.append(node('span',t('Sex')));const select=node('select');select.setAttribute('aria-label',t('Sex'));for(const [v,k]of [['','Unspecified'],['female','Female'],['male','Male']]){const o=node('option',t(k));o.value=v;select.append(o);}select.value=p.sex||'';select.addEventListener('change',()=>p.sex=select.value||null);sex.append(select);card.append(sex);
   for(const [key,label,type,min,max]of [['birthDate','BirthDate','date','1900-01-01',new Date().toISOString().slice(0,10)],['heightCm','Height','number',40,260],['weightKg','Weight','number',2,500],['muscleKg','Muscle','number',1,250]]){
    const field=node('div',undefined,'routine-personal-field');field.append(node('label',t(label)));const choice=node('select');choice.setAttribute('aria-label',t(label)+' · '+t('Disclosure'));choice.dataset.personalChoice=key;for(const [v,k]of [['','Unspecified'],['set','Specify']]){const o=node('option',t(k));o.value=v;choice.append(o);}choice.value=p[key]===null?'':'set';
-   const input=node('input');input.type=type;input.dataset.personalInput=key;input.setAttribute('aria-label',t(label));input.min=min;input.max=max;if(type==='number'){input.step='0.1';input.inputMode='decimal';}input.value=p[key]??'';input.disabled=input.hidden=p[key]===null;input.required=true;
-   choice.addEventListener('change',()=>{const enabled=choice.value==='set';input.disabled=input.hidden=!enabled;if(!enabled){p[key]=null;input.value='';}else input.focus();});input.addEventListener('input',()=>p[key]=input.value===''?null:type==='number'?Number(input.value):input.value);field.append(choice,input);card.append(field);
+   const specified=p[key]!==null;
+   let control,inputs;
+   if(type==='date'){
+    control=node('input');control.type='date';control.dataset.personalInput=key;control.setAttribute('aria-label',t(label));control.min=min;control.max=max;control.value=p[key]||'';control.required=true;inputs=[control];
+    control.addEventListener('input',()=>p[key]=control.value||null);
+   }else{
+    // Native selects provide iPhone wheel pickers without a text keyboard. Split
+    // whole/tenths to keep scrolling and DOM size bounded, retaining 0.1 precision.
+    control=node('div',undefined,'routine-measurement');const whole=node('select'),fraction=node('select');whole.dataset.personalInput=key;fraction.dataset.personalFraction=key;
+    whole.setAttribute('aria-label',t(label));fraction.setAttribute('aria-label',t(label)+' · '+t('Tenths'));whole.required=true;
+    const blank=node('option',t('Choose'));blank.value='';whole.append(blank);
+    for(let n=min;n<=max;n++){const o=node('option',String(n));o.value=String(n);whole.append(o);}
+    for(let n=0;n<10;n++){const o=node('option',new Intl.NumberFormat(i18n.language,{minimumFractionDigits:1,maximumFractionDigits:1}).format(n/10));o.value=String(n);fraction.append(o);}
+    whole.value=specified?String(Math.floor(p[key])):'';fraction.value=specified?String(Math.round(p[key]*10)%10):'0';
+    const update=()=>{const atMax=Number(whole.value)===max;for(const o of fraction.options)o.disabled=atMax&&o.value!=='0';if(atMax)fraction.value='0';p[key]=whole.value===''?null:Number((Number(whole.value)+Number(fraction.value)/10).toFixed(1));};
+    whole.addEventListener('change',update);fraction.addEventListener('change',update);update();control.append(whole,fraction);inputs=[whole,fraction];
+   }
+   control.hidden=!specified;for(const input of inputs)input.disabled=!specified;
+   choice.addEventListener('change',()=>{const enabled=choice.value==='set';control.hidden=!enabled;for(const input of inputs)input.disabled=!enabled;if(!enabled){p[key]=null;inputs[0].value='';if(inputs[1])inputs[1].value='0';}else inputs[0].focus();});field.append(choice,control);card.append(field);
   }
   card.append(node('p',t('MuscleHelp'),'routine-help'));body.append(card);
   const goals=button('',openGoals,'routine-card routine-goals-open');goals.append(glyph('target'));const text=node('span');text.append(node('strong',t('Goals')),node('small',p.goals.length?p.goals.map(k=>t('Goal_'+k)).join(' · '):t('Unspecified')));goals.append(text,glyph('chevron'));body.append(goals);
@@ -100,5 +117,5 @@ export function createRoutineWizard({dialog,editorDialog,goalsDialog,i18n,icon,c
   const actions=node('div',undefined,'button-row routine-editor-actions');actions.append(button(t('Cancel'),()=>void editSheet.close(),'secondary'),button(t('Save'),()=>{if(!editDraft.timing){error.textContent=t('ChooseTime');return;}if(editing==='sleep')draft.sleep=clone(editDraft);else if(editing==='exercise')draft.exercise=clone(editDraft);else draft.meals[editing]=clone(editDraft);render();void editSheet.close();},'primary'));editRoot.append(actions);
  }
  async function saveRoutine(){if(saving||!complete())return;const version=serial;saving=true;render();try{const saved=await onSave(clone(draft),revision);if(version!==serial)return;if(saved===false)return;baseline=clone(draft);await sheet.close();}catch(error){if(version===serial){root.querySelector('[data-routine-error]').textContent=onError(error);}}finally{if(version===serial){saving=false;root.querySelector('.routine-wizard-actions button').disabled=false;}}}
- return {open({routine=null,routineRevision=0,firstIncomplete=false}={}){serial++;draft={...clone(routine||initial()),version:2,personal:clone(routine?.personal||emptyPersonal())};baseline=clone(draft);revision=routineRevision;personalReviewed=routine?.version===2;step=firstIncomplete&&routine?.version===1?1:0;saving=false;render();void sheet.open();},reset(){serial++;goalDraft=[];personalReviewed=false;editing=null;editDraft=null;draft=null;baseline=null;saving=false;editRoot.replaceChildren();root.replaceChildren();void goalsSheet.close({immediate:true});goalsDialog.querySelector('[data-routine-goals]').replaceChildren();void editSheet.close({immediate:true});void sheet.close({immediate:true});},get dirty(){return Boolean(draft&&!equal(draft,baseline));},get saving(){return saving;}};
+ return {open({routine=null,routineRevision=0,firstIncomplete=false}={}){serial++;draft={...clone(routine||initial()),version:2,personal:clone(routine?.personal||emptyPersonal())};if(!['female','male'].includes(draft.personal.sex))draft.personal.sex=null;baseline=clone(draft);revision=routineRevision;personalReviewed=routine?.version===2;step=firstIncomplete&&routine?.version===1?1:0;saving=false;render();void sheet.open();},reset(){serial++;goalDraft=[];personalReviewed=false;editing=null;editDraft=null;draft=null;baseline=null;saving=false;editRoot.replaceChildren();root.replaceChildren();void goalsSheet.close({immediate:true});goalsDialog.querySelector('[data-routine-goals]').replaceChildren();void editSheet.close({immediate:true});void sheet.close({immediate:true});},get dirty(){return Boolean(draft&&!equal(draft,baseline));},get saving(){return saving;}};
 }

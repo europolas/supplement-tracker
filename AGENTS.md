@@ -1,3 +1,13 @@
+## 0.27.1 — native personal measurement pickers
+
+About me no longer offers Other for sex. A legacy Other value opens as unspecified
+and only persists that change on explicit Save. Height/weight/muscle use native
+whole-number and tenths selects, not editable number inputs. This keeps 0.1 precision
+without thousands of options in one wheel; maximum values permit only .0. Clearing
+a measurement returns null and retains the existing consent/omission contract.
+The Safari date control is bounded to the same 46px border-box height/full width as
+adjacent selects, including its intrinsic WebKit date value. No API/schema change.
+
 ## 0.27.0 — personal routine and durable conclusions
 
 Account Tools follows the user card and contains Daily routine (sliders icon).
