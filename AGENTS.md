@@ -549,3 +549,8 @@ remain; icon fonts, editable-field sizing and viewport/keyboard behavior are pre
 0.21.2: Account preference selects inherit the model-row text size and line height.
 Native select padding/min-height no longer inflate rows; the parent retains its
 44px touch target and the shared card padding remains unchanged.
+
+0.21.3: Account removes the standalone AI connection card. Manage connection
+now lives in Tools, retaining key/model save/removal and connection status inside
+the disclosure. Setting cards use a reduced bottom inset because rows already
+provide vertical padding; preferences retain 44px touch targets.

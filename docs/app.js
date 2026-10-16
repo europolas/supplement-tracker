@@ -226,11 +226,9 @@ function renderAccount(){
  const user=auth.state.get().user;get('account-screen').dataset.authenticated=String(Boolean(user));for(const id of ['account-security','account-tools','logout-slot'])get(id).hidden=!user;
  get('account-display-name').textContent=user?.name||'';get('account-initials').textContent=(user?.name||'').trim().split(/\s+/).slice(0,2).map(n=>Array.from(n)[0]).join('').toUpperCase();
  get('edit-profile-name').setAttribute('aria-expanded',String(!get('profile-form').hidden));
- const configured=Boolean(state.ai?.configured);get('connection-badge').textContent=i18n.t(configured?'appConnected':'appNotConnected');get('connection-badge').dataset.connected=String(configured);get('account-key-mask').textContent=configured?'••••':'';get('account-model').textContent=state.ai?.model||'';
 }
 get('edit-profile-name').addEventListener('click',()=>{get('profile-form').hidden=!get('profile-form').hidden;renderAccount();if(!get('profile-form').hidden)get('profile-form').elements.name.focus();});
 get('profile-form').addEventListener('app:saved',()=>{get('profile-form').hidden=true;renderAccount();});
-for(const [id,field]of [['edit-api-key','key'],['edit-ai-model','model']])get(id).addEventListener('click',()=>{get('connection-editor').open=true;get('ai-form').elements[field].focus();});
 /** Keep composition, usage, benefits and severe routine conflicts visible.
  * Native disclosure contains restrictions, evidence and management tools.
  * Preserve expansion only for this product across polling/language/theme renders;
@@ -321,7 +319,7 @@ function renderDetail(){
 }
 function renderAi(){
  renderAccount();
- get('clear-data-panel').hidden=!current();get('ai-settings').hidden=!current();if(!state.ai)return;
+ get('clear-data-panel').hidden=!current();if(!state.ai)return;
  status('ai-key-status',i18n.t(state.ai.configured?'appKeySaved':'appKeyMissing'));
  get('remove-key').disabled=!state.ai.configured;
  const select=get('ai-form').elements.model;
