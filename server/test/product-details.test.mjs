@@ -37,3 +37,10 @@ test('manual detail requests omit group context, instructions and wire fields en
  assert.throws(()=>expandCompactDetails({...raw,groupId:'private'},'en',false));
  const cautions=fullFixture();cautions.cautions=['Extra topic'];assert.equal(validDetails(cautions,[],'en',[],true),false);
 });
+
+test('verbose research preview is bounded without discarding full benefits or product facts',()=>{
+ const f=fullFixture(),raw={identified:true,productName:f.productName,manufacturer:f.manufacturer,variant:f.variant,nutrients:[],dosage:{...f.dosage},benefits:['Full detailed benefit stays intact.'],benefitSummary:'Sleep quality, nervous system support, muscle relaxation and recovery',sources:[]};delete raw.dosage.evidence;
+ const expanded=expandCompactDetails(raw,'en',false);assert.equal(validDetails(expanded,[],'en'),true);assert.deepEqual(expanded.benefits,raw.benefits);assert.equal(expanded.benefitSummary.split(/\s+/).length,6);assert.equal(raw.benefitSummary,'Sleep quality, nervous system support, muscle relaxation and recovery');
+ raw.benefitSummary=Array(20).fill('Atsipalaidavimas').join(' ');assert.equal(validDetails(expandCompactDetails(raw,'lt',false),[],'lt'),true);
+ raw.benefitSummary=42;assert.equal(validDetails(expandCompactDetails(raw,'en',false),[],'en'),false);
+});

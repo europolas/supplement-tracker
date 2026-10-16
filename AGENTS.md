@@ -507,3 +507,12 @@ Version 0.20.2 removes the header wordmark and global brand footer. Version is
 shown only in Account. The Home summary has 18px above (after the status safe area)
 and below, increasing its gap to groups by 10px. Main bottom scroll clearance uses
 the actual navigation height/offset plus 16px, with no trailing group margin.
+
+Version 0.20.3 bounds the detailed-research benefit preview before validation, so
+a verbose preview cannot discard valid ingredient/usage evidence. Full benefits,
+amounts, source binding and manual group protection are unchanged. Research checks
+the official local-language site and may use primary ingredient references when
+an exact label is unavailable; retailer quantities remain unverified.
+Product details always show Refresh information and Delete supplement below the
+group selector. More information contains only actual researched extra content and
+is absent for basic/draft records. The generic consultation footer is removed.

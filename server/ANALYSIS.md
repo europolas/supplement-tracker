@@ -740,3 +740,11 @@ The client includes its selected locale in dashboard reads, new submissions,
 research and translation. Existing polling sequentially prepares missing batches;
 logout clears attempt state. Cached languages are reused without another provider
 call. Translation timings/tokens are included in diagnostics. No DB migration.
+
+Detailed research normalization (0.20.3): only the short benefit display preview
+is bounded to the existing six-word/80-character contract before validation. The
+full benefit text and evidence-bearing product fields are preserved; wrong types,
+invalid group IDs, unverified sources and quantities still fail validation. A
+nine-word preview previously caused the reported Magnesium research to fail after
+both provider calls completed. No extra provider request or automatic paid retry
+is introduced.

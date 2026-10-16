@@ -255,17 +255,21 @@ function renderDetail(){
  select.append(element('option',{text:i18n.t('appUnassigned'),attributes:{value:''}}));
  for(const group of state.groups)select.append(element('option',{text:group.name,attributes:{value:group.id}}));select.value=item.group_id||'';
  select.addEventListener('change',async()=>{select.disabled=true;await mutate(()=>api.patch('/v1/supplements/'+item.id,{groupId:select.value||null}));});
- extra.append(heading(i18n.t('appMoveGroup'),'h3'),select);
- extra.append(button(i18n.t('appDeleteSupplement'),async()=>{
+ const groupControls=element('div',{className:'detail-group-controls'});groupControls.append(heading(i18n.t('appMoveGroup'),'h3'),select);
+ const remove=button(i18n.t('appDeleteSupplement'),async()=>{
   if(!await confirmDialog(i18n.t('appDeleteSupplementConfirm'),{i18n}))return;
   await mutate(async()=>{await api.delete('/v1/supplements/'+item.id);router.navigate('/');});
- },'danger-link'));
+ },'danger-link');
+ if(!basic&&!draft&&extra.childElementCount){
  const disclosure=element('details',{className:'detail-more',attributes:{'data-supplement-id':item.id}}),toggle=element('summary',{className:'secondary',attributes:{'aria-controls':extra.id}});
  const label=()=>{toggle.textContent=i18n.t(disclosure.open?'appLessInfo':'appMoreInfo');};
  disclosure.open=Boolean(expanded);label();disclosure.addEventListener('toggle',label);
- extra.append(refresh);disclosure.append(toggle,extra);card.append(disclosure);
+ disclosure.append(toggle,extra);card.append(disclosure);
+ }
+ const actions=element('div',{className:'detail-actions'});actions.append(refresh,remove);
+ card.append(groupControls,actions);
  if(pending||basic&&analysis.enrichment?.status==='failed')card.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status),className:'research-badge',attributes:{role:'status'}}));
- card.append(element('p',{text:i18n.t('appDoctorConsultation'),className:'detail-meta doctor-note'}));container.append(card);
+ container.append(card);
 }
 function renderAi(){
  get('clear-data-panel').hidden=!current();get('ai-settings').hidden=!current();if(!state.ai)return;
