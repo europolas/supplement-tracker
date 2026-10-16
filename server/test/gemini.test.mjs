@@ -29,3 +29,10 @@ test('full details contract returns sparse severe alerts and owned group choices
  const {detailsSchema,detailsMessages}=await import('../src/product-details.mjs');const supplements=[{id:'owned',name:'Other product',analysis:{manufacturer:'Other',nutrients:[]}}];
  const schema=detailsSchema([],'lt',supplements,true);assert.equal(schema.properties.compatibility.properties.assessments.minItems,0);assert.equal(schema.properties.compatibility.properties.assessments.items.properties.supplementId.enum[0],'owned');assert.ok(schema.properties.cautions.maxItems>0);assert.deepEqual(schema.properties.groupId.enum,[null]);const prompt=detailsMessages({name:'Unknown brand product',language:'lt',supplements,full:true});assert.match(prompt[0].content,/when manufacturer\/brand is missing/);assert.doesNotMatch(prompt[0].content,/No routine compatibility analysis/);
 });
+
+test('exact Extra Strength identity without printed strength avoids fasting and recognizes flexible groups',async()=>{
+ const gs=[{id:'fast',name:'Morning · empty stomach'},{id:'fat',name:'Meals · with fats'},{id:'any',name:'Any time day or evening'},{id:'bed',name:'Before bed without food'}];
+ const pipeline=createGeminiPipeline({provider:async()=>({result:{products:[{name:'Extra Strength Alpha Lipoic Acid',manufacturer:'NOW',ingredients:['Alpha lipoic acid'],groupId:'fast',benefit:'Antioxidant, energy'}]}})});
+ const out=await pipeline.discover({key:'test',messages:basicProductsMessages({name:'label',language:'en',groups:gs,supplements:[]})});assert.equal(out.result.products[0].groupId,'any');
+ assert.match(geminiPrompt(),/Never select a fasting group for a product recommended with food/);
+});

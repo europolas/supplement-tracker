@@ -651,3 +651,32 @@ before breakfast for NAD; non-fasting for manufacturer-directed ALA. It does not
 assert a medically unique schedule for NAC, lysine or zinc, or identify ALERTEN's
 hidden ingredients. Results roughly match 11/16 reference slots; five differences
 are documented, not hidden by changing the fixture or assigning fixed products.
+
+## 0.17.0 — reconcile AI timing during full detail research
+
+Gemini recognition explicitly treats manufacturer meal recommendations (including
+"preferably with a meal") as incompatible with fasting. Flexible any-time slots
+permit food unless their description excludes it. Reviewed NOW Extra Strength ALA
+facts match its exact named formulation when strength is split/missing; an unnamed
+ALA without strength does not match. The post-recognition guard now recognizes
+neutral any-time groups as well as explicit meal groups.
+
+Full details receive every owned group's name/description, the target's current
+ID and assignment basis. The existing extraction request returns groupId plus a
+short reviewReason, using the same retrieved timing evidence as the usage fields.
+No third provider call or separate grouping request is added. Public Search still
+receives only product identity, never private group/routine contents. Focused legacy
+non-full details retain their null-group contract.
+
+The atomic commit applies an owned proposal only to a documented AI assignment,
+with a verified manufacturer/label source, a nonempty reason and unchanged group
+semantics/current assignment. Manual moves, same-group manual choices and manual
+unassignment always win, including edits during research. Missing provenance is
+preserved; legacy identity.groupId can establish an unchanged AI-origin assignment.
+Unknown evidence never unassigns a product. The saved grouping retains reason,
+source and check time. Manufacturer mismatch discards the timing proposal alongside
+unsupported product claims. Timing changes do not resolve systemic interactions.
+All new recognition records explicitly store grouping.basis=provisional.
+
+No database migration or bulk rewrite. Existing products are reassessed on their
+next detailed-information refresh; only the reported ALA is targeted for correction.

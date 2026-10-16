@@ -6,7 +6,7 @@ import {basicProductsSchema,basicProductsMessages,validBasicProducts,normalizeBa
  * are never persisted in this class's results or logs. Completion day is derived on
  * the server using a validated device timezone; no midnight background worker is needed.
  */
-import {routineGrouping} from './grouping.mjs';
+import {routineGrouping,researchedGrouping} from './grouping.mjs';
 import {createTaskQueue} from './task-queue.mjs';
 import {randomUUID} from 'node:crypto';
 import {ApiError} from './security.mjs';
@@ -239,7 +239,7 @@ export class TrackerApi {
      if(capacity<=0){report.skipped.push({name:product.name,reasonCode:'SUPPLEMENT_LIMIT'});continue;}capacity--;
      const draft=draftAnalysis({...product,requestedName:body.name||null},{language,jobId:id}),recordId=randomUUID();
      if(productMetadata?.[identity])Object.assign(draft,productMetadata[identity]);
-     if(this.singlePass){draft.schemaVersion='basic-1';draft.enrichment={status:this.autoResearch?'queued':'complete',jobId:id,language};draft.needsReview=productMetadata?.[identity]?typeof productMetadata[identity].classification.groupConfidence==='number'&&productMetadata[identity].classification.groupConfidence<.65:product.review;draft.productName=product.name;}
+     if(this.singlePass){draft.grouping={basis:'provisional',groupId:product.groupId};draft.schemaVersion='basic-1';draft.enrichment={status:this.autoResearch?'queued':'complete',jobId:id,language};draft.needsReview=productMetadata?.[identity]?typeof productMetadata[identity].classification.groupConfidence==='number'&&productMetadata[identity].classification.groupConfidence<.65:product.review;draft.productName=product.name;}
      await db.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) VALUES (?,?,?,?,?,?,?)',[recordId,owner,product.groupId,draft.productName,JSON.stringify(draft),model,productRequestId(body.requestId,index)]);
      report.items.push({id:recordId,name:draft.productName,status:'added',research:this.singlePass&&!this.autoResearch?'complete':'queued'});
     }
@@ -329,9 +329,9 @@ export class TrackerApi {
   const [groups]=await this.pool.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);
   const [rows]=await this.pool.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id',[owner]);const target=rows.find(row=>row.id===id);if(!target)throw new ApiError(404,'NOT_FOUND');
   const previous=typeof target.analysis==='string'?JSON.parse(target.analysis):target.analysis;if(previous.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
-  previous.enrichment.status='researching';await this.pool.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(previous),id,owner]);
+  await this.pool.execute("UPDATE supplements SET analysis=JSON_SET(analysis,'$.enrichment.status','researching') WHERE id=? AND user_id=?",[id,owner]);
   const supplements=rows.filter(row=>row.id!==id),snapshot=JSON.stringify(rows.map(row=>[row.id,row.name,row.group_id,row.id===id?null:row.analysis]));
-  const {result,model}=await this.requestResearch(owner,{name:target.name,image:null,language,target:{...(previous.identity||{name:target.name,manufacturer:previous.manufacturer||null,variant:previous.variant||null}),groupId:target.group_id,originalBenefit:previous.benefitSummary,originalComposition:previous.composition?.ingredients||[]},groups,supplements,settings,sealed},authorization);
+  const {result,model,verifiedLabelSources=[]}=await this.requestResearch(owner,{name:target.name,image:null,language,target:{...(previous.identity||{name:target.name,manufacturer:previous.manufacturer||null,variant:previous.variant||null}),groupId:target.group_id,groupingBasis:previous.grouping?.basis||'provisional',originalBenefit:previous.benefitSummary,originalComposition:previous.composition?.ingredients||[]},groups,supplements,settings,sealed},authorization);
   await this.auth.transaction(async db=>{
    const [latest]=await db.execute('SELECT id,name,group_id,analysis FROM supplements WHERE user_id=? ORDER BY id FOR UPDATE',[owner]);const row=latest.find(r=>r.id===id);if(!row)throw new ApiError(404,'NOT_FOUND');
    const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;if(a.enrichment?.jobId!==jobId)throw new ApiError(409,'COLLECTION_CHANGED');
@@ -339,10 +339,13 @@ export class TrackerApi {
    if(changed){result.compatibility.stale=true;result.compatibility.requiresReview=true;result.needsReview=true;}
    // Planning and safety are separate: a conflict remains visible without erasing
    // the user's schedule. Concurrent/manual grouping always takes precedence.
-   const [owned]=await db.execute('SELECT id FROM day_groups WHERE user_id=?',[owner]);
-   // Focused details cannot approve or overwrite a grouping review, including its
-   // source, explanation and a concurrent manual choice.
-   const grouping=this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
+   const [owned]=await db.execute('SELECT id,name,description FROM day_groups WHERE user_id=? ORDER BY position',[owner]);
+   // Details can correct an AI schedule, never a concurrent/manual user choice.
+   // Source verification happens before this transaction; group edits invalidate
+   // timing context without discarding otherwise useful product information.
+   const timingSources=result.sources.filter(s=>s.kind==='manufacturer'||s.kind==='label_registry'&&verifiedLabelSources.includes(s.url));
+   const source=timingSources.find(s=>s.url===result.dosage?.sourceUrl)||timingSources[0];
+   const grouping=this.singlePass&&this.fullResearch?researchedGrouping({analysis:a,previous:target.group_id,current:row.group_id,proposed:result.groupId,ownedIds:owned.map(g=>g.id),groupsUnchanged:JSON.stringify(owned)===JSON.stringify(groups),reason:result.reviewReason,sourceUrl:source?.url,checkedAt:this.now().toISOString()}):this.singlePass?{...(a.grouping||{basis:'provisional'}),groupId:owned.some(g=>g.id===row.group_id)?row.group_id:null}:routineGrouping({proposed:result.groupId,previous:target.group_id,ownedIds:owned.map(g=>g.id),manual:a.grouping?.basis==='manual'||row.group_id!==target.group_id,current:row.group_id});
    const groupId=grouping.groupId;result.grouping=grouping;
    if(grouping.basis==='provisional'){result.needsReview=true;}
    result.identityAliases=[...new Set([...(a.identityAliases||[]),productIdentity(previous.identity||{...previous,name:target.name})])].slice(-8);

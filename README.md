@@ -423,3 +423,8 @@ More information, followed by a full-width Get detailed information action.
 The Sage light/dark presentation, pending state and expanded disclosure are preserved.
 
 Version 0.16.4 moves Refresh information into the More information disclosure.
+
+Version 0.17.0 checks the selected day group during full product research and
+corrects an unchanged AI assignment using manufacturer timing evidence. Manual
+choices remain unchanged. Initial recognition also respects meal recommendations
+and flexible any-time groups; no additional grouping request is introduced.

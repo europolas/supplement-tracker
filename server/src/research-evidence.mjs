@@ -36,6 +36,6 @@ export function bindEvidence(raw,book,target,language='en'){
  for(const n of result.nutrients)if(n.evidence==='manufacturer'&&(!validMaker(n.sourceUrl)||book.find(s=>s.url===n.sourceUrl)?.label&&!book.find(s=>s.url===n.sourceUrl).label.ingredients?.some(i=>i.quantity?.some(q=>q.quantity===n.amount&&String(q.unit).toLowerCase()===String(n.unit).toLowerCase())))){Object.assign(n,{amount:null,nrvComparable:false,sourceUrl:null,evidence:'unknown',amountNote:''});result.needsReview=true;}
  if(unsupported||result.doseFallback?.basis==='not_needed'&&d.evidence==='unknown')result.doseFallback={basis:'unavailable',ingredient:null,dailyAmountMin:null,dailyAmountMax:null,unit:null,sourceUrl:null,explanation:language==='lt'?'Nenustatyta':'Not determined'};
  // These are reserved/derived display fields, not clinical assertions.
- result.compatibility.summary='';result.compatibility.requiresReview=result.compatibility.assessments?.length>0;result.reviewReason=null;result.evidenceNote='';
+ result.compatibility.summary='';result.compatibility.requiresReview=result.compatibility.assessments?.length>0;if(mismatch){result.groupId=null;result.reviewReason=null;}result.evidenceNote='';
  return result;
 }

@@ -36,3 +36,11 @@ test('research rejects unencountered severe-alert sources and current-group move
  const run=()=>api.requestResearch(owner,{name:'Product',language:'en',target:{name:'Product',groupId:'morning'},groups,supplements,settings:{model:'test'},sealed},'Bearer private');
  const result=await run();assert.equal(result.result.compatibility.assessments[0].supplementName,'Other');registry=true;await assert.rejects(run(),e=>e.code==='AI_SOURCES_UNVERIFIED');prove=true;await run();registry=false;prove=false;source='https://invented.example/interaction';await assert.rejects(run(),e=>e.code==='AI_SOURCES_UNVERIFIED');source='https://manufacturer.example/interaction';recommended='morning';await assert.rejects(run(),e=>e.code==='AI_INVALID_RESPONSE');
 });
+
+test('full details reviews timing against all groups and requires an owned decision and explanation',()=>{
+ const groups=[{id:'fast',name:'Morning · empty stomach'},{id:'meal',name:'Any time day or evening'}],f=fullFixture();f.groupId='meal';f.reviewReason='Exact manufacturer directions recommend a meal.';
+ assert.deepEqual(detailsSchema(groups,'en',[],true).properties.groupId.enum,['fast','meal',null]);assert.equal(validDetails(f,groups,'en',[],true),true);
+ for(const changes of [{groupId:'foreign'},{groupId:['fast','meal']},{reviewReason:null},{reviewReason:''}])assert.equal(validDetails({...f,...changes},groups,'en',[],true),false);
+ const m=detailsMessages({name:'Product',language:'en',target:{groupId:'fast',groupingBasis:'provisional'},groups,full:true}),c=JSON.parse(m[1].content[0].text);
+ assert.equal(c.groups.length,2);assert.equal(c.selectedTarget.groupId,'fast');assert.match(m[0].content,/preferably with a meal/);assert.match(m[0].content,/manual assignments remain unchanged/);
+});

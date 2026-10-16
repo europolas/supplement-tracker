@@ -443,3 +443,12 @@ disabling and disclosure expansion through polling redraws; no AI/API changes.
 0.16.4: the full-width Refresh information / Atnaujinti informaciją action is
 inside More information, after the management controls, hidden until expanded.
 Pending research still disables it; closing the disclosure never cancels work.
+
+## 0.17.0 — source-backed automatic timing corrections
+
+Full detail research now reassesses one group using all owned groups/current ID.
+See server/ANALYSIS.md. Preserve explicit manual assignments (including unassign
+and same-group edits) and group-snapshot checks. Only evidenced AI assignments
+can move; retain source/reason/check time. Do not restore the old full-details
+null-group restriction or discard reviewReason during evidence binding. Existing
+non-full details keep their old contract. Never send private groups to Search.
