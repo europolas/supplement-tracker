@@ -28,6 +28,18 @@ test('conclusion schema rejects partial, duplicate and foreign assignments; fing
  assert.match(conclusionMessages(data,'lt')[0].content,/Lithuanian/);assert.match(conclusionMessages(data,'en')[0].content,/BMI alone/);
 });
 
+test('conclusion sends all 16 products with authoritative totals despite missing details or pauses',()=>{
+ const inventory=Array.from({length:16},(_,i)=>({...rows[0],id:'product-'+i,name:'Product '+i,group_id:groups[i%2].id,analysis:i<12?rows[0].analysis:{manufacturer:'Brand'},...(i===15?{paused_at:'2026-10-15T10:00:00Z',resume_on:null,pause_timezone:'UTC'}:{})}));
+ const messages=conclusionMessages({routine,groups,rows:inventory},'lt',new Date('2026-10-16T12:00:00Z')),input=JSON.parse(messages[1].content);
+ assert.deepEqual(input.products.map(p=>p.id),inventory.map(p=>p.id));
+ assert.deepEqual(input.inventorySummary,{totalProducts:16,activeProducts:15,pausedProducts:1,groups:[{groupId:'first',productCount:8},{groupId:'second',productCount:8}]});
+ assert.match(messages[0].content,/totalProducts=16/);assert.match(messages[0].content,/Review EVERY record/);
+ const complete={...output,assignments:inventory.map(p=>({supplementId:p.id,groupId:p.group_id,reason:'Existing group'}))};
+ assert.equal(validConclusion(complete,groups,inventory),true);
+ assert.equal(validConclusion({...complete,assignments:complete.assignments.slice(0,12)},groups,inventory),false);
+ assert.equal(conclusionSchema(groups,inventory).properties.assignments.minItems,16);
+});
+
 // Disposable DB only. The integration runner supplies an ephemeral root secret;
 // no production connection/configuration is accepted here.
 test('durable conclusions isolate owners, retain old text on failure and guard individual group decisions',{skip:!process.env.DB_TEST_HOST},async()=>{

@@ -1,3 +1,12 @@
+## Conclusion inventory count correction
+
+Conclusion prompts include server-calculated total, active, paused and per-group
+product counts alongside every product record. Products with incomplete research
+remain in the review; ingredient counts and group proposals are not inventory
+counts. Existing strict assignment validation requires every submitted product ID.
+No schema or frontend change. Regression covers 16 products including four with
+incomplete details and a paused product.
+
 ## 0.27.5 — consistent main page gutters
 
 Home, Groups and Account share the same responsive horizontal gutters and maximum
