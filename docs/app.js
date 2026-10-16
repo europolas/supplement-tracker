@@ -75,10 +75,12 @@ let baseRoute='/';
 const addSheet=createBottomSheet(get('add-dialog'),{onDismiss:()=>closeAdd()});
 const photoViewer=createImageViewer({labels:()=>({title:i18n.t('appPhotoPreview'),close:i18n.t('appClose'),zoom:i18n.t('appZoomIn'),fit:i18n.t('appFitImage')})});
 const groupSheet=createBottomSheet(get('group-dialog'));
+const recheckSheet=createBottomSheet(get('recheck-dialog'));
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router,appReady=false;
 const localizationAttempts=new Set();let localizationSending=false;
 let uploadQueueExpanded=false,groupDrag=null;
+let routineChecks={active:null,latest:null,proposals:[]},recheckBusy=false,recheckStarting=false,recheckWatcher=null,recheckAbort;
 let collectionEpoch=0,photo=[],imageGeneration=0,sending=false,requestId=null,addedId=null,analysisAbort,midnightTimer,watchedJob=null,activeJobs=[],modalJobId=null,jobSignature='',recognitionShown=new Set(),jobHistory=[];
 const dirty=[...document.querySelectorAll('form')].map(form=>({form,tracker:trackDirty(form)}));
 const clearDirty=form=>dirty.find(item=>item.form===form)?.tracker.reset();
@@ -90,6 +92,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
+ routineChecks={active:null,latest:null,proposals:[]};recheckBusy=false;recheckStarting=false;get('recheck-content').replaceChildren();recheckAbort?.abort();recheckWatcher=null;void recheckSheet.close({immediate:true});
  groupDrag=null;get('profile-form').hidden=true;get('connection-editor').open=false;
  appReady=false;collectionEpoch++;uploadQueueExpanded=false;localizationAttempts.clear();localizationSending=false;
  void groupSheet.close({immediate:true});
@@ -113,8 +116,9 @@ async function load(checkJobs=true){
  const session=current();if(!session)return;
  const version=++generation;status('home-status',i18n.t('appLoading'));
  try{
-  const result=await api.get('/v1/dashboard?timezone='+encodeURIComponent(zone())+'&language='+i18n.language);
+  const [result,checks]=await Promise.all([api.get('/v1/dashboard?timezone='+encodeURIComponent(zone())+'&language='+i18n.language),api.get('/v1/rechecks')]);
   if(session!==current()||version!==generation)return;
+  routineChecks=Array.isArray(checks.proposals)?checks:{active:null,latest:null,proposals:[]};if(routineChecks.active&&!recheckWatcher)void watchRoutineChecks(session,collectionEpoch);
   state=result;appReady=true;get('app-error').hidden=true;status('home-status','');render();
   if(checkJobs){const latest=await api.get('/v1/supplements/jobs');if(version!==generation)return;await observeJobs(latest,session);}
  }catch(error){if(session===current()&&version===generation){status('home-status','');get('app-error').hidden=false;get('app-error').textContent=err(error);appReady=true;render();}}
@@ -340,10 +344,46 @@ function render(){
  get('diagnostics-link').hidden=!current();renderAccount();renderDiagnostics();
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
- get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');renderHome();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
+ get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');renderHome();renderRoutineCheck();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');if(get('group-dialog').open)renderGroupIconOptions();
  renderUploadQueue();
 }
+/** Recheck drafts stay on the server, independently of upload history. Closing
+ * this sheet stops no work; logout/clear invalidates every in-flight UI result. */
+function renderRoutineCheck(){
+ const {active,latest,proposals}=routineChecks;get('recheck-home').hidden=!current();
+ get('recheck-all').textContent=i18n.t(active?'appRecheckRunning':'appRecheckAll');get('recheck-all').disabled=recheckBusy||!state.ai?.configured||!state.supplements.length||!state.groups.length;
+ get('recheck-pending').hidden=!proposals.length;get('recheck-pending').textContent=i18n.t('appRecheckPending',{count:proposals.length});
+ const root=get('recheck-content');root.replaceChildren();if(!current())return;
+ if(active||recheckStarting){const progress=element('section',{className:'recheck-progress',attributes:{role:'status','aria-live':'polite'}});progress.append(element('p',{text:i18n.t(active?.phase==='queued'?'appRecheckQueued':'appRecheckProgress',{count:active?.total_count||state.supplements.length})}),element('progress',{attributes:{'aria-label':i18n.t('appRecheckRunning')}}));root.append(progress);}
+ if(latest?.status==='failed')root.append(element('p',{className:'status-error',text:err(new Error(latest.error_code||'REQUEST_FAILED')),attributes:{role:'status'}}));
+ if(latest?.skippedCount)root.append(element('p',{className:'form-help',text:i18n.t('appRecheckStale')}));
+ if(!active&&!proposals.length&&!recheckBusy)root.append(element('p',{className:'recheck-empty',text:i18n.t(latest?.status==='complete'?(latest.proposedCount?'appRecheckResolved':'appRecheckNoChanges'):'appRecheckIntro')}));
+ const list=element('div',{className:'recheck-proposals'});
+ for(const p of proposals){const card=element('article',{className:'recheck-proposal',attributes:{'data-proposal-id':p.id}});card.append(heading(p.name,'h3'),element('p',{className:'recheck-manufacturer',text:p.manufacturer||i18n.t('appUnknownManufacturer')}),element('p',{className:'recheck-move',text:(p.from.name||i18n.t('appUnassigned'))+' → '+(p.to.name||i18n.t('appUnassigned'))}));
+  const actions=element('div',{className:'button-row'}),accept=button(i18n.t('appRecheckAccept'),()=>resolveRoutineCheck(p,'accept'),'primary'),remove=button(i18n.t('appRecheckRemove'),()=>resolveRoutineCheck(p,'remove'),'secondary');accept.disabled=remove.disabled=recheckBusy;actions.append(accept,remove);card.append(actions);list.append(card);
+ }root.append(list);
+}
+async function refreshRoutineChecks(session,epoch,signal){const data=await api.get('/v1/rechecks',{signal});if(session!==current()||epoch!==collectionEpoch||signal?.aborted)return;routineChecks=data;renderRoutineCheck();}
+async function watchRoutineChecks(session,epoch){
+ const marker={};recheckWatcher=marker;recheckAbort=new AbortController();const signal=recheckAbort.signal;
+ const wait=()=>new Promise(resolve=>{const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},1200);function abort(){clearTimeout(timer);resolve();}signal.addEventListener('abort',abort,{once:true});});
+ try{while(current()===session&&epoch===collectionEpoch&&routineChecks.active&&!signal.aborted){await wait();if(signal.aborted)return;await refreshRoutineChecks(session,epoch,signal);}}
+ catch(error){if(current()===session&&!signal.aborted)failure(error);}finally{if(recheckWatcher===marker)recheckWatcher=null;}
+}
+get('recheck-pending').addEventListener('click',()=>{renderRoutineCheck();recheckSheet.open();});
+get('recheck-all').addEventListener('click',async()=>{
+ renderRoutineCheck();recheckSheet.open();if(recheckBusy||routineChecks.active)return;
+ const session=current(),epoch=collectionEpoch;recheckBusy=true;recheckStarting=true;renderRoutineCheck();
+ try{await api.post('/v1/rechecks',{requestId:crypto.randomUUID(),language:i18n.language});await refreshRoutineChecks(session,epoch);if(current()===session&&epoch===collectionEpoch&&routineChecks.active&&!recheckWatcher)void watchRoutineChecks(session,epoch);}
+ catch(error){if(current()===session&&epoch===collectionEpoch)failure(error);}finally{if(current()===session&&epoch===collectionEpoch){recheckBusy=false;recheckStarting=false;renderRoutineCheck();}}
+});
+async function resolveRoutineCheck(proposal,action){
+ if(recheckBusy)return;const session=current(),epoch=collectionEpoch;recheckBusy=true;writes++;renderRoutineCheck();
+ try{await api.patch('/v1/rechecks/'+proposal.jobId+'/'+proposal.id,{action});if(current()!==session||epoch!==collectionEpoch)return;if(action==='accept')await load(false);else await refreshRoutineChecks(session,epoch);}
+ catch(error){if(current()===session&&epoch===collectionEpoch)failure(error);}finally{writes--;if(current()===session&&epoch===collectionEpoch){recheckBusy=false;renderRoutineCheck();}}
+}
+
 /** Only server-owned account metadata is displayed; model text always uses safe
  * text nodes. Show partial successes and skipped/failed identities individually. */
 function renderReport(id,report){

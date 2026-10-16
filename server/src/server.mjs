@@ -1,3 +1,4 @@
+import {isTrackerRoute} from './tracker-routing.mjs';
 /**
  * Node HTTP runtime around AuthApi: strict CORS, JSON/body limits, health, encrypted mail queue and cleanup. Read secrets from files. Recovery stays unavailable until SMTP delivery is explicitly verified.
  * See AGENTS.md and the reusable library docs/ARCHITECTURE.md.
@@ -130,7 +131,7 @@ export const server = http.createServer({ requestTimeout: 105000, headersTimeout
     // Loopback-only container port; trusted local nginx must overwrite this header.
     const ip = process.env.TRUST_PROXY === 'true' ? req.headers['x-real-ip'] || req.socket.remoteAddress : req.socket.remoteAddress;
     const route=path.slice(3);
-    const isTracker=/^\/(bootstrap|dashboard|settings\/ai|groups(?:\/|$)|supplements(?:\/|$))/.test(route);
+    const isTracker=isTrackerRoute(route);
     const [status, data] = isTracker ? await tracker.handle(req.method,route,payload,req.headers.authorization,ip,url.searchParams) : await api.dispatch(req.method,route,payload,req.headers.authorization,ip);
     respond(status, data);
   } catch (error) {

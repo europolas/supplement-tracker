@@ -1,5 +1,18 @@
 /** English is the canonical default; add each new key to both dictionaries. */
 export default Object.freeze({
+  "appRecheckAll": "Recheck all",
+  "appRecheckPending": "Review suggestions ({count})",
+  "appRecheckRunning": "Checking groups…",
+  "appRecheckQueued": "Waiting to check your routine…",
+  "appRecheckProgress": "AI is checking the groups of {count} supplements…",
+  "appRecheckIntro": "Check every supplement against your groups. Changes are applied only when you accept them.",
+  "appRecheckNoChanges": "No group changes suggested.",
+  "appRecheckResolved": "All suggestions have been reviewed.",
+  "appRecheckStale": "Some product information changed during this check. Run a new check for the latest information.",
+  "appRecheckAccept": "Accept",
+  "appRecheckRemove": "Remove",
+  "appUnknownManufacturer": "Manufacturer not specified",
+
   "appResearchGroupChanges": "Group changes after detailed analysis",
   "appGroupsSubtitle": "Build a routine that fits your day",
   "appGroupsNoun": "groups",

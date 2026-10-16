@@ -1,5 +1,18 @@
 /** Lithuanian translations; missing keys fall back to the English dictionary. */
 export default Object.freeze({
+  "appRecheckAll": "Patikrinti visus",
+  "appRecheckPending": "Peržiūrėti pasiūlymus ({count})",
+  "appRecheckRunning": "Tikrinamos grupės…",
+  "appRecheckQueued": "Laukiama papildų patikrinimo…",
+  "appRecheckProgress": "AI tikrina {count} papildų priskyrimą grupėms…",
+  "appRecheckIntro": "Patikrink visų papildų grupes. Pakeitimai bus pritaikyti tik tau juos priėmus.",
+  "appRecheckNoChanges": "Grupių pakeitimų nesiūloma.",
+  "appRecheckResolved": "Visi pasiūlymai peržiūrėti.",
+  "appRecheckStale": "Tikrinimo metu kai kurių papildų informacija pasikeitė. Pakartok patikrinimą su naujausia informacija.",
+  "appRecheckAccept": "Priimti",
+  "appRecheckRemove": "Pašalinti",
+  "appUnknownManufacturer": "Gamintojas nenurodytas",
+
   "appResearchGroupChanges": "Grupių pakeitimai po išsamios analizės",
   "appGroupsSubtitle": "Susikurk sau tinkamą dienos ritmą",
   "appGroupsNoun": "grupės",

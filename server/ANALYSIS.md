@@ -769,3 +769,24 @@ composition/directions without applying a move. Foreign groups and invalid produ
 facts still fail validation. Failed jobs/products store only closed stage/reason
 enums (lookup/extraction; invalid_json/incomplete_output/invalid_fields/provider_error),
 never provider bodies, prompts or keys. Legacy/recognition transports stay unchanged.
+
+## 0.22.0 — explicit whole-routine recheck
+
+Home Recheck all starts one Gemini structured request with every group and stored
+product fact (manufacturer, composition/amounts, usage, benefits and sources). This
+explicit review uses existing evidence, not Search or new product research. Manual
+groups may receive proposals but are changed only by individual owner acceptance.
+The reusable toolkit bottom sheet shows indeterminate queued/checking progress.
+A separate pending-suggestions button reopens saved proposals without another bill.
+
+GET/POST /rechecks and PATCH /rechecks/:job/:proposal ({action:accept|remove})
+reuse owner-scoped analysis_jobs JSON, without migration. Pending reads are not
+limited to the latest 20 jobs; routine checks stay out of upload history. Repeating
+a live request is idempotent. New checks refresh unresolved proposals for the same
+product in place and retain other unresolved proposals. Closing/reloading preserves
+work; API restart marks interrupted work failed without billing it again.
+Accept validates that product facts, assignment origin and group meanings still
+match the proposal, then moves only that supplement atomically as a manual choice.
+Completion and translation caches do not invalidate proposals. Remove discards only
+the proposal. Clear/account deletion cancels late writes and erases private jobs.
+No credentials, raw prompts or photos are stored in proposals/browser persistence.
