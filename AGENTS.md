@@ -1,3 +1,8 @@
+## 0.27.5 — consistent main page gutters
+
+Home, Groups and Account share the same responsive horizontal gutters and maximum
+content width. Home retains its existing header top spacing. No API/schema change.
+
 ## 0.27.4 — resilient translation jobs and honest queue results
 
 Translation used one product-specific anyOf schema and rejected the whole batch

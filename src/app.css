@@ -340,7 +340,9 @@ main{padding-top:calc(env(safe-area-inset-top) + 18px);padding-bottom:calc(var(-
 /* Selected references: Groups B and Account A. Fluid type/spacing preserves the
    supplied full-page proportions, while native form text stays at least 16px. */
 :root{--page-u:clamp(1px,.2436vw,2.1px)}
-main[data-tab="/groups"],main[data-tab="/account"]{max-width:862px;padding-left:calc(16 * var(--page-u));padding-right:calc(16 * var(--page-u));padding-top:calc(env(safe-area-inset-top) + 24 * var(--page-u))}
+/* All main pages share outer gutters; Home retains its routine header spacing. */
+main[data-tab="/"],main[data-tab="/groups"],main[data-tab="/account"]{max-width:862px;padding-left:calc(16 * var(--page-u));padding-right:calc(16 * var(--page-u))}
+main[data-tab="/groups"],main[data-tab="/account"]{padding-top:calc(env(safe-area-inset-top) + 24 * var(--page-u))}
 .groups-page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 calc(18 * var(--page-u))}
 .groups-page-heading h1{font:750 calc(38 * var(--page-u))/1.1 var(--font-ui);letter-spacing:-1.4px;margin:0 0 calc(8 * var(--page-u))}
 .groups-page-heading p{font-size:calc(14 * var(--page-u));color:var(--muted);line-height:1.4;margin:0}
