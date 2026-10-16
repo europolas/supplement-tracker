@@ -210,9 +210,9 @@ function renderHome(){
    const open=button('',()=>router.navigate('/detail?id='+encodeURIComponent(item.id)),'supplement-open');
    const label=productLabel({name:item.name,manufacturer:item.analysis.manufacturer,variant:item.analysis.variant});
    open.append(element('strong',{text:label.name,className:'product-title'}));
-   const summary=item.analysis.localizationNeeded?'':item.analysis.benefitTags?.length?item.analysis.benefitTags.slice(0,3).map(b=>b[i18n.language]||b.en).join(', '):compactText(item.analysis.benefitSummary||item.analysis.benefits?.[0]||item.analysis.whenToUse);
+   const summary=item.analysis.benefitTags?.length?item.analysis.benefitTags.slice(0,3).map(b=>b[i18n.language]||b.en).join(', '):compactText(item.analysis.benefitSummary||item.analysis.benefits?.[0]||item.analysis.whenToUse);
    const meta=element('span',{className:'summary'});if(label.manufacturer)meta.append(element('b',{text:label.manufacturer,className:'product-manufacturer'}));if(summary)meta.append(document.createTextNode((label.manufacturer?' · ':'')+summary));if(meta.textContent)open.append(meta);
-   if(item.analysis.localizationNeeded)open.append(element('span',{text:i18n.t('appTranslatingInfo'),className:'research-badge'}));
+   if(item.analysis.localizationNeeded)open.append(element('span',{text:i18n.t('appTranslationOriginalShort'),className:'research-badge'}));
    else if(item.analysis.enrichment&&item.analysis.enrichment.status!=='complete')open.append(element('span',{text:i18n.t('appInfo_'+item.analysis.enrichment.status),className:'research-badge'}));
 
    const check=button('',async()=>{if(check.disabled)return;check.disabled=true;await mutate(()=>api.request('/v1/supplements/'+item.id+'/completion',{method:'PUT',body:{completed:!(state.day===localDay()&&item.completed),timezone:zone()}}));check.disabled=false;},'check-button');
@@ -300,7 +300,7 @@ function renderDetail(){
  const previous=container.querySelector('details[data-supplement-id]'),expanded=previous?.dataset.supplementId===id&&previous.open;
  container.replaceChildren();
  if(!item){container.append(element('p',{text:i18n.t('appDetailMissing')}));return;}
- const analysis=item.analysis.localizationNeeded?{...item.analysis,schemaVersion:'basic-1',composition:null,benefitTags:[],benefitSummary:i18n.t('appTranslatingInfo')}:item.analysis,card=element('div',{className:'surface detail-section'}),primary=element('div',{attributes:{id:'detail-primary'}}),extra=element('div',{className:'detail-extra-content',attributes:{id:'detail-extra-content'}});
+ const analysis=item.analysis,card=element('div',{className:'surface detail-section'}),primary=element('div',{attributes:{id:'detail-primary'}}),extra=element('div',{className:'detail-extra-content',attributes:{id:'detail-extra-content'}});
  const pending=['queued','researching'].includes(analysis.enrichment?.status),draft=analysis.schemaVersion==='draft-1',fallback=analysis.doseFallback;
  const reference=fallback&&['established_adult_intake','usual_adult_supplement_range'].includes(fallback.basis)&&(!analysis.dosage?.directions||analysis.dosage?.dailyServingsMin==null);
  const section=(key,name,parent=primary)=>{const node=element('section',{className:'detail-tile',attributes:{'data-detail-section':name}});node.append(icon({dose:'clock',benefits:'leaf',composition:'dose',restrictions:'shield',compatibility:'shield'}[name]),heading(i18n.t(key),'h3'));parent.append(node);return node;};
@@ -309,7 +309,7 @@ function renderDetail(){
  const productInfo=productLabel({name:item.name,manufacturer:analysis.manufacturer,variant:analysis.variant});
  get('route-header').querySelector('.detail-name')?.remove();get('route-header').prepend(element('h1',{text:productInfo.name,className:'detail-name',attributes:{id:'product-detail-title',tabindex:'-1','data-sheet-focus':'',autofocus:''}}));
  const subtitle=element('p',{className:'product-subtitle'});if(productInfo.manufacturer)subtitle.append(element('b',{text:productInfo.manufacturer}));if(productInfo.variant)subtitle.append(document.createTextNode((productInfo.manufacturer?' · ':'')+productInfo.variant));if(subtitle.textContent)card.append(subtitle);
- card.append(badge);if(item.paused)card.append(element('p',{className:'pause-status',text:pauseStatus(item),attributes:{role:'status'}}));card.append(primary);
+ card.append(badge);if(analysis.localizationNeeded)card.append(element('p',{className:'form-help',text:i18n.t('appTranslationOriginal')}));if(item.paused)card.append(element('p',{className:'pause-status',text:pauseStatus(item),attributes:{role:'status'}}));card.append(primary);
  const basic=analysis.schemaVersion==='basic-1';
  if(!basic){
  // Same compact presentation for historical records; never trigger paid research
@@ -448,14 +448,14 @@ async function resolveRoutineCheck(proposal,action){
  * text nodes. Show partial successes and skipped/failed identities individually. */
 function renderReport(id,report){
  const container=get(id);container.replaceChildren();container.hidden=!report;if(!report)return;
- const items=report.items||[],added=items.filter(item=>item.status==='added');
- container.append(heading(report.running?i18n.t('appBatchProgress',{done:items.filter(item=>['complete','reused','failed'].includes(item.research)).length,total:report.total}):i18n.t('appBatchSummary',{added:added.length,total:items.length}),'h3'));
+ const items=report.items||[],added=items.filter(item=>item.status==='added'),translation=report.kind==='localization',translated=items.filter(item=>item.research==='complete').length;
+ container.append(heading(translation?i18n.t(report.running?'appTranslationProcessing':'appTranslationSummary',{done:report.running?items.filter(i=>['complete','failed'].includes(i.research)).length:translated,total:report.total||items.length}):report.running?i18n.t('appBatchProgress',{done:items.filter(item=>['complete','reused','failed'].includes(item.research)).length,total:report.total}):i18n.t('appBatchSummary',{added:added.length,total:items.length}),'h3'));
  const list=element('div',{className:'upload-product-list'});
  for(const item of items){
-  const available=item.status==='added'&&state.supplements.some(s=>s.id===item.id),phase=item.status==='failed'?'failed':item.research||'queued';
+  const available=(translation||item.status==='added')&&state.supplements.some(s=>s.id===item.id),phase=item.status==='failed'?'failed':item.research||'queued';
   const tone=phase==='failed'?'failed':['complete','reused'].includes(phase)?'complete':'pending';
   const control=button(item.name,()=>{void addSheet.close({immediate:true});router.navigate('/detail?id='+encodeURIComponent(item.id));},'upload-product-button');
-  control.disabled=!available;control.dataset.state=tone;control.setAttribute('aria-label',item.name+' — '+i18n.t('appInfo_'+(['queued','researching','complete','failed'].includes(phase)?phase:tone==='complete'?'complete':'queued')));list.append(control);
+  control.disabled=!available;control.dataset.state=tone;control.setAttribute('aria-label',item.name+' — '+i18n.t((translation?'appTranslation_':'appInfo_')+(['queued','researching','complete','failed'].includes(phase)?phase:tone==='complete'?'complete':'queued')));list.append(control);
  }container.append(list);
  // Persisted job snapshots describe actual AI moves, even after later edits. For
  // older jobs only infer a move from a matching research job and AI provenance.
@@ -557,16 +557,17 @@ function renderUploadQueue(){
  const ordered=[...jobHistory].sort((a,b)=>(a.status==='running'?0:1)-(b.status==='running'?0:1)||(a.status==='running'?Date.parse(a.created_at||0)-Date.parse(b.created_at||0):Date.parse(b.finished_at||b.created_at||0)-Date.parse(a.finished_at||a.created_at||0)));
  for(const job of ordered){
   const card=element('details',{className:'upload-job',attributes:{'data-job-id':job.id,'data-phase':job.phase||'recognizing'}});card.open=previous.has(job.id)?previous.get(job.id):job.status==='running'||job.id===modalJobId;
-  const submission=job.result?.submission,title=job.result?.kind==='localization'?i18n.t('appTranslateInfo'):submission?.name||i18n.t(submission?.kind==='photo'?'appUploadPhoto':'appUploadSupplement');
+  const translation=job.result?.kind==='localization',submission=job.result?.submission,title=translation?i18n.t('appTranslateInfo'):submission?.name||i18n.t(submission?.kind==='photo'?'appUploadPhoto':'appUploadSupplement');
   const failed=job.status==='failed',issues=job.result?.items?.some(item=>item.research==='failed'||item.status==='failed');
-  const phase=job.phase||'recognizing',label=failed?'appUploadFailed':job.status==='complete'?(issues?'appUploadDoneIssues':'appUploadDone'):job.result?.monitor?.pipeline==='grok-jev'&&phase==='enriching'?'appJevClassifying':'appUpload_'+phase;
+  const phase=job.phase||'recognizing',label=failed?'appUploadFailed':job.status==='complete'?(issues?'appUploadDoneIssues':'appUploadDone'):translation?'appTranslationStage':job.result?.monitor?.pipeline==='grok-jev'&&phase==='enriching'?'appJevClassifying':'appUpload_'+phase;
   const summary=element('summary'),labels=element('div',{className:'upload-job-labels'});labels.append(element('strong',{text:title}),element('span',{text:i18n.t(job.result?.review?.status==='checking'?'appGroupReview_checking':label),className:'upload-job-phase'}));
   if(job.created_at){const date=new Date(job.created_at);if(Number.isFinite(date.getTime()))labels.append(element('time',{text:new Intl.DateTimeFormat(i18n.language,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date),attributes:{datetime:date.toISOString()},className:'upload-job-time'}));}
   summary.append(element('span',{text:failed?'!':job.status==='complete'?'✓':'…',className:'upload-job-icon',attributes:{'aria-hidden':'true'}}),labels);card.append(summary);
-  const step=job.status==='complete'?3:failed?({queued:0,recognizing:1,enriching:2}[job.result?.failedPhase]??(job.result?.items?.length?2:1)):({queued:0,recognizing:1,enriching:2,done:3}[phase]??1),steps=element('ol',{className:'upload-steps'});
-  ['appUpload_queued','appUpload_recognizing',job.result?.review?'appGroupReview':job.result?.monitor?.pipeline==='grok-jev'?'appJevClassifying':job.result?.monitor?.pipeline==='gemini-single'?'appSavingRecords':'appUpload_enriching','appUploadDone'].forEach((key,index)=>{const row=element('li',{text:i18n.t(key),className:index<step||job.status==='complete'?'is-complete':index===step?'is-current':''});if(index===step&&job.status==='running')row.setAttribute('aria-current','step');if(index===step&&failed)row.dataset.error='true';steps.append(row);});card.append(steps);
-  if(job.total_count>0){const progress=element('progress',{attributes:{max:String(job.total_count),value:String(job.processed_count||0),'aria-label':i18n.t('appUpload_enriching')}});card.append(progress,element('p',{text:job.result?.review?i18n.t('appGroupReview'):i18n.t('appUploadDetailsProgress',{done:job.processed_count||0,total:job.total_count}),className:'form-help'}));}
-  if(failed)card.append(element('p',{text:err(new Error(job.error_code||'REQUEST_FAILED')),attributes:{'data-error':'true'}}));
+  const step=job.status==='complete'?3:translation?1:failed?({queued:0,recognizing:1,enriching:2}[job.result?.failedPhase]??(job.result?.items?.length?2:1)):({queued:0,recognizing:1,enriching:2,done:3}[phase]??1),steps=element('ol',{className:'upload-steps'});
+  (translation?['appUpload_queued','appTranslationStage','appTranslationSaving','appUploadDone']:['appUpload_queued','appUpload_recognizing',job.result?.review?'appGroupReview':job.result?.monitor?.pipeline==='grok-jev'?'appJevClassifying':job.result?.monitor?.pipeline==='gemini-single'?'appSavingRecords':'appUpload_enriching','appUploadDone']).forEach((key,index)=>{const row=element('li',{text:i18n.t(key),className:index<step||job.status==='complete'?'is-complete':index===step?'is-current':''});if(index===step&&job.status==='running')row.setAttribute('aria-current','step');if(index===step&&failed)row.dataset.error='true';steps.append(row);});card.append(steps);
+  if(job.total_count>0){const progress=element('progress',{attributes:{max:String(job.total_count),value:String(job.processed_count||0),'aria-label':i18n.t(translation?'appTranslationStage':'appUpload_enriching')}});card.append(progress,element('p',{text:translation?i18n.t('appTranslationProcessing',{done:job.processed_count||0,total:job.total_count}):job.result?.review?i18n.t('appGroupReview'):i18n.t('appUploadDetailsProgress',{done:job.processed_count||0,total:job.total_count}),className:'form-help'}));}
+  if(failed)card.append(element('p',{text:translation?i18n.t('appTranslationFailed'):err(new Error(job.error_code||'REQUEST_FAILED')),attributes:{'data-error':'true'}}));
+  if(translation&&(failed||issues)){const retry=button(i18n.t('appTranslationRetry'),async()=>{if(retry.disabled)return;retry.disabled=true;const session=current();writes++;renderRoutineLoading();try{const next=await api.post('/v1/supplements/localize',{requestId:crypto.randomUUID(),language:job.language||job.result.language||i18n.language,supplementIds:(job.result.items||[]).filter(i=>i.research!=='complete').map(i=>i.id).slice(0,4)});if(session!==current())return;if(next.id)await observeJobs({job:next,active:next.status==='running'?[...activeJobs.filter(j=>j.id!==next.id),next]:activeJobs},session);await load(false);}catch(error){if(session===current())failure(error);}finally{writes--;renderRoutineLoading();if(session===current())retry.disabled=false;}},'secondary translation-retry');retry.disabled=activeJobs.some(j=>j.result?.kind==='localization');card.append(retry);}
   if(job.result?.items?.length||job.result?.skipped?.length){const result=element('div',{attributes:{id:'upload-result-'+job.id},className:'upload-job-result'});card.append(result);container.append(card);renderReport(result.id,{...job.result,jobId:job.id,running:job.status==='running',total:job.total_count});}else container.append(card);
  }
 }

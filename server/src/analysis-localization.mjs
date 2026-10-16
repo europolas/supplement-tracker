@@ -25,3 +25,10 @@ export function validLocalization(value,items){
  if(!value||Object.keys(value).length!==1||!Array.isArray(value.products)||value.products.length!==items.length||new Set(value.products.map(p=>p?.id)).size!==items.length)return false;
  return value.products.every(p=>{const source=items.find(i=>i.id===p?.id);return source&&Object.keys(p).length===2&&p.fields&&Object.keys(p.fields).length===Object.keys(source.fields).length&&Object.entries(source.fields).every(([k,text])=>typeof p.fields[k]==='string'&&p.fields[k].trim()&&p.fields[k].length<=3000&&JSON.stringify(p.fields[k].match(/\d+(?:[.,]\d+)*/g)||[])===JSON.stringify(text.match(/\d+(?:[.,]\d+)*/g)||[]));});
 }
+
+/** A partial batch is acceptable only when every owned ID has one explicit
+ * outcome. Successful products still satisfy the original strict fact checks. */
+export function validLocalizationBatch(response,items){
+ const failed=response.failedIds||[];if(!Array.isArray(failed)||new Set(failed).size!==failed.length||failed.some(id=>!items.some(i=>i.id===id)))return false;
+ const successful=items.filter(i=>!failed.includes(i.id));return validLocalization(response.result,successful);
+}

@@ -331,6 +331,15 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    const translated=(await call('GET','/dashboard',{},q))[1].supplements[0];assert.equal(translated.analysis.benefitSummary,'English benefit');assert.equal(translated.analysis.dosage.directions,'1 capsule daily');assert.equal(translated.analysis.dosage.dailyServingsMin,1);assert.equal(translated.analysis.grouping.basis,'manual');assert.equal(translated.group_id,d.groups[0].id);assert.equal(translated.analysis.language,'en');
    const [raw]=await pool.execute('SELECT analysis FROM supplements WHERE id=?',[id]);const saved=typeof raw[0].analysis==='string'?JSON.parse(raw[0].analysis):raw[0].analysis;assert.equal(saved.language,'lt');assert.equal(saved.benefitSummary,'Lietuviška nauda');await call('POST','/supplements/localize',{requestId,language:'en'});assert.equal(translations,1);
    const noop=(await call('POST','/supplements/localize',{requestId:randomUUID(),language:'en'}))[1];assert.equal(noop.status,'complete');assert.equal(translations,1);
+   const second=randomUUID();await pool.execute('INSERT INTO supplements(id,user_id,group_id,name,analysis,model,request_id) VALUES (?,?,?,?,?,?,?)',[second,session.user.id,d.groups[0].id,'Second product',JSON.stringify(original),'test',randomUUID()]);
+   await pool.execute('UPDATE supplements SET analysis=? WHERE id=?',[JSON.stringify({...original,benefitSummary:'Changed source'}),id]);
+   api.localize=async({items})=>({result:{products:[{id:items[0].id,fields:items[0].fields}]},failedIds:items.slice(1).map(i=>i.id),calls:2});
+   const [,partial]=await call('POST','/supplements/localize',{requestId:randomUUID(),language:'en',supplementIds:[id,second]});for(let n=0;n<200&&api.activeJobs.size;n++)await new Promise(r=>setTimeout(r,10));
+   const [,partialDone]=await call('GET','/supplements/jobs/'+partial.id);assert.equal(partialDone.status,'complete');assert.equal(partialDone.result.monitor.calls,2);assert.equal(partialDone.result.items.filter(i=>i.research==='complete').length,1);assert.equal(partialDone.result.items.filter(i=>i.research==='failed').length,1);assert.ok(partialDone.result.items.every(i=>i.status==='existing'));
+   const failedId=partialDone.result.items.find(i=>i.research==='failed').id;api.localize=async({items})=>{assert.equal(items.length,1);assert.equal(items[0].id,failedId);return {result:{products:items.map(i=>({id:i.id,fields:i.fields}))}};};
+   const [,retry]=await call('POST','/supplements/localize',{requestId:randomUUID(),language:'en',supplementIds:[failedId]});for(let n=0;n<200&&api.activeJobs.size;n++)await new Promise(r=>setTimeout(r,10));assert.equal((await call('GET','/supplements/jobs/'+retry.id))[1].status,'complete');
+   await assert.rejects(call('POST','/supplements/localize',{requestId:randomUUID(),supplementIds:[id,id]}),e=>e.status===400);
+
   });
   await t.test('timed batch keeps 15 successful details and one local failure without a global error',async()=>{
    await auth.register({email:'partial@example.test',name:'Partial',password},'partial');const session=await auth.login({email:'partial@example.test',password},'partial');let lookups=0;

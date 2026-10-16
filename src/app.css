@@ -611,3 +611,5 @@ html .routine-personal-field input[type="date"]{display:block;-webkit-appearance
 .home-routine-actions{display:flex;flex-wrap:wrap;align-items:flex-start;column-gap:12px;row-gap:4px;padding-top:32px}
 .home-routine-actions>.recheck-home{flex:1 1 0;min-width:0;margin:0}
 .home-routine-actions>.text-button{flex:0 0 100%;width:100%;font-size:12px;color:var(--green);min-height:36px;padding:8px}
+
+html .app-dialog .translation-retry{width:100%;margin:12px 0;font-size:13px}

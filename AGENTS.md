@@ -1,3 +1,23 @@
+## 0.27.4 — resilient translation jobs and honest queue results
+
+Translation used one product-specific anyOf schema and rejected the whole batch
+when any field/numeric literal differed. The new localization-provider adapter
+uses deduplicated stable text slots, opaque exact-number placeholders and a simple
+wire schema. Server restores quantities and enforces the original strict checks.
+One bounded repair retries only invalid/missing slots; key/network failures never
+retry automatically. Good products persist even when a neighbour fails. Cache
+fingerprints still reject stale source text; no source amounts/groups/provenance
+change. Provider text and credentials never enter logs or diagnostics.
+
+Localization items are existing products, not additions. Queue steps, progress,
+summary, product aria-labels and retry action are translation-specific, including
+legacy failed jobs. Generic format errors no longer claim Nothing was added.
+Original details/amounts/benefits remain visible with an original-language notice
+until translation is ready. Retry translation submits up to four owned product IDs
+to the localization endpoint only. No recognition/research/addition is triggered.
+Per-product saved/stale/failed outcomes remain explicit. A job existence/owner lock
+prevents late translations after clear-all. No schema migration required.
+
 ## 0.27.3 — paired Home routine actions
 
 Conclusion/Recheck share equal-width columns separated by 12px, with 32px top
