@@ -687,3 +687,5 @@ startup activation, dirty-form/photo/write guards remain unchanged.
 typography, icon sizes and surfaces. Remove tab-specific navigation overrides,
 including --nav-height, so footer clearance and safe-area positioning agree on
 all three pages. Only the active aria-current pill changes on tab navigation.
+
+0.22.8: Home navigation keeps the original outline house glyph even when active; only its surrounding selected pill changes.
