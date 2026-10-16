@@ -586,3 +586,24 @@ Detailed job progress/errors remain in Upload queue and action errors use toasts
 that moves smoothly back and forth using ease-in-out/alternate. The animated node
 stays connected across polling so its movement never resets on server refresh.
 Reduced motion shows a static centered segment; no fabricated percentage.
+
+
+## 0.22.3 — distinguish ordinary food from fat-specific scheduling
+
+Recognition, focused researched timing, explicit Recheck and legacy adapters use
+one shared model-side timing policy. A group name/description is read as a whole:
+a meal-with-fats slot requires explicit fat-meal directions or a supported relevant
+fat-dependent absorption benefit of the actual formulation. Ordinary with/after-food
+directions alone use a plain-meal group, or a flexible slot if no plain-meal group
+exists; usage still retains the food instruction. No product-name overrides, quotas
+or forced distribution are permitted. Current AI grouping is not independent
+evidence and is retained only after checking the group's defining conditions.
+
+The grounded lookup preserves required/preferred/optional food wording and never
+adds fat advice to justify a chosen group. Search remains mandatory for detailed
+research; private groups enter extraction only. Manual research still omits timing
+context and schema fields. Manual assignments and source/snapshot guards remain
+unchanged. Recognition classification.policyVersion is 2 for new results.
+
+Previously stored analyses/groups are not silently rewritten or re-billed. Recheck
+uses the new policy to save individual proposals; acceptance remains explicit.

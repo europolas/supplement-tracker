@@ -55,3 +55,10 @@ test('invalid focused extraction is repaired once from the same evidence; key fa
   assert.equal(searches,1);assert.equal(extracts,mode==='key'?1:2);
  }
 });
+
+test('recognition, researched timing and explicit review share food-versus-fat policy, while manual research stays product-only',async()=>{
+ const {groupingPolicy,GROUPING_POLICY}=await import('../src/grouping-policy.mjs'),{detailsMessages}=await import('../src/product-details.mjs'),{routineRecheckMessages}=await import('../src/routine-recheck.mjs');
+ const gs=[{id:'fat',name:'Meals with fats'},{id:'flex',name:'Any time'}],target={name:'Product',manufacturer:'Brand',groupId:'fat',groupingBasis:'researched'};
+ for(const prompt of [geminiPrompt(),detailsMessages({name:'Product',language:'en',target,groups:gs,full:true})[0].content,routineRecheckMessages(gs,[],'en')[0].content,GROUPING_POLICY])assert.ok(prompt.includes(groupingPolicy));
+ const manual=detailsMessages({name:'Product',language:'en',target:{...target,groupingBasis:'manual'},groups:gs,full:true});assert.equal(JSON.stringify(manual).includes(groupingPolicy),false);assert.doesNotMatch(JSON.stringify(manual),/Meals with fats|Any time|groupId/);
+});
