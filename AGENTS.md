@@ -675,3 +675,9 @@ decisions. Clear-all's final counter decrement previously left a stale loading
 class after reset/dashboard had already rendered while that write was active.
 Keep the ring active for genuine outstanding reads/jobs and settle it on both
 success and failure. No API, AI, scroller or private persistence changes.
+
+
+0.22.6: Empty Home hides the entire Recheck footer. Available public app updates
+show one full-width Update Application button, without an explanatory surface or
+paragraph, separated from preceding content by 16px. EN/LT labels and existing
+startup activation, dirty-form/photo/write guards remain unchanged.

@@ -511,3 +511,19 @@ test('Taken ring reports completion writes and routine reads without shifting Ho
  await page.route('**/v1/supplements/*/completion',route=>route.fulfill({status:500,json:{error:'REQUEST_FAILED'}}));
  await page.locator('.check-button').click();await expect(ring).toHaveAttribute('aria-busy','false');await expect(page.locator('#progress-count')).toHaveText('1 / 1');await expect(page.locator('.check-button')).toBeEnabled();
 });
+
+for(const preloaded of [false,true])test('Home update is one spaced button and Recheck only appears with products: '+preloaded,async({page})=>{
+ await mock(page,{preloaded});await page.addInitScript(()=>{
+  const registration=new EventTarget();registration.update=async()=>{};
+  const workers=new EventTarget();workers.controller={};workers.register=async()=>registration;
+  Object.defineProperty(navigator,'serviceWorker',{value:workers});
+  window.announceTestUpdate=()=>{registration.waiting={postMessage:m=>window.testUpdateApplied=m.type};registration.installing=new EventTarget();registration.dispatchEvent(new Event('updatefound'));registration.installing.dispatchEvent(new Event('statechange'));};
+ });
+ await login(page);await expect(page.locator('#update-button')).toBeHidden();
+ if(preloaded)await expect(page.locator('#recheck-home')).toBeVisible();else await expect(page.locator('#recheck-home')).toBeHidden();
+ await page.evaluate(()=>window.announceTestUpdate());const update=page.locator('#update-button');await expect(update).toBeVisible();await expect(update).toHaveText('Update Application');await expect(page.locator('#update-card')).toHaveCount(0);expect(await update.evaluate(el=>el.parentElement.tagName)).toBe('MAIN');
+ await page.locator('main').evaluate(n=>n.scrollTop=n.scrollHeight);
+ if(preloaded){const recheck=await page.locator('#recheck-home').boundingBox(),b=await update.boundingBox();expect(Math.round(b.y-recheck.y-recheck.height)).toBe(16);}
+ await page.screenshot({path:'.runtime/home-update-'+(preloaded?'products':'empty')+'.png'});
+ await update.click();await expect.poll(()=>page.evaluate(()=>window.testUpdateApplied)).toBe('ACTIVATE_UPDATE');
+});

@@ -494,3 +494,5 @@ html .recheck-dialog{width:calc(100% - 20px);max-width:600px}.recheck-dialog .di
 .progress-ring.is-loading .routine-loading-arc { display:block;animation:routine-ring-spin 1s linear infinite; }
 @keyframes routine-ring-spin { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce) { .progress-ring.is-loading .routine-loading-arc { animation:none; } }
+
+#update-button{width:100%;margin:16px 0 0}

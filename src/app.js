@@ -355,7 +355,7 @@ function render(){
 /** Recheck drafts stay on the server, independently of upload history. Closing
  * this sheet stops no work; logout/clear invalidates every in-flight UI result. */
 function renderRoutineCheck(){
- const {active,latest,proposals}=routineChecks;get('recheck-home').hidden=!current();
+ const {active,latest,proposals}=routineChecks;get('recheck-home').hidden=!current()||!state.supplements.length;
  get('recheck-all').textContent=i18n.t(active?'appRecheckRunning':'appRecheckAll');get('recheck-all').disabled=recheckBusy||!state.ai?.configured||!state.supplements.length||!state.groups.length;
  get('recheck-pending').hidden=!proposals.length;get('recheck-pending').textContent=i18n.t('appRecheckPending',{count:proposals.length});
  const root=get('recheck-content'),running=Boolean(current()&&(active||recheckStarting));
@@ -607,7 +607,7 @@ scheduleMidnight();document.addEventListener('visibilitychange',()=>{if(document
 window.addEventListener('focus',()=>{if(restoringSession&&!current())void auth.restore().catch(failure);else refreshDay();});
 let applyUpdate;
 const pwa=await setupPwa({canReload:()=>!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
- onUpdate:({apply})=>{if(starting){applyingStartupUpdate=true;get('startup-progress').setAttribute('aria-valuenow','90');apply();}else{applyUpdate=apply;get('update-card').hidden=false;}},onError:()=>{}});
+ onUpdate:({apply})=>{if(starting){applyingStartupUpdate=true;get('startup-progress').setAttribute('aria-valuenow','90');apply();}else{applyUpdate=apply;get('update-button').hidden=false;}},onError:()=>{}});
 // A bounded public-worker check keeps offline launches usable. Existing/found
 // updates activate behind the launch screen; later updates respect unsaved edits.
 if(pwa.registration)await Promise.race([(async()=>{

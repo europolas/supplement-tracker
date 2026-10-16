@@ -107,6 +107,7 @@ export default Object.freeze({
   "save": "Išsaugoti",
   "moduleText": "Pasirink ir prijunk savo projektui reikalingas funkcijas.",
   "update": "Yra nauja versija. Prieš atnaujindamas išsaugok pakeitimus.",
+  "appUpdateApplication": "Atnaujinti programėlę",
   "updateButton": "Atnaujinti",
   "saved": "Nustatymai išsaugoti.",
   "copied": "Nuoroda nukopijuota.",

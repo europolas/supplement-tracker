@@ -107,6 +107,7 @@ export default Object.freeze({
   "save": "Save",
   "moduleText": "Choose the features your project needs.",
   "update": "An update is available. Save your changes before updating.",
+  "appUpdateApplication": "Update Application",
   "updateButton": "Update",
   "saved": "Settings saved.",
   "copied": "Link copied.",
