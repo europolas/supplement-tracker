@@ -545,3 +545,7 @@ Groups supplies the system sans-serif stack for all pages, authentication, produ
 sheets, editors, confirmations and image previews. Account uses the same page-title
 size/weight as Groups and its section/item hierarchy. No serif heading overrides
 remain; icon fonts, editable-field sizing and viewport/keyboard behavior are preserved.
+
+0.21.2: Account preference selects inherit the model-row text size and line height.
+Native select padding/min-height no longer inflate rows; the parent retains its
+44px touch target and the shared card padding remains unchanged.
