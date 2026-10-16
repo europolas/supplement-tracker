@@ -44,7 +44,7 @@ const iconPaths={
  dose:'M9 3h6v3H9Z M7 6h10l2 4v11H5V10Z M9 13h6 M12 10v6',
  check:'m5 12 4 4 10-10',chevron:'m9 5 7 7-7 7'
 };
-function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');for(const[k,v]of Object.entries({viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':name==='sleep'?'1.1':'1.6','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',class:'icon'}))svg.setAttribute(k,v);const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',iconPaths[name]||iconPaths.leaf);svg.append(path);return svg;}
+function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');for(const[k,v]of Object.entries({viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':name==='sleep'?'1.1':'1.6','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',class:name==='add-circle'?'icon add-circle-icon':'icon'}))svg.setAttribute(k,v);if(name==='add-circle'){const circle=document.createElementNS(svg.namespaceURI,'circle');for(const[k,v]of Object.entries({cx:12,cy:12,r:12}))circle.setAttribute(k,v);svg.append(circle);}const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',name==='add-circle'?'M12 7v10 M7 12h10':iconPaths[name]||iconPaths.leaf);svg.append(path);return svg;}
 for(const node of document.querySelectorAll('[data-icon]'))node.append(icon(node.dataset.icon));
 const confirmDialog=(message,options)=>nativeConfirmDialog(message,{...options,presentation:'sheet'});
 const config=createConfig(await(await fetch('./app.config.json')).json());
@@ -552,8 +552,10 @@ auth.state.subscribe(async({user})=>{
  catch(error){if(current()===session)failure(error);}
 },true);
 function refreshDay(){
+ // Native photo pickers fire focus/visibility events even on cancel. The open
+ // composer owns that interaction; real upload jobs keep their separate polling.
  if(state.day!==localDay()){state.day=localDay();state.supplements=state.supplements.map(item=>({...item,completed:false}));renderHome();}
- if(current()&&document.visibilityState==='visible')load();
+ if(current()&&document.visibilityState==='visible'&&!get('add-dialog').open)load();
 }
 function scheduleMidnight(){clearTimeout(midnightTimer);const next=new Date();next.setHours(24,0,0,50);midnightTimer=setTimeout(()=>{refreshDay();scheduleMidnight();},Math.max(50,next-Date.now()));}
 scheduleMidnight();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshDay();scheduleMidnight();}});
@@ -574,7 +576,8 @@ get('update-button').addEventListener('click',()=>{try{applyUpdate?.();}catch(er
 /** Read-only owner history, refreshed by the existing polling loop. No extra API
  * requests per clock tick; all provider/model/error text is rendered as text. */
 function renderDiagnostics(){
- const root=get('ai-dashboard');if(!root)return;root.replaceChildren();if(!current())return;
+ const root=get('ai-dashboard');if(!root)return;const infoOpen=Boolean(root.querySelector('.diagnostic-ai-info')?.open);root.replaceChildren();if(!current())return;
+ const info=element('details',{className:'ai-consent diagnostic-ai-info'}),summary=element('summary');info.open=infoOpen;summary.append(icon('shield'),element('span',{text:i18n.t('appSentWithKey')}),icon('info'));info.append(summary,element('p',{className:'form-help',text:i18n.t('appAiConsent')}));root.append(info);
  const ms=value=>Number.isFinite(value)?(value/1000).toLocaleString(i18n.language,{maximumFractionDigits:2})+' s':'—';
  root.append(element('p',{className:'muted',text:i18n.t('appDiagnosticsHelp')}));
  if(!jobHistory.length){root.append(element('p',{text:i18n.t('appDiagnosticsEmpty')}));return;}

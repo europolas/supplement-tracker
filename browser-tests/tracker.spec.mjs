@@ -361,13 +361,21 @@ test('photo picker cancellation keeps the sheet and draft without an upload',asy
  const m=await mock(page);await login(page);await page.locator('#add-supplement').click();
  const input=page.locator('#analyze-form input[type=file]');
  await page.locator('#analyze-form [name=name]').fill('Keep this draft');
+ await expect(page.locator('#home-status')).toHaveText('');const dashboards=m.requests.filter(r=>r.path==='/v1/dashboard').length;
+ await page.evaluate(()=>{window.homeMutations=0;new MutationObserver(()=>window.homeMutations++).observe(document.querySelector('#routine-groups'),{childList:true,subtree:true});});
+ const chooser=page.waitForEvent('filechooser');await page.locator('.photo-picker').click();await chooser;
+ await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));document.dispatchEvent(new Event('visibilitychange'));});
  await input.dispatchEvent('cancel',{bubbles:true});await input.setInputFiles([]);
+ await page.evaluate(()=>{window.dispatchEvent(new Event('focus'));document.dispatchEvent(new Event('visibilitychange'));});await page.waitForTimeout(100);
+ expect(m.requests.filter(r=>r.path==='/v1/dashboard')).toHaveLength(dashboards);expect(await page.evaluate(()=>window.homeMutations)).toBe(0);
+ await expect(page.locator('#analyze-form [name=name]')).toHaveAttribute('placeholder','Supplement name and manufacturer');await expect(page.locator('#add-dialog .ai-consent')).toHaveCount(0);await expect(page.locator('.upload-footer')).toHaveCSS('justify-content','center');await expect(page.locator('.upload-footer')).toHaveCSS('margin-top','4px');
+
  await expect(page.locator('#add-dialog')).toBeVisible();
  await expect(page.locator('#analyze-form [name=name]')).toHaveValue('Keep this draft');
  expect(m.requests.filter(r=>r.path==='/v1/supplements/jobs'&&r.method==='POST')).toHaveLength(0);
  await expect(page.locator('#upload-queue')).toBeHidden();
  await page.locator('#toggle-upload-queue').click();await expect(page.locator('#upload-queue')).toBeVisible();
- await page.keyboard.press('Escape');await expect(page.locator('#add-dialog')).toBeHidden();
+ await page.keyboard.press('Escape');await expect(page.locator('#add-dialog')).toBeHidden();await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect.poll(()=>m.requests.filter(r=>r.path==='/v1/dashboard').length).toBeGreaterThan(dashboards);
 });
 test('saved session launches through themed loader without ever opening login',async({page})=>{
  await mock(page,{preloaded:true});await login(page);
@@ -458,4 +466,12 @@ test('upload results are compact full-width status buttons and show actual group
  const metrics=await buttons.evaluateAll(ns=>ns.map(n=>({width:n.getBoundingClientRect().width,parent:n.parentElement.getBoundingClientRect().width,height:n.getBoundingClientRect().height,bg:getComputedStyle(n).backgroundColor})));for(const m of metrics){expect(Math.abs(m.width-m.parent)).toBeLessThan(1);expect(m.height).toBeLessThanOrEqual(44);}expect(new Set(metrics.map(m=>m.bg)).size).toBe(3);
  for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await buttons.nth(0).scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/compact-upload-results-'+theme+'.png',animations:'disabled'});}
  await buttons.nth(0).click();await expect(page.locator('#supplement-detail h1')).toHaveText('Ready product');
+});
+
+
+test('composer layout, SVG add discs and deletion checkbox stay compact at phone and desktop sizes',async({page})=>{
+ await mock(page);await login(page);
+ for(const width of [320,402,862]){await page.setViewportSize({width,height:1000});await page.locator('#app-nav [data-route="/"]').click();await expect(page.locator('.group-empty')).toHaveCSS('text-align','left');const disc=page.locator('#home-empty svg');await expect(disc.locator('circle')).toHaveCount(1);const b=await disc.boundingBox();expect(Math.abs(b.width-b.height)).toBeLessThan(1);await page.screenshot({path:'.runtime/refined-empty-home-'+width+'.png',animations:'disabled'});await page.locator('#app-nav [data-route="/groups"]').click();const add=page.locator('#new-group');await expect(add.locator('svg circle')).toHaveCount(1);const size=await add.boundingBox();expect(Math.abs(size.width-size.height)).toBeLessThan(1);await page.screenshot({path:'.runtime/refined-groups-'+width+'.png',animations:'disabled'});}
+ await page.setViewportSize({width:402,height:874});await page.locator('#app-nav [data-route="/"]').click();await page.locator('#add-supplement').click();await expect(page.locator('#analyze-form [name=name]')).toHaveAttribute('placeholder','Supplement name and manufacturer');await page.screenshot({path:'.runtime/refined-composer-light.png',animations:'disabled'});await page.locator('#close-add').click();await page.locator('#app-nav [data-route="/account"]').click();const deletion=page.locator('#delete-account-form').locator('..');await deletion.locator('summary').click();const checkbox=page.locator('[name=confirmDelete]');const box=await checkbox.boundingBox();expect(box.width).toBe(20);expect(box.height).toBe(20);await page.locator('.delete-confirm').click();await expect(checkbox).toBeChecked();await page.locator('.delete-confirm').click();await expect(checkbox).not.toBeChecked();await page.locator('.delete-confirm').scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/refined-delete-confirm.png',animations:'disabled'});expect(await page.locator('#account-screen').evaluate(n=>n.scrollWidth>n.clientWidth)).toBe(false);
+ await deletion.locator('summary').click();await page.locator('#diagnostics-link').click();await expect(page.locator('#ai-dashboard .diagnostic-ai-info')).toContainText('Gemini 3.8 Flash');await page.locator('.diagnostic-ai-info>summary').click();await expect(page.locator('.diagnostic-ai-info')).toHaveAttribute('open','');await page.waitForTimeout(1100);await expect(page.locator('.diagnostic-ai-info')).toHaveAttribute('open','');await page.screenshot({path:'.runtime/refined-ai-diagnostics.png',animations:'disabled'});await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('#app-nav [data-route="/groups"]').click();await page.locator('#new-group').click();await expect(page.locator('#group-form [name=description]')).toHaveCSS('height','46px');await expect(page.locator('#group-form [name=icon]')).toHaveCSS('height','46px');await page.screenshot({path:'.runtime/refined-group-editor.png',animations:'disabled'});
 });

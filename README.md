@@ -537,3 +537,16 @@ infer moves. No extra provider calls or database migration.
 0.21.6: Per user styling, native buttons/selects, disclosure controls, navigation
 and the photo picker show no focus ring. Actual keyboard focus/activation and
 selected-state styling are retained; editable text-field focus is unchanged.
+
+## 0.21.7 — composer and account control refinements
+
+The composer uses a muted name/manufacturer placeholder and a centered queue
+control close to Send. Provider/charge information lives in Account diagnostics,
+with disclosure expansion retained across diagnostic redraws. Native focus/visibility
+resume skips Home refresh while the composer is open; empty file selections still
+leave the draft untouched and existing background jobs keep polling independently.
+Empty-group text is left-aligned. Groups/Home add discs are SVG circles with square
+bounds. Account deletion confirmation has a 20px native checkbox inside a 44px
+clickable label; generic text-input styling no longer stretches it.
+Group description and custom icon textareas start at 46px (one row), retaining
+vertical resize and the existing input limits.

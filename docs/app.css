@@ -51,7 +51,7 @@ h2 { font-size:19px;font-weight:600;letter-spacing:-.3px;margin:0 0 14px; }
 .supplement-open { display:block;width:100%;min-width:0;text-align:left;background:none;color:var(--ink);padding:7px 0;min-height:46px; }
 .supplement-open strong { display:block;font-size:14px;font-weight:500;line-height:1.5;overflow-wrap:anywhere; }.supplement-open .summary { display:block;font-size:11px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere; }
 .check-button { display:grid;place-items:center;width:40px;min-height:44px;padding:0;background:none; }.check-ring { display:grid;place-items:center;width:22px;height:22px;border:1.5px solid #9ba596;border-radius:50%;color:transparent;font-size:13px; }.is-done .check-ring { background:var(--green);border-color:var(--green);color:var(--on-green); }
-.group-empty { text-align:center;padding:18px 12px!important;font-size:12px;color:var(--muted); }.group-benefit { display:block; }
+.group-empty { text-align:left;padding:18px 17px!important;font-size:12px;color:var(--muted); }.group-benefit { display:block; }
 .empty-card { text-align:center;padding:24px 20px;color:var(--muted); }.empty-card h2 { color:var(--ink);margin-top:16px; }.empty-card p { font-size:14px;line-height:1.7; }.empty-symbol { display:inline-grid;place-items:center;width:45px;height:45px;border-radius:50%;background:var(--soft);font-size:25px;color:var(--green); }
 form { display:grid;gap:16px; }label { display:grid;gap:8px;font-size:13px;color:var(--ink); }
 html input,html select,html textarea,html .account-card input,html .account-card select,html[data-theme="light"] .account-card input,html[data-theme="light"] .account-card select { width:100%;min-width:0;min-height:46px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:11px;padding:11px;background:var(--paper);color:var(--ink); }
@@ -208,14 +208,14 @@ html .add-dialog { padding:18px 22px 52px; }
 .add-dialog .dialog-heading h2 { font-size:28px; }
 #analyze-form fieldset { gap:0; }
 #analyze-form .supplement-name-field input { text-align:center;height:50px;font-size:16px; }
-#analyze-form input::placeholder { text-align:center;color:var(--ink);opacity:1; }
+#analyze-form input::placeholder { text-align:center;color:var(--muted);opacity:.7; }
 #analyze-form .or-line { justify-content:center;gap:12px;margin:24px 0 20px;font-size:12px; }
 #analyze-form .or-line::before,#analyze-form .or-line::after { flex:0 1 26px; }
 #analyze-form .photo-actions { display:block; }
 #analyze-form .photo-picker { align-items:center;justify-content:center;min-height:100px;padding:18px 8px;gap:9px; }
 #analyze-form .send-button { width:100%;min-height:50px;margin-top:24px;font-weight:600; }
 #analyze-form .photo-previews:not([hidden]) { margin-top:20px; }
-.upload-footer { display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-top:8px; }
+.upload-footer { display:flex;align-items:flex-start;justify-content:center;gap:8px;margin-top:4px; }
 #toggle-upload-queue { display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 8px;background:transparent;color:var(--ink);font-size:12px;white-space:nowrap; }
 .upload-footer .ai-consent { margin:0;min-width:0; }
 .upload-footer .ai-consent>summary { justify-content:flex-end;min-height:44px;padding:6px 8px;font-size:11px;gap:7px; }
@@ -236,7 +236,7 @@ html .add-dialog { padding:18px 22px 52px; }
  #analyze-form .or-line::before,#analyze-form .or-line::after { flex-basis:44px; }
  #analyze-form .photo-picker { height:160px;font-size:23px;border-radius:28px;gap:18px; }.photo-picker .icon { width:42px;height:42px; }
  #analyze-form .send-button { min-height:80px;margin-top:38px;border-radius:20px;font-size:26px; }
- .upload-footer { margin-top:12px;gap:20px; }
+ .upload-footer { margin-top:4px;gap:20px; }
  #toggle-upload-queue { font-size:22px;padding:6px 16px; }
  .upload-footer .ai-consent>summary { font-size:21px;gap:16px;padding:6px 16px; }.upload-footer .ai-consent .icon { width:28px;height:28px; }
  .queue-spinner { width:22px;height:22px;border-width:2px; }
@@ -460,3 +460,21 @@ html .upload-job-result .upload-product-button:disabled{opacity:1;cursor:default
    activation intact; text-input focus and selected-state styling are independent. */
 html :is(button,select,summary,[role="button"],a.setting-row,.app-nav a):is(:focus,:focus-visible){outline:none!important;outline-offset:0!important;-webkit-tap-highlight-color:transparent}
 html .photo-picker:focus-within{outline:none}
+
+/* Both add glyphs use SVG circles so their visible outline stays circular even
+   when the surrounding control reserves a larger native touch target. */
+.groups-page-heading #new-group{width:max(44px,calc(40 * var(--page-u)));height:max(44px,calc(40 * var(--page-u)));min-width:44px;min-height:44px;padding:0;background:transparent;border:0;border-radius:0;aspect-ratio:1}
+.groups-page-heading #new-group:active{background:transparent}
+.groups-page-heading #new-group>[data-icon],.groups-page-heading #new-group .icon{width:100%;height:100%}
+.empty-symbol{background:transparent;border-radius:0;--add-disc:var(--soft);--add-mark:var(--green)}
+.empty-symbol .icon{width:100%;height:100%}
+.add-circle-icon circle{fill:var(--add-disc,var(--green));stroke:none}
+.add-circle-icon path{stroke:var(--add-mark,var(--on-green));stroke-width:1.1}
+/* Security forms are outside the old account-card wrapper. Explicit checkbox
+   sizing prevents the generic full-width text-input rule from stretching it. */
+#account-screen #delete-account-form .delete-confirm{display:flex;align-items:center;gap:10px;min-height:44px;padding:0;cursor:pointer}
+#account-screen #delete-account-form .delete-confirm input{appearance:auto;-webkit-appearance:checkbox;width:20px;height:20px;min-width:20px;min-height:20px;flex:0 0 20px;margin:0;padding:0;accent-color:var(--green)}
+.diagnostic-ai-info{margin:0 0 18px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
+.diagnostic-ai-info>summary{justify-content:flex-start;padding:0;min-height:32px}
+
+#group-form textarea[name="description"],#group-form textarea[name="icon"]{height:46px;min-height:46px;line-height:1.4;resize:vertical}
