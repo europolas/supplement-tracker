@@ -325,9 +325,13 @@ test('floating reference navigation has three tabs, stays at the bottom and leav
  await mock(page,{preloaded:true});await login(page);const nav=page.locator('#app-nav');
  await expect(page.locator('main nav,#home-report,#home-analysis-results,.brand .account-link')).toHaveCount(0);await expect(nav.locator('a')).toHaveText(['Home','Groups','Account']);await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/');
  for(const width of [320,402,768]){
-  await page.setViewportSize({width,height:874});await expect(nav).toBeVisible();const before=await nav.boundingBox();await page.locator('main').evaluate(n=>n.scrollTop=n.scrollHeight);const after=await nav.boundingBox();expect(after.y).toBe(before.y);expect(Math.round(after.y+after.height)).toBe(856);expect(after.x).toBeGreaterThanOrEqual(0);expect(after.x+after.width).toBeLessThanOrEqual(width);
+  await page.setViewportSize({width,height:874});await expect(nav).toBeVisible();const before=await nav.boundingBox();await page.locator('main').evaluate(n=>n.scrollTop=n.scrollHeight);const after=await nav.boundingBox();expect(after.y).toBe(before.y);expect(Math.round(after.y+after.height)).toBe(862);expect(after.x).toBeGreaterThanOrEqual(0);expect(after.x+after.width).toBeLessThanOrEqual(width);
  }
  await page.setViewportSize({width:402,height:874});await page.locator('main').evaluate(n=>n.scrollTop=0);
+ const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets:{top:0,left:0,bottom:34,right:0}});
+ const iphone=await nav.boundingBox();expect(Math.round(874-iphone.y-iphone.height)).toBe(20);
+ await page.screenshot({path:'.runtime/navigation-lowered-iphone.png',animations:'disabled'});
+ await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets:{top:0,left:0,bottom:0,right:0}});
  for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.screenshot({path:'.runtime/bottom-nav-'+theme+'.png',animations:'disabled'});}
  await nav.locator('[data-route="/groups"]').click();await expect(page.locator('[data-screen="/groups"]')).toBeVisible();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/groups');
  await nav.locator('[data-route="/account"]').click();await expect(page.locator('#route-dialog')).toBeVisible();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/account');await page.locator('#route-dialog [data-sheet-close]').click();await expect(page.locator('#route-dialog')).toBeHidden();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/groups');

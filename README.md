@@ -447,3 +447,6 @@ Launch shows only a theme-aware central progress bar while session/dashboard and
 public worker updates are checked; available updates activate before opening Home.
 The update check is bounded at 3.5 seconds for offline/slow connections; later updates
 continue to use the existing unsaved-edit guard. No private profile is cached.
+
+Version 0.19.1 lowers the floating navigation to match the bottom placement in the
+reference, with a 20px bottom gap on a 34px iPhone safe area (12px minimum elsewhere).

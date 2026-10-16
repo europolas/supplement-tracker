@@ -257,8 +257,9 @@ html[data-session-restoring="true"] #add-supplement { opacity:.6; }
 #startup-progress[aria-valuenow="100"] span{width:100%}
 html[data-starting="true"] body>:not(#startup-screen){visibility:hidden!important}
 @media(prefers-reduced-motion:reduce){#startup-progress span{transition:none}}
-/* Preserve the reference pill's proportions as its width grows on larger phones. */
-.app-nav{--nav-height:clamp(64px,16vw,91px);height:var(--nav-height);top:calc(var(--app-height,100dvh) - env(safe-area-inset-bottom) - 18px - var(--nav-height))}
+/* The floating pill sits closer to the home indicator than a conventional tab
+   bar. Avoid adding a second gap above the full iPhone bottom safe area. */
+.app-nav{--nav-height:clamp(64px,16vw,91px);--nav-bottom:max(12px,calc(env(safe-area-inset-bottom) - 14px));height:var(--nav-height);top:calc(var(--app-height,100dvh) - var(--nav-bottom) - var(--nav-height))}
 html .app-nav a,html[data-theme="light"] .app-nav a{min-height:0;font-size:clamp(11px,2.75vw,15.5px);gap:clamp(4px,1vw,6px)}
 .app-nav .icon{width:clamp(25px,6.25vw,35px);height:clamp(25px,6.25vw,35px)}
 
