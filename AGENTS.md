@@ -1,3 +1,10 @@
+## 0.27.3 — paired Home routine actions
+
+Conclusion/Recheck share equal-width columns separated by 12px, with 32px top
+padding. Existing visibility rules remain independent; one available action fills
+the row, neither leaves no empty space. Pending Recheck decisions span the row below.
+No API/schema change.
+
 ## 0.27.2 — integer-only personal measurements
 
 Height, weight and muscle mass each use one full-width native integer select.

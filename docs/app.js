@@ -410,7 +410,7 @@ function render(){
 function renderRoutineCheck(){
  const {active,latest,proposals}=routineChecks;get('recheck-home').hidden=!current()||!activeSupplements().length;
  get('recheck-all').textContent=i18n.t(active?'appRecheckRunning':'appRecheckAll');get('recheck-all').disabled=recheckBusy||!state.ai?.configured||!activeSupplements().length||!state.groups.length;
- get('recheck-pending').hidden=!proposals.length;get('recheck-pending').textContent=i18n.t('appRecheckPending',{count:proposals.length});
+ get('home-routine-actions').hidden=get('conclusion-home').hidden&&get('recheck-home').hidden;get('recheck-pending').hidden=!proposals.length;get('recheck-pending').textContent=i18n.t('appRecheckPending',{count:proposals.length});
  const root=get('recheck-content'),running=Boolean(current()&&(active||recheckStarting));
  // Keep the animated node connected across polling; removing it restarts CSS animation.
  let progress=running?root.querySelector('.recheck-progress'):null;
