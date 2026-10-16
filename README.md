@@ -533,3 +533,7 @@ in the product and owning job, and listed below the products. Manual/concurrent
 choices and rejected proposals never become move events. Legacy upload history
 may use matching researched analysis/initial identity only; new tracked jobs never
 infer moves. No extra provider calls or database migration.
+
+0.21.6: Per user styling, native buttons/selects, disclosure controls, navigation
+and the photo picker show no focus ring. Actual keyboard focus/activation and
+selected-state styling are retained; editable text-field focus is unchanged.

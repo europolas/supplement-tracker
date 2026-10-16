@@ -454,3 +454,9 @@ html .upload-job-result .upload-product-button:disabled{opacity:1;cursor:default
 .upload-product-button:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 .upload-group-changes{margin:16px 0 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .upload-group-changes h3{margin:0 0 10px}.upload-group-change-list{display:grid;gap:10px}.upload-group-change strong{display:block;font-size:12px;font-weight:600;line-height:1.4}.upload-group-change p{margin:3px 0 0;font-size:11px;line-height:1.5;color:var(--muted)}
+
+/* User-selected control styling suppresses focus rings across native buttons,
+   selects and disclosure/navigation controls. Keep real focus and keyboard
+   activation intact; text-input focus and selected-state styling are independent. */
+html :is(button,select,summary,[role="button"],a.setting-row,.app-nav a):is(:focus,:focus-visible){outline:none!important;outline-offset:0!important;-webkit-tap-highlight-color:transparent}
+html .photo-picker:focus-within{outline:none}
