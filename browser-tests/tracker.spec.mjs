@@ -218,7 +218,7 @@ test('Home omits historical compatibility badges and details omit ungraded asses
 
 test('account clear requires confirmation, removes supplements and keeps groups',async({page})=>{
  const m=await mock(page,{preloaded:true,basic:true});await login(page);await page.locator('.account-link').click();await page.locator('#clear-supplements').click();await page.getByRole('button',{name:'Cancel',exact:true}).click();expect(m.requests.filter(r=>r.method==='DELETE'&&r.path==='/v1/supplements')).toHaveLength(0);
- await page.locator('#clear-supplements').click();await page.getByRole('button',{name:'Confirm',exact:true}).click();await expect(page.locator('.supplement-open')).toHaveCount(0);expect(m.requests.filter(r=>r.method==='DELETE'&&r.path==='/v1/supplements')).toHaveLength(1);await expect(page.locator('.group-block')).toHaveCount(1);await page.screenshot({path:'.runtime/clear-account.png',animations:'disabled'});
+ await page.locator('#clear-supplements').click();await page.getByRole('button',{name:'Confirm',exact:true}).click();await expect(page.locator('.supplement-open')).toHaveCount(0);expect(m.requests.filter(r=>r.method==='DELETE'&&r.path==='/v1/supplements')).toHaveLength(1);await expect(page.locator('.group-block')).toHaveCount(1);await expect(page.locator('#progress-ring')).toHaveAttribute('aria-busy','false');await page.locator('#app-nav [data-route="/"]').click();await expect(page.locator('#progress-count')).toHaveText('0 / 0');await expect(page.locator('#progress-ring')).not.toHaveClass(/is-loading/);await expect(page.locator('.routine-loading-arc')).toBeHidden();await page.screenshot({path:'.runtime/clear-home-settled.png'});
 });
 
 test('multiple photos stay in the draft and are sent as one request',async({page})=>{

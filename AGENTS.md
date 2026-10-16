@@ -665,3 +665,13 @@ keeping these separate from exact label requirements. No extra search stage,
 product-name rule, automatic rewrite or manual-assignment override is introduced.
 New recognition classification.policyVersion is 3. Existing records can receive
 individual explicit Recheck proposals; full research still obeys owner/snapshot guards.
+
+
+## 0.22.5 — clear-all finishes Taken animation
+
+Every start/finish of the shared write counter refreshes the Taken busy state,
+including Account clear-all, explicit research, upload submission and recheck
+decisions. Clear-all's final counter decrement previously left a stale loading
+class after reset/dashboard had already rendered while that write was active.
+Keep the ring active for genuine outstanding reads/jobs and settle it on both
+success and failure. No API, AI, scroller or private persistence changes.

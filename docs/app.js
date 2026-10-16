@@ -303,7 +303,7 @@ function renderDetail(){
   prose(section('appBenefits','benefits'),analysis.benefitTags?.length?analysis.benefitTags.map(b=>b[i18n.language]||b.en):analysis.benefitSummary);
  }
  // New products are researched automatically. This action retries/refreshes explicitly.
- const refresh=button(i18n.t('appRefreshInfo'),async()=>{const session=current();refresh.disabled=true;writes++;try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;}});
+ const refresh=button(i18n.t('appRefreshInfo'),async()=>{const session=current();refresh.disabled=true;writes++;renderRoutineLoading();try{const job=await api.post('/v1/supplements/'+item.id+'/research',{requestId:crypto.randomUUID(),language:i18n.language});if(session!==current())return;await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);await load();}catch(error){if(session===current()){failure(error);refresh.disabled=false;}}finally{writes--;renderRoutineLoading();}});
  refresh.disabled=pending;refresh.className='secondary detail-research-button';
  const select=element('select',{attributes:{'aria-label':i18n.t('appMoveGroup')}});
  select.append(element('option',{text:i18n.t('appUnassigned'),attributes:{value:''}}));
@@ -386,9 +386,9 @@ get('recheck-all').addEventListener('click',async()=>{
  catch(error){if(current()===session&&epoch===collectionEpoch)failure(error);}finally{if(current()===session&&epoch===collectionEpoch){recheckBusy=false;recheckStarting=false;renderRoutineCheck();}}
 });
 async function resolveRoutineCheck(proposal,action){
- if(recheckBusy)return;const session=current(),epoch=collectionEpoch;recheckBusy=true;writes++;renderRoutineCheck();
+ if(recheckBusy)return;const session=current(),epoch=collectionEpoch;recheckBusy=true;writes++;renderRoutineLoading();renderRoutineCheck();
  try{await api.patch('/v1/rechecks/'+proposal.jobId+'/'+proposal.id,{action});if(current()!==session||epoch!==collectionEpoch)return;if(action==='accept')await load(false);else await refreshRoutineChecks(session,epoch);}
- catch(error){if(current()===session&&epoch===collectionEpoch)failure(error);}finally{writes--;if(current()===session&&epoch===collectionEpoch){recheckBusy=false;renderRoutineCheck();}}
+ catch(error){if(current()===session&&epoch===collectionEpoch)failure(error);}finally{writes--;renderRoutineLoading();if(current()===session&&epoch===collectionEpoch){recheckBusy=false;renderRoutineCheck();}}
 }
 
 /** Only server-owned account metadata is displayed; model text always uses safe
@@ -548,21 +548,21 @@ async function watchJobs(session){
 get('clear-supplements').addEventListener('click',async()=>{
  if(writes||!current())return;
  if(!await confirmDialog(i18n.t('appClearSupplementsConfirm'),{i18n}))return;
- const session=current(),control=get('clear-supplements');control.disabled=true;writes++;
+ const session=current(),control=get('clear-supplements');control.disabled=true;writes++;renderRoutineLoading();
  try{await api.delete('/v1/supplements',{body:{confirm:true}});if(session!==current())return;resetSession();await load();notify(i18n.t('appClearSupplementsDone'));}
- catch(error){if(session===current())failure(error);}finally{writes--;control.disabled=false;}
+ catch(error){if(session===current())failure(error);}finally{writes--;renderRoutineLoading();control.disabled=false;}
 });
 get('analyze-form').addEventListener('submit',async event=>{
  event.preventDefault();if(sending||!current())return;
  const form=get('analyze-form'),name=form.elements.name.value.trim();
  if(!name&&!photo.length){status('analysis-status',i18n.t('NAME_OR_PHOTO_REQUIRED'),true);return;}
- const session=current();sending=true;writes++;renderUploadQueue();form.querySelector('fieldset').disabled=true;
+ const session=current();sending=true;writes++;renderRoutineLoading();renderUploadQueue();form.querySelector('fieldset').disabled=true;
  status('analysis-status',i18n.t('appUploading'));
  try{
   const job=await api.post('/v1/supplements/jobs',{requestId:requestId||crypto.randomUUID(),name,images:photo,language:i18n.language});
   if(session!==current())return;resetAddDraft();modalJobId=job.id;status('analysis-status',i18n.t('appUploadAccepted'));await observeJobs({job,active:[...activeJobs.filter(j=>j.id!==job.id),job]},session);
  }catch(error){if(session===current()){status('analysis-status',err(error),true);form.querySelector('fieldset').disabled=false;}}
- finally{sending=false;writes--;form.querySelector('fieldset').disabled=false;get('close-add').disabled=false;renderUploadQueue();}
+ finally{sending=false;writes--;renderRoutineLoading();form.querySelector('fieldset').disabled=false;get('close-add').disabled=false;renderUploadQueue();}
 });
 get('view-added').addEventListener('click',()=>{const id=addedId;closeAdd();if(id)router.navigate('/detail?id='+encodeURIComponent(id));});
 settings.state.subscribe(value=>{
