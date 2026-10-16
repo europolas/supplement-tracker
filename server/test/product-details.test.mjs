@@ -19,28 +19,21 @@ test('live focused detail request validates sources and compact localized result
  console.log(JSON.stringify({scope:'product-details',language,ingredients:result.nutrients.length,sources:result.sources.length,doseKnown:Boolean(result.dosage.directions)}));
 });
 function fullFixture(){return {schemaVersion:'1.4',language:'en',identified:true,productName:'Product',manufacturer:'Brand',variant:'',groupId:null,benefitSummary:'Energy, cells',benefits:['Useful benefit.'],howToUse:'With water.',whenToUse:'With food.',labelDirections:null,cautions:[],confidence:'medium',needsReview:false,reviewReason:null,evidenceNote:'',doseFallback:{basis:'unavailable',ingredient:null,dailyAmountMin:null,dailyAmountMax:null,unit:null,sourceUrl:null,explanation:'Not determined'},dosage:{directions:null,servingSize:null,dailyServingsMin:null,dailyServingsMax:null,sourceUrl:null,evidence:'unknown'},nutrients:[],sources:[],compatibility:{summary:'',requiresReview:false,assessments:[]}};}
-const alert=()=>({supplementId:'other',status:'potential_conflict',severity:'severe',canSeparate:true,recommendedGroupId:'evening',recommendation:'Separate intake in the evening group.',sourceUrl:'https://manufacturer.example/interaction',reason:'Established significant interaction.'});
-test('full details accepts no alerts, or only severe sparse source-backed recommendations',()=>{
- const groups=[{id:'evening'}],others=[{id:'other'},{id:'safe'}];let f=fullFixture();assert.equal(validDetails(f,groups,'en',others,true),true);f.compatibility={summary:'',requiresReview:true,assessments:[alert()]};assert.equal(validDetails(f,groups,'en',others,true),true);
- for(const change of [{severity:'minor'},{supplementId:'foreign'},{recommendedGroupId:'foreign'},{canSeparate:false},{sourceUrl:'http://unsafe.example'},{recommendation:''},{status:'insufficient_information'}]){const copy=structuredClone(f);Object.assign(copy.compatibility.assessments[0],change);assert.equal(validDetails(copy,groups,'en',others,true),false);}
- const noSeparation=structuredClone(f);Object.assign(noSeparation.compatibility.assessments[0],{canSeparate:false,recommendedGroupId:null,recommendation:'Moving groups does not resolve this interaction.'});assert.equal(validDetails(noSeparation,groups,'en',others,true),true);
-});
-test('full details sends group context and prioritizes severe same-group conflicts without safe-pair essays',()=>{
- const m=detailsMessages({name:'Product',language:'en',target:{groupId:'morning'},groups:[{id:'evening',name:'Evening'}],supplements:[{id:'other',name:'Other',group_id:'morning',analysis:{}}],full:true});assert.match(m[0].content,/ONLY source-backed SEVERE/);assert.match(m[0].content,/DIFFERENT existing groupId/);const c=JSON.parse(m[1].content[0].text);assert.equal(c.groups[0].id,'evening');assert.equal(c.existingSupplements[0].groupId,'morning');
-});
-test('research rejects unencountered severe-alert sources and current-group moves before persistence',async()=>{
- const {TrackerApi}=await import('../src/TrackerApi.mjs'),{createCredentialVault}=await import('../src/credential-vault.mjs');const vault=createCredentialVault(Buffer.alloc(32,7)),owner='owner',sealed=vault.seal('private-testing-key',{owner,provider:'xai'}),groups=[{id:'morning',name:'Morning'},{id:'evening',name:'Evening'}],supplements=[{id:'other',name:'Other',analysis:{enrichment:{status:'complete'}}}];
- let source='https://manufacturer.example/interaction',recommended='evening',registry=false,prove=false;
- const chat=async input=>{const r=fullFixture();r.compatibility={summary:'',requiresReview:true,assessments:[{...alert(),sourceUrl:source,recommendedGroupId:recommended}]};r.sources=[{url:'https://manufacturer.example/interaction',title:'Official interaction directions',kind:registry?'label_registry':'manufacturer'}];assert.equal(input.validate(r),true);return {result:r,citations:['https://manufacturer.example/interaction'],verifiedLabelSources:prove?['https://manufacturer.example/interaction']:[],model:'test'};};
- const api=new TrackerApi(null,{authenticate:async()=>({})},{vault,chat,fullResearch:true});api.checkKey=async()=>sealed;
- const run=()=>api.requestResearch(owner,{name:'Product',language:'en',target:{name:'Product',groupId:'morning'},groups,supplements,settings:{model:'test'},sealed},'Bearer private');
- const result=await run();assert.equal(result.result.compatibility.assessments[0].supplementName,'Other');registry=true;await assert.rejects(run(),e=>e.code==='AI_SOURCES_UNVERIFIED');prove=true;await run();registry=false;prove=false;source='https://invented.example/interaction';await assert.rejects(run(),e=>e.code==='AI_SOURCES_UNVERIFIED');source='https://manufacturer.example/interaction';recommended='morning';await assert.rejects(run(),e=>e.code==='AI_INVALID_RESPONSE');
-});
-
 test('full details reviews timing against all groups and requires an owned decision and explanation',()=>{
  const groups=[{id:'fast',name:'Morning · empty stomach'},{id:'meal',name:'Any time day or evening'}],f=fullFixture();f.groupId='meal';f.reviewReason='Exact manufacturer directions recommend a meal.';
  assert.deepEqual(detailsSchema(groups,'en',[],true).properties.groupId.enum,['fast','meal',null]);assert.equal(validDetails(f,groups,'en',[],true),true);
  for(const changes of [{groupId:'foreign'},{groupId:['fast','meal']},{reviewReason:null},{reviewReason:''}])assert.equal(validDetails({...f,...changes},groups,'en',[],true),false);
  const m=detailsMessages({name:'Product',language:'en',target:{groupId:'fast',groupingBasis:'provisional'},groups,full:true}),c=JSON.parse(m[1].content[0].text);
- assert.equal(c.groups.length,2);assert.equal(c.selectedTarget.groupId,'fast');assert.match(m[0].content,/preferably with a meal/);assert.match(m[0].content,/manual assignments remain unchanged/);
+ assert.equal(c.groups.length,2);assert.equal(c.selectedTarget.groupId,'fast');assert.match(m[0].content,/preferably with a meal/);assert.doesNotMatch(JSON.stringify(m),/existingSupplements|compatibility|contraindications/);
+});
+
+import {compactDetailsSchema,expandCompactDetails} from '../src/product-details.mjs';
+test('manual detail requests omit group context, instructions and wire fields entirely',()=>{
+ const messages=detailsMessages({name:'Product',language:'en',target:{name:'Product',manufacturer:'Brand',groupId:'private',groupingBasis:'manual',originalBenefit:'private benefit'},groups:[{id:'private',name:'Private group'}],full:true});
+ assert.doesNotMatch(JSON.stringify(messages),/group|private|originalBenefit|compatibility|interaction|restriction/i);
+ const schema=compactDetailsSchema([],'en');assert.doesNotMatch(JSON.stringify(schema),/group|reviewReason|cautions|compatibility|doseFallback|evidenceNote/);
+ const full=fullFixture(),raw={identified:true,productName:full.productName,manufacturer:full.manufacturer,variant:full.variant,nutrients:[],dosage:{...full.dosage},benefits:['Brief benefit.'],benefitSummary:'Energy, cells',sources:[]};delete raw.dosage.evidence;
+ assert.equal(validDetails(expandCompactDetails(raw,'en',false),[],'en'),true);
+ assert.throws(()=>expandCompactDetails({...raw,groupId:'private'},'en',false));
+ const cautions=fullFixture();cautions.cautions=['Extra topic'];assert.equal(validDetails(cautions,[],'en',[],true),false);
 });

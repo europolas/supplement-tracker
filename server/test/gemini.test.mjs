@@ -10,29 +10,37 @@ test('Gemini single request carries images, context, language and ingredients wi
  const pipeline=createGeminiPipeline({provider});assert.equal(pipeline.review,null);assert.equal(pipeline.credentialProvider,'google');const metrics=[];const out=await pipeline.discover({key:'private-key',messages:basicProductsMessages({name:'NOW Vitamin C',language:'lt',groups,supplements:[]}),onMetrics:m=>metrics.push(m)});assert.equal(calls,1);assert.equal(out.result.products.length,1);assert.equal(out.result.products[0].groupId,'g1');assert.equal(metrics[0].calls,1);assert.equal(metrics.at(-1).inputTokens,100);assert.equal(Object.values(out.productMetadata)[0].composition.complete,false);
 });
 test('foreign groups, duplicates, missing composition and oversized text are rejected',()=>{
- assert.equal(validGeminiProducts(result,groups),true);for(const change of [{groupId:'foreign'},{ingredients:null},{name:'x'.repeat(251)}])assert.equal(validGeminiProducts({products:[{...result.products[0],...change}]},groups),false);assert.equal(validGeminiProducts({products:[result.products[0],result.products[0]]},groups),false);assert.match(geminiPrompt(),/English/);assert.match(geminiPrompt(),/exactly one existing group/);
+ assert.equal(validGeminiProducts(result,groups),true);for(const change of [{groupId:'foreign'},{ingredients:null},{name:'x'.repeat(251)}])assert.equal(validGeminiProducts({products:[{...result.products[0],...change}]},groups),false);assert.equal(validGeminiProducts({products:[result.products[0],result.products[0]]},groups),false);assert.match(geminiPrompt(),/English/);assert.match(geminiPrompt(),/exactly ONE supplied group/);
 });
 test('provider failures are bounded, sanitized and never retried',async()=>{
  for(const [status,code] of [[400,'AI_PROVIDER_FAILED'],[403,'AI_KEY_REJECTED'],[429,'AI_RATE_LIMITED']]){let calls=0;const provider=createGeminiStructured({fetch:async()=>{calls++;return new Response('secret provider body',{status});}});await assert.rejects(provider({key:'secret',messages:[{role:'user',content:'test'}],schema:{},validate:()=>true}),e=>e.code===code);assert.equal(calls,1);}
 });
-test('known exact manufacturer food constraint is applied after recognition, never prompted',async()=>{
- const gs=[{id:'fast',name:'Morning empty stomach'},{id:'meal',name:'With a meal'}];let prompt;
- const pipeline=createGeminiPipeline({provider:async input=>{prompt=JSON.stringify(input.messages);return {result:{products:[{name:'Alpha Lipoic Acid 600 mg',manufacturer:'NOW',ingredients:['Alpha lipoic acid'],groupId:'fast',benefit:'Antioxidant, energy'}]}};}});
- const out=await pipeline.discover({key:'test',messages:basicProductsMessages({name:'label',language:'en',groups:gs,supplements:[]})});assert.equal(out.result.products[0].groupId,'meal');assert.doesNotMatch(prompt,/NOW|ALA 600|reviewedDirections|Pharma Nord/);
+test('recognition preserves the AI group for any product without server product rules',async()=>{
+ const gs=[{id:'fast',name:'Morning empty stomach'},{id:'meal',name:'With a meal'}];
+ const pipeline=createGeminiPipeline({provider:async()=>({result:{products:[{name:'Alpha Lipoic Acid 600 mg',manufacturer:'NOW',ingredients:['Alpha lipoic acid'],groupId:'fast',benefit:'Antioxidant, energy'}]}})});
+ const out=await pipeline.discover({key:'test',messages:basicProductsMessages({name:'label',language:'en',groups:gs,supplements:[]})});assert.equal(out.result.products[0].groupId,'fast');assert.doesNotMatch(geminiPrompt(),/NOW|Pharma Nord|ALERTEN/);
 });
 test('full research searches only selected identity and extracts with private routine context afterwards',async()=>{
  const {createGeminiResearch}=await import('../src/providers/gemini.mjs');let searched;
  const research=createGeminiResearch({search:async input=>{searched=JSON.stringify(input.messages);assert.doesNotMatch(searched,/Private routine|owner-id|private-group/);return {result:{text:'Public evidence'},citations:['https://manufacturer.example/label'],searches:1};},extract:async input=>{assert.match(JSON.stringify(input.messages),/Private routine/);return {result:{ok:true}};}});
  const out=await research({messages:[{role:'system',content:'policy'},{role:'user',content:[{type:'text',text:JSON.stringify({productName:'Public product',selectedTarget:{name:'Public product',groupId:'private-group'},existingSupplements:[{id:'owner-id',name:'Private routine'}]})}]}]});assert.equal(out.result.ok,true);assert.equal(out.citations[0],'https://manufacturer.example/label');
 });
-test('full details contract returns sparse severe alerts and owned group choices',async()=>{
- const {detailsSchema,detailsMessages}=await import('../src/product-details.mjs');const supplements=[{id:'owned',name:'Other product',analysis:{manufacturer:'Other',nutrients:[]}}];
- const schema=detailsSchema([],'lt',supplements,true);assert.equal(schema.properties.compatibility.properties.assessments.minItems,0);assert.equal(schema.properties.compatibility.properties.assessments.items.properties.supplementId.enum[0],'owned');assert.ok(schema.properties.cautions.maxItems>0);assert.deepEqual(schema.properties.groupId.enum,[null]);const prompt=detailsMessages({name:'Unknown brand product',language:'lt',supplements,full:true});assert.match(prompt[0].content,/when manufacturer\/brand is missing/);assert.doesNotMatch(prompt[0].content,/No routine compatibility analysis/);
+test('details contract excludes restrictions and all other routine products',async()=>{
+ const {detailsSchema,detailsMessages}=await import('../src/product-details.mjs');const schema=detailsSchema([],'lt',[{id:'private'}],true);
+ assert.equal(schema.properties.compatibility.properties.assessments.maxItems,0);assert.equal(schema.properties.cautions.maxItems,0);
+ const prompt=detailsMessages({name:'Product',language:'lt',target:{name:'Product',groupingBasis:'manual',groupId:'private'},groups:[{id:'private',name:'Private group'}],supplements:[{id:'secret',name:'Other supplement'}],full:true});assert.doesNotMatch(JSON.stringify(prompt),/private|secret|Other supplement|group|compatibility|cautions/i);
 });
 
-test('exact Extra Strength identity without printed strength avoids fasting and recognizes flexible groups',async()=>{
- const gs=[{id:'fast',name:'Morning · empty stomach'},{id:'fat',name:'Meals · with fats'},{id:'any',name:'Any time day or evening'},{id:'bed',name:'Before bed without food'}];
- const pipeline=createGeminiPipeline({provider:async()=>({result:{products:[{name:'Extra Strength Alpha Lipoic Acid',manufacturer:'NOW',ingredients:['Alpha lipoic acid'],groupId:'fast',benefit:'Antioxidant, energy'}]}})});
- const out=await pipeline.discover({key:'test',messages:basicProductsMessages({name:'label',language:'en',groups:gs,supplements:[]})});assert.equal(out.result.products[0].groupId,'any');
- assert.match(geminiPrompt(),/Never select a fasting group for a product recommended with food/);
+test('compact research transports only product facts and optional AI timing, then expands local fields',async()=>{
+ const {detailsMessages,detailsSchema,validDetails}=await import('../src/product-details.mjs'),{createGeminiResearch}=await import('../src/providers/gemini.mjs');
+ for(const manual of [true,false]){
+  const groups=[{id:'meal',name:'Private meal group'}],target={name:'Example',manufacturer:'Brand',groupId:'meal',groupingBasis:manual?'manual':'provisional'};
+  const research=createGeminiResearch({search:async input=>{assert.doesNotMatch(JSON.stringify(input.messages),/group|interaction|contraindication/i);return {result:{text:'Official facts'},citations:['https://manufacturer.example/label']};},extract:async input=>{
+   const all=JSON.stringify({messages:input.messages,schema:input.schema});assert.doesNotMatch(all,/compatibility|cautions|doseFallback|existingSupplements|evidenceNote/);
+   if(manual)assert.doesNotMatch(all,/group|reviewReason/i);else assert.match(all,/Private meal group/);
+   const raw={identified:true,productName:'Example',manufacturer:'Brand',variant:null,nutrients:[],dosage:{directions:'One tablet with a meal daily.',servingSize:'One tablet',dailyServingsMin:1,dailyServingsMax:1,sourceUrl:'S1'},benefits:['Short benefit.'],benefitSummary:'Energy, cells',sources:[{url:'S1',title:'Official product',kind:'manufacturer'}],...(!manual?{groupId:'meal',reviewReason:'Manufacturer recommends a meal.'}:{})};assert.equal(input.validate(raw),true);return {result:raw};
+  }});
+  const out=await research({name:'supplement_product_details',messages:detailsMessages({name:'Example',language:'en',target,groups,full:true}),schema:detailsSchema(manual?[]:groups,'en',[],!manual),validate:v=>validDetails(v,manual?[]:groups,'en',[],!manual)});
+  assert.equal(out.result.compatibility.assessments.length,0);assert.equal(out.result.cautions.length,0);assert.equal(out.result.groupId,manual?null:'meal');assert.equal(out.result.dosage.sourceUrl,'https://manufacturer.example/label');
+ }
 });

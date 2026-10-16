@@ -680,3 +680,41 @@ All new recognition records explicitly store grouping.basis=provisional.
 
 No database migration or bulk rewrite. Existing products are reassessed on their
 next detailed-information refresh; only the reported ALA is targeted for correction.
+
+## 0.18.0 — universal, concise Gemini product requests
+
+Supersedes 0.17's reviewed-product cache: product-timing-facts.mjs is removed,
+including imports and overrides in Gemini and dormant JEV classification. Production
+code contains no product/brand-specific timing list. Gemini's owned group decision
+is not changed by product-name or group-name matching code. General prompt guidance
+still prioritizes actual manufacturer directions and one compatible group.
+
+Recognition prompt: 3,760 -> 1,482 characters (61% shorter). Retains whole-photo
+inventory/blisters, cross-photo deduplication, exact identity/partial ingredients,
+one group and localized benefit keywords. No product-specific examples.
+
+Full detail prompt: 6,622 -> 1,059 characters with AI timing context (84% shorter).
+Research gathers only manufacturer/identity, composition, brief benefits and one
+usage instruction. No interactions/restrictions, other routine products, adult
+reference-dose searches or repeated when/how prose. Search/extraction remain two
+bounded calls with source-ID binding and exact-brand/label validation.
+
+The Gemini wire schema omits legacy flags, cautions, compatibility, fallback doses,
+NRV fields and duplicate usage strings. The server expands product facts into the
+existing 1.4 storage contract with empty/not-determined defaults. Source provenance
+is retained. Existing stored records are not mass-rewritten or re-billed.
+
+For a manual assignment, omit ALL group fields/instructions from messages AND the
+Gemini wire schema; only product identity is sent. For an AI assignment include
+owned groups/current ID and an optional sourced timing decision. Atomic manual/race
+protections remain. Product-only research does not invalidate compatibility when
+unrelated products change. Historical legacy non-focused analysis stays available.
+
+Live checks (DB-free; real Gemini, original four photos): two recognition calls
+returned 16/16 identities in 9.513s and 8.694s. Both still provisionally put ALA in
+the fasting group; these are identity/latency results, not 100% grouping accuracy.
+The compact sourced detail request corrected that artificial fasting context to
+an owned meal group in 19.773s without any product-specific server rule. Separate
+checks took 15.355s with AI timing and 13.228s with manual timing omitted. Single
+runs do not establish a stable latency improvement. Transport tests inspect the
+entire manual extraction schema/context to enforce complete group omission.

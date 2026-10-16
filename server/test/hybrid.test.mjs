@@ -1,5 +1,4 @@
 import {selectTimingGroup} from '../src/providers/jev-timing.mjs';
-import {timingFacts} from '../src/product-timing-facts.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {BENEFITS,classificationRequest,parseClassification,createJevClassification} from '../src/providers/jev-classification.mjs';
 import {validIngredients,createIngredientRecognition} from '../src/providers/grok-ingredients.mjs';
@@ -38,9 +37,6 @@ test('independent timing selects one owned group and respects descriptions/food 
  assert.equal(selectTimingGroup(g,k,{fasting:.2,fats:2.1,bed:.5},'c'),'b');
  assert.equal(selectTimingGroup(g,k,{fasting:.2,fats:.2,bed:2.1},'c'),'d');
  assert.equal(selectTimingGroup(g,k,{fasting:.9,fats:.5,bed:.2},'a'),'c');
- const facts=timingFacts({name:'Extra Strength Alpha Lipoic Acid 600 mg',manufacturer:'NOW'},Date.parse('2026-10-15'));assert.equal(facts.avoidFasting,true);assert.ok(facts.source.startsWith('https://www.nowfoods.com/'));
- assert.equal(timingFacts({name:'Extra Strength Alpha Lipoic Acid 600 mg',manufacturer:'Other'},Date.parse('2026-10-15')),null);
- assert.equal(timingFacts({name:'Extra Strength Alpha Lipoic Acid 600 mg',manufacturer:'NOW'},Date.parse('2027-10-15')),null);
  const req=classificationRequest([product],[{id:'x',name:'My slot',description:'Before bed with food'}]);assert.match(req.questions.k0.instructions,/Before bed with food/);
 });
 
@@ -51,7 +47,7 @@ test('recognition cache isolates owner, credentials and exact photos; stores onl
  await read({...input,scope:'owner2'});await read({...input,key:'two'});await read({...input,images:['photo2']});assert.equal(calls,4);
 });
 
-test('manufacturer food direction prevents a fasting suggestion without duplicating groups',()=>{
+test('legacy JEV classification has no product-specific score override',()=>{
  const p={...product,name:'Extra Strength Alpha Lipoic Acid 600 mg',manufacturer:'NOW'};
  const g=[{id:'morning',name:'Empty stomach'},{id:'meal',name:'With food'}];
  const req=classificationRequest([p],g),answers={};
@@ -59,5 +55,5 @@ test('manufacturer food direction prevents a fasting suggestion without duplicat
   if(q.type==='choice'){const choice=k==='k0'?'fasting':k==='k1'?'meal':'morning';answers[k]={type:'choice',choice,confidence:1,probabilities:Object.fromEntries(Object.keys(q.criteria).map(x=>[x,x===choice?1:0]))};}
   else{const n=k==='t0_fasting'?3:0;answers[k]={type:'score',score:n,confidence:1,probabilities:{0:n===0?1:0,1:0,2:0,3:n===3?1:0}};}
  }
- const [out]=parseClassification({model:'jev-test',answers},req,[p],g);assert.equal(out.groupId,'meal');assert.equal(out.timing.factors.fasting,0);assert.ok(out.timing.source);
+ const [out]=parseClassification({model:'jev-test',answers},req,[p],g);assert.equal(out.groupId,'morning');assert.equal(out.timing.factors.fasting,3);assert.equal(out.timing.source,undefined);
 });

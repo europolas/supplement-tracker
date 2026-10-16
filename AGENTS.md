@@ -452,3 +452,13 @@ and same-group edits) and group-snapshot checks. Only evidenced AI assignments
 can move; retain source/reason/check time. Do not restore the old full-details
 null-group restriction or discard reviewReason during evidence binding. Existing
 non-full details keep their old contract. Never send private groups to Search.
+
+## 0.18.0 — universal compact product research
+
+No brand/product-specific timing cache or server override is permitted. Gemini
+returns the group directly. Detail requests contain product facts only; omit all
+group context, prompt instructions and provider-schema fields for manual assignments.
+Use compactDetailsSchema/expandCompactDetails for provider output and local 1.4
+storage compatibility. Do not reintroduce interaction/caution/routine/fallback-dose
+research or duplicate usage prose. Source binding and manual/concurrency protections
+remain mandatory; see server/ANALYSIS.md for the superseding contract.
