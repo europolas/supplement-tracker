@@ -494,3 +494,10 @@ Unrelated-brand substitution and invalid payload types still cannot overwrite
 the selected product. Raw requests/photos/keys remain private and out of Git.
 Product controls use a 12px gap with no visible Day group label. More information
 is one connected sage surface; confirmation actions share one 50/50 row with gap.
+
+## 0.21.1 — unified typography
+
+Groups supplies the system sans-serif stack for all pages, authentication, product
+sheets, editors, confirmations and image previews. Account uses the same page-title
+size/weight as Groups and its section/item hierarchy. No serif heading overrides
+remain; icon fonts, editable-field sizing and viewport/keyboard behavior are preserved.

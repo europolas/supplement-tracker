@@ -1,6 +1,6 @@
 /* Design A / Sage. Shared viewport/keyboard/edge masks in base.css remain the
    sole shell sizing mechanism. No remote fonts or decorative product claims. */
-:root { --paper:#f8f7f3;--surface:#fffefa;--ink:#25312b;--muted:#6e756e;--line:#e1e3d9;--green:#607c56;--on-green:#fff;--soft:#e7eddf;--serif:Georgia,'Times New Roman',serif; }
+:root { font-family:var(--font-ui);--paper:#f8f7f3;--surface:#fffefa;--ink:#25312b;--muted:#6e756e;--line:#e1e3d9;--green:#607c56;--on-green:#fff;--soft:#e7eddf;--font-ui:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
 html[data-theme="dark"] { --paper:#1d2520;--surface:#252f28;--ink:#edf1e7;--muted:#b0baad;--line:#3c473c;--green:#b2c9a1;--on-green:#202a21;--soft:#334532; }
 html,html[data-theme="light"],html[data-theme="dark"],html body,html[data-theme="light"] body { background:var(--paper);color:var(--ink); }
 main { max-width:600px;padding-left:22px;padding-right:22px; }
@@ -8,7 +8,7 @@ body::before,html[data-theme="light"] body::before { background:transparent; }
 .icon { width:22px;height:22px;display:block;flex:none; }
 [data-icon] { display:inline-flex;align-items:center;justify-content:center; }
 .brand { display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px; }
-.wordmark { font-family:var(--serif);color:var(--ink);text-decoration:none;font-size:32px;font-weight:600;letter-spacing:-1.1px; }
+.wordmark { font-family:var(--font-ui);color:var(--ink);text-decoration:none;font-size:32px;font-weight:600;letter-spacing:-1.1px; }
 .brand-caption { margin:4px 0 0;font-size:12px;line-height:1.5;color:var(--muted); }
 /* Floating three-tab navigation follows the reference pill, above the shared
    edge mask. Keep scroll space so the last product is reachable above it. */
@@ -24,11 +24,11 @@ html[data-keyboard="true"] .app-nav { visibility:hidden;pointer-events:none; }
 .app-nav a:focus-visible { outline:2px solid var(--green);outline-offset:-3px; }
 .app-toast { bottom:calc(env(safe-area-inset-bottom) + 96px); }
 .eyebrow { color:var(--muted);font-size:10px;letter-spacing:1.4px;font-weight:600;line-height:1.6;text-transform:uppercase; }
-h1 { font-family:var(--serif);font-size:34px;line-height:1.16;letter-spacing:-.8px;font-weight:400;margin:12px 0 18px;white-space:pre-line; }
+h1 { font-family:var(--font-ui);font-size:34px;line-height:1.16;letter-spacing:-.8px;font-weight:750;margin:12px 0 18px;white-space:pre-line; }
 h2 { font-size:19px;font-weight:600;letter-spacing:-.3px;margin:0 0 14px; }
 .hero-caption { color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 24px; }
 .today-heading { display:flex;align-items:center;justify-content:space-between;gap:12px; }
-.today-heading h1 { font:600 18px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:0;margin:0; }
+.today-heading h1 { font:600 18px/1.5 var(--font-ui);letter-spacing:0;margin:0; }
 #today-date { color:var(--muted);font-size:12px;text-align:right; }
 .daily-summary { display:flex;align-items:center;gap:26px;padding:8px 14px 18px;margin:0; }
 .progress-ring { position:relative;width:108px;height:108px;flex:none; }
@@ -59,9 +59,9 @@ textarea { resize:vertical; }fieldset { padding:0;border:0;margin:0;display:grid
 .secondary { background:var(--soft);color:var(--ink);border-radius:11px;padding:10px 17px;font-size:13px;min-height:44px; }
 .danger-link { background:none;color:#ae493e;font-size:13px;padding:12px;min-height:44px;border-radius:11px; }.detail-extra-content>.danger-link { width:100%;margin-top:18px;border:1px solid #c8756550; }
 .group-actions { display:flex;justify-content:flex-end;gap:8px;margin-top:12px; }.group-actions button { min-height:44px; }
-.group-editor { padding-top:6px; }.group-editor h2 { font:400 27px/1.3 var(--serif);margin:0 44px 24px 0; }.group-close { position:absolute;right:16px;top:34px; }
+.group-editor { padding-top:6px; }.group-editor h2 { font:600 27px/1.3 var(--font-ui);margin:0 44px 24px 0; }.group-close { position:absolute;right:16px;top:34px; }
 .detail-section.surface { padding:0;background:none;border:0;margin:0; }
-.detail-name { font:400 34px/1.2 var(--serif);letter-spacing:-.7px;overflow-wrap:anywhere;margin:18px 0; }
+.detail-name { font:600 34px/1.2 var(--font-ui);letter-spacing:-.7px;overflow-wrap:anywhere;margin:18px 0; }
 .group-badge { display:inline-flex;align-items:center;gap:8px;font-size:12px;background:var(--soft);padding:8px 12px;border-radius:20px; }.group-badge .icon { width:17px;height:17px; }
 #detail-primary { display:grid;gap:12px; }
 .detail-tile { position:relative;padding:18px 18px 18px 58px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 3px 12px #222b1e03; }
@@ -81,7 +81,7 @@ html .bottom-sheet { padding-left:22px;padding-right:22px;border-bottom:0; }
 .app-dialog::backdrop { background:#20271c55;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px); }
 .app-dialog button { margin:0; }.app-dialog .icon-button { padding:0; }
 .sheet-toolbar,.dialog-heading { display:flex;align-items:center;justify-content:space-between;gap:12px;margin:3px 0 20px; }
-.sheet-toolbar h2,.dialog-heading h2 { margin:0;font:400 26px/1.3 var(--serif);letter-spacing:-.5px; }.sheet-toolbar { position:sticky;top:-12px;padding:12px 0;background:var(--paper);z-index:2;margin-top:0; }.sheet-toolbar h2 { font-size:24px; }
+.sheet-toolbar h2,.dialog-heading h2 { margin:0;font:600 26px/1.3 var(--font-ui);letter-spacing:-.5px; }.sheet-toolbar { position:sticky;top:-12px;padding:12px 0;background:var(--paper);z-index:2;margin-top:0; }.sheet-toolbar h2 { font-size:24px; }
 .icon-button { display:grid;place-items:center;width:44px;min-height:44px;background:transparent;color:var(--ink);flex:none; }
 .icon-button:active { background:var(--soft); }.icon-button .icon { width:23px;height:23px; }
 .or-line { display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;text-align:center; }.or-line::before,.or-line::after { content:'';height:1px;background:var(--line);flex:1; }
@@ -297,7 +297,7 @@ main{max-width:1096px;padding-left:clamp(22px,5.24vw,38px);padding-right:clamp(2
 .account-page-title{display:flex;align-items:center;gap:16px;margin:0 0 26px}
 .account-avatar{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:var(--soft);color:var(--green);flex:none}
 .account-avatar .icon{width:28px;height:28px}
-.account-page-title h1{font:500 32px/1.2 var(--serif);letter-spacing:-.6px;margin:0 0 5px}
+.account-page-title h1{font:500 32px/1.2 var(--font-ui);letter-spacing:-.6px;margin:0 0 5px}
 .account-page-title p{font-size:14px;line-height:1.5;color:var(--muted);margin:0}
 .account-layout{display:grid;gap:16px;align-items:start}
 #account-screen .surface,#account-screen .account-card{margin:0;border:1px solid var(--line);border-radius:22px;background:var(--surface);padding:24px;box-shadow:none}
@@ -343,7 +343,7 @@ main{padding-top:calc(env(safe-area-inset-top) + 18px);padding-bottom:calc(var(-
 :root{--page-u:clamp(1px,.2436vw,2.1px)}
 main[data-tab="/groups"],main[data-tab="/account"]{max-width:862px;padding-left:calc(16 * var(--page-u));padding-right:calc(16 * var(--page-u));padding-top:calc(env(safe-area-inset-top) + 24 * var(--page-u))}
 .groups-page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 calc(18 * var(--page-u))}
-.groups-page-heading h1{font:750 calc(38 * var(--page-u))/1.1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:-1.4px;margin:0 0 calc(8 * var(--page-u))}
+.groups-page-heading h1{font:750 calc(38 * var(--page-u))/1.1 var(--font-ui);letter-spacing:-1.4px;margin:0 0 calc(8 * var(--page-u))}
 .groups-page-heading p{font-size:calc(14 * var(--page-u));color:var(--muted);line-height:1.4;margin:0}
 .groups-page-heading #new-group{width:calc(40 * var(--page-u));height:calc(40 * var(--page-u));min-height:44px;padding:8px;border-radius:50%;flex:none}
 .groups-page-heading #new-group .icon{width:calc(27 * var(--page-u));height:calc(27 * var(--page-u))}
@@ -374,17 +374,17 @@ main[data-tab="/groups"],main[data-tab="/account"]{max-width:862px;padding-left:
 .create-custom-group{display:flex;align-items:center;gap:calc(10 * var(--page-u));margin:calc(12 * var(--page-u)) 0 0;padding:12px 6px;font-size:calc(14 * var(--page-u));color:var(--green);background:transparent}.create-custom-group .icon{width:calc(26 * var(--page-u));height:calc(26 * var(--page-u))}
 /* Account A is one vertical stack at every width, including exported previews. */
 #account-screen .account-layout{display:flex;flex-direction:column;gap:calc(10 * var(--page-u));align-items:stretch}
-#account-screen .account-page-heading{font:500 calc(36 * var(--page-u))/1.15 var(--serif);letter-spacing:-1px;margin:0 0 calc(10 * var(--page-u))}
+#account-screen .account-page-heading{font:750 calc(38 * var(--page-u))/1.1 var(--font-ui);letter-spacing:-1.4px;margin:0 0 calc(10 * var(--page-u))}
 #account-screen .surface,#account-screen .account-card{padding:calc(13 * var(--page-u));border:1px solid var(--line);border-radius:calc(11 * var(--page-u));margin:0;background:var(--surface)}
 #account-screen[data-authenticated="true"] #account-title,#account-screen[data-authenticated="true"] #auth-status:not([data-error="true"]){display:none}
 .profile-overview{display:flex;align-items:center;gap:calc(14 * var(--page-u));min-width:0}
 .profile-initials{display:grid;place-items:center;width:calc(50 * var(--page-u));height:calc(50 * var(--page-u));border-radius:50%;background:var(--green);color:var(--on-green);font-size:calc(18 * var(--page-u));font-weight:500;flex:none}
-.profile-identity{flex:1;min-width:0}.profile-identity strong{font:600 calc(17 * var(--page-u))/1.25 var(--serif);overflow-wrap:anywhere}
+.profile-identity{flex:1;min-width:0}.profile-identity strong{font:600 calc(14 * var(--page-u))/1.35 var(--font-ui);overflow-wrap:anywhere}
 #account-screen #profile-email{font-size:calc(12 * var(--page-u));font-weight:400;line-height:1.4;margin:3px 0 0;color:var(--muted);overflow-wrap:anywhere}
 #account-screen #edit-profile-name{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px calc(10 * var(--page-u));border:1px solid var(--line);border-radius:calc(7 * var(--page-u));background:var(--paper);font-size:calc(12 * var(--page-u));font-weight:500;flex:none}
 #edit-profile-name .icon{width:calc(14 * var(--page-u));height:calc(14 * var(--page-u))}
 #account-screen #profile-form{margin:16px 0 0}
-#account-screen .account-setting-card h2{display:flex;align-items:center;gap:calc(12 * var(--page-u));font:600 calc(17 * var(--page-u))/1.3 var(--serif);letter-spacing:-.2px;margin:0;padding:0 0 calc(10 * var(--page-u))}
+#account-screen .account-setting-card h2{display:flex;align-items:center;gap:calc(12 * var(--page-u));font:600 calc(15 * var(--page-u))/1.4 var(--font-ui);letter-spacing:-.2px;margin:0;padding:0 0 calc(10 * var(--page-u))}
 #account-screen .account-setting-card h2>.icon,#account-screen .account-setting-card h2>[data-icon]>.icon{width:calc(18 * var(--page-u));height:calc(18 * var(--page-u));color:var(--green)}
 #account-screen .setting-row{display:grid;grid-template-columns:calc(22 * var(--page-u)) minmax(0,1fr) auto calc(12 * var(--page-u));align-items:center;gap:calc(12 * var(--page-u));min-height:max(44px,calc(33 * var(--page-u)));width:100%;padding:calc(7 * var(--page-u)) 0;border:0;border-top:1px solid var(--line);background:transparent;border-radius:0;text-align:left;font-size:calc(12.5 * var(--page-u));font-weight:400;line-height:1.4;color:var(--ink);text-decoration:none;cursor:pointer;list-style:none}
 #account-screen .setting-row::-webkit-details-marker{display:none}#account-screen .setting-row>span:not([data-icon]){font-size:inherit;color:inherit}
@@ -396,7 +396,7 @@ main[data-tab="/groups"],main[data-tab="/account"]{max-width:862px;padding-left:
 #account-screen #settings-form{gap:0}#account-screen #settings-form label{margin:0;position:relative}
 #account-screen #settings-form select{grid-column:3;min-height:44px;width:auto;max-width:calc(110 * var(--page-u));appearance:none;-webkit-appearance:none;padding:8px 0;border:0;border-radius:0;background:transparent;text-align:right;font-size:max(16px,calc(12 * var(--page-u)));color:var(--muted)}
 #account-screen #settings-form .setting-arrow{pointer-events:none}
-#account-screen .connection-badge{display:inline-flex;align-items:center;gap:6px;margin-left:auto;padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:var(--soft);font:500 calc(10 * var(--page-u))/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;white-space:nowrap;color:var(--green)}
+#account-screen .connection-badge{display:inline-flex;align-items:center;gap:6px;margin-left:auto;padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:var(--soft);font:500 calc(10 * var(--page-u))/1.3 var(--font-ui);white-space:nowrap;color:var(--green)}
 .connection-badge[data-connected="true"]::before{content:'';width:7px;height:7px;border-radius:50%;background:#4b8559}
 #account-screen #connection-editor,#account-screen .password-details,#account-screen #admin-panel{border:0;padding:0;margin:0;background:none;border-radius:0}
 #account-screen .password-details>summary{padding:calc(9 * var(--page-u)) 0;font-size:calc(12.5 * var(--page-u));font-weight:400}
@@ -432,3 +432,7 @@ html .app-dialog[open][aria-labelledby^="dialog-"]{display:grid;grid-template-co
 .app-dialog[aria-labelledby^="dialog-"]>button:not(.primary){background:var(--soft);color:var(--ink)}
 html .create-custom-group{font-size:calc(14 * var(--page-u))}
 .group-menu .group-menu-actions button:focus-visible,.group-grip:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+/* Groups defines the app typography. Every page/sheet uses this local system
+   stack; keep icon-font glyphs independent and editable fields at least 16px. */
+html .local-image-viewer h2,html .local-image-viewer button{font-family:var(--font-ui)}
