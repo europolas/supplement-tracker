@@ -411,4 +411,8 @@ export default Object.freeze({
   "appTimingPlan": "Ši grupė nurodo planuojamą laiką, o ne patvirtina, kad papildus saugu derinti.",
   "appShowPassword": "Rodyti slaptažodį",
   "appHidePassword": "Slėpti slaptažodį",
+  "appNavGroups": "Grupės",
+  "appTranslatingInfo": "Informacija ruošiama pasirinkta kalba…",
+  "appTranslateInfo": "Informacijos vertimas",
+  "appWorking": "Vykdoma",
 });

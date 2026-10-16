@@ -718,3 +718,25 @@ an owned meal group in 19.773s without any product-specific server rule. Separat
 checks took 15.355s with AI timing and 13.228s with manual timing omitted. Single
 runs do not establish a stable latency improvement. Transport tests inspect the
 entire manual extraction schema/context to enforce complete group omission.
+
+## 0.19.0 — selected-language views of historical AI information
+
+New recognition/research already use the explicit client language. Historical
+results now receive cached text-only translations when their source language differs
+from the current preference. GET dashboard's language=en|lt applies only a fresh
+fingerprinted variant. It never changes source language, dose numbers/units,
+manufacturer identity, URLs or group assignment. Without a cache it marks
+localizationNeeded; the UI hides mismatched prose while preparing that language.
+
+POST /supplements/localize starts an owner-scoped async job using existing job
+storage. Up to four products / about 48K input characters per call, one running
+locale job per owner, rate limit 60/hour and the shared three-slot background queue.
+Gemini translates whitelisted text only, with no Search/new product research.
+Validate IDs, exact keys and numeric tokens; compare fingerprints during the commit.
+Manual grouping and newer source facts cannot be overwritten. No automatic paid
+failure retry. Cached English/Lithuanian variants remain private analysis data.
+
+The client includes its selected locale in dashboard reads, new submissions,
+research and translation. Existing polling sequentially prepares missing batches;
+logout clears attempt state. Cached languages are reused without another provider
+call. Translation timings/tokens are included in diagnostics. No DB migration.

@@ -10,11 +10,19 @@ body::before,html[data-theme="light"] body::before { background:transparent; }
 .brand { display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px; }
 .wordmark { font-family:var(--serif);color:var(--ink);text-decoration:none;font-size:32px;font-weight:600;letter-spacing:-1.1px; }
 .brand-caption { margin:4px 0 0;font-size:12px;line-height:1.5;color:var(--muted); }
-.account-link { width:44px;height:44px;display:grid;place-items:center;background:var(--soft);border-radius:50%;color:var(--ink);text-decoration:none;flex:none; }
-.app-nav { display:flex;margin:0 0 22px;gap:4px;padding:3px;border:1px solid var(--line);border-radius:24px;background:transparent; }
-html .app-nav a,html[data-theme="light"] .app-nav a { display:flex;justify-content:center;align-items:center;gap:10px;flex:1;background:none;color:var(--ink);padding:8px;font-size:14px;min-height:40px;border-radius:21px; }
-html .app-nav a[aria-current="page"],html[data-theme="light"] .app-nav a[aria-current="page"] { background:var(--soft);color:var(--ink); }
-.app-nav .icon { width:19px;height:19px; }
+/* Floating three-tab navigation follows the reference pill, above the shared
+   edge mask. Keep scroll space so the last product is reachable above it. */
+main { padding-bottom:calc(env(safe-area-inset-bottom) + 112px); }
+.app-nav { position:fixed;z-index:15;left:50%;top:calc(var(--app-height,100dvh) - env(safe-area-inset-bottom) - 84px);bottom:auto;transform:translateX(-50%);display:flex;width:clamp(280px,70vw,400px);height:66px;gap:2px;margin:0;padding:4px;border:1px solid #25312b22;border-radius:999px;background:linear-gradient(160deg,#ffffffeb,#fffffff5);box-shadow:0 3px 16px #25312b08,inset 0 1px 2px #fff;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px); }
+html .app-nav a,html[data-theme="light"] .app-nav a { display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-width:0;min-height:56px;gap:4px;padding:5px 6px;border-radius:999px;color:var(--ink);background:transparent;font-size:11px;font-weight:500;line-height:1.2;text-decoration:none; }
+html .app-nav a[aria-current="page"],html[data-theme="light"] .app-nav a[aria-current="page"] { background:#e9eae7;color:var(--ink); }
+.app-nav .icon { width:25px;height:25px;stroke-width:1.9; }
+.app-nav a[data-route="/"][aria-current="page"] .icon { fill:currentColor; }
+html[data-theme="dark"] .app-nav { border-color:#edf1e728;background:linear-gradient(160deg,#2b352fef,#202a24f5);box-shadow:0 3px 16px #0002,inset 0 1px 2px #edf1e709; }
+html[data-theme="dark"] .app-nav a[aria-current="page"] { background:#3a473d; }
+html[data-keyboard="true"] .app-nav { visibility:hidden;pointer-events:none; }
+.app-nav a:focus-visible { outline:2px solid var(--green);outline-offset:-3px; }
+.app-toast { bottom:calc(env(safe-area-inset-bottom) + 96px); }
 .eyebrow { color:var(--muted);font-size:10px;letter-spacing:1.4px;font-weight:600;line-height:1.6;text-transform:uppercase; }
 h1 { font-family:var(--serif);font-size:34px;line-height:1.16;letter-spacing:-.8px;font-weight:400;margin:12px 0 18px;white-space:pre-line; }
 h2 { font-size:19px;font-weight:600;letter-spacing:-.3px;margin:0 0 14px; }
@@ -117,7 +125,6 @@ details,summary { color:var(--ink);border-color:var(--line); }
 .upload-steps { padding:4px 0 4px 20px;list-style:decimal; }.upload-steps li { color:var(--muted);font-size:11px;line-height:1.7;margin:7px 0; }.upload-steps .is-complete { color:var(--green); }.upload-steps .is-current { font-weight:650;color:var(--ink); }
 .upload-job progress { width:100%;height:6px;accent-color:var(--green); }.upload-job-result { margin-bottom:12px; }.upload-job-result h3 { font-size:12px; }.upload-job-result ul { padding-left:18px;font-size:12px;line-height:1.7; }.upload-job-result button { font-size:12px; }
 
-.home-report { border:0;padding:0;margin:0 0 16px;font-size:12px; }.home-report>summary { padding:10px 0;color:var(--muted); }.home-report .analysis-results { margin-bottom:0; }
 /* Compact product hierarchy: keep brand/benefit separate from the actual name. */
 .supplement-table td:first-child { width:48px; }
 .supplement-table { border-top:1px solid var(--line); }
@@ -185,3 +192,99 @@ html .account-card .password-field input { padding-right:52px; }
 html .account-card .password-toggle { position:absolute;right:3px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:10px;background:transparent;color:var(--ink);border:0;border-radius:9px; }
 .password-toggle svg { width:22px;height:22px;opacity:.8; }
 .password-toggle:focus-visible { outline:2px solid var(--green);outline-offset:-3px; }
+
+@media(min-width:1000px){
+ main>section[data-screen]{max-width:974px}
+ .group-block{border-radius:26px;margin-bottom:22px}
+ .group-heading{padding:42px 32px;gap:28px}.group-heading h2{font-size:30px;line-height:1.3;font-weight:500}
+ .group-symbol .icon{width:38px;height:38px}.group-edit{width:44px;margin-right:0}.group-edit .icon{width:24px;height:24px}
+ .supplement-open strong{font-size:22px}.supplement-open .summary{font-size:16px}.supplement-open{padding:18px 0}
+ .supplement-table td:first-child{width:88px}.check-button{margin:auto;width:48px;min-height:48px}.check-ring{width:30px;height:30px}
+}
+/* Capture composer mirrors the supplied spacing; optional history expands BELOW
+   its footer instead of displacing the name/photo/send controls. */
+html .add-dialog { padding:18px 22px 52px; }
+.add-dialog .dialog-heading { margin:12px 0 30px; }
+.add-dialog .dialog-heading h2 { font-size:28px; }
+#analyze-form fieldset { gap:0; }
+#analyze-form .supplement-name-field input { text-align:center;height:50px;font-size:16px; }
+#analyze-form input::placeholder { text-align:center;color:var(--ink);opacity:1; }
+#analyze-form .or-line { justify-content:center;gap:12px;margin:24px 0 20px;font-size:12px; }
+#analyze-form .or-line::before,#analyze-form .or-line::after { flex:0 1 26px; }
+#analyze-form .photo-actions { display:block; }
+#analyze-form .photo-picker { align-items:center;justify-content:center;min-height:100px;padding:18px 8px;gap:9px; }
+#analyze-form .send-button { width:100%;min-height:50px;margin-top:24px;font-weight:600; }
+#analyze-form .photo-previews:not([hidden]) { margin-top:20px; }
+.upload-footer { display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-top:8px; }
+#toggle-upload-queue { display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 8px;background:transparent;color:var(--ink);font-size:12px;white-space:nowrap; }
+.upload-footer .ai-consent { margin:0;min-width:0; }
+.upload-footer .ai-consent>summary { justify-content:flex-end;min-height:44px;padding:6px 8px;font-size:11px;gap:7px; }
+.upload-footer .ai-consent p { font-size:11px;line-height:1.6; }
+.upload-queue { border:0;margin-top:10px;padding-top:6px; }
+.queue-spinner { display:block;flex:none;width:14px;height:14px;border:1.5px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:queue-spin .8s linear infinite; }
+@keyframes queue-spin { to { transform:rotate(360deg); } }
+#analysis-status:empty { display:none; }
+@media(prefers-reduced-motion:reduce){.queue-spinner { animation-duration:2s; }}
+@media(min-width:900px){
+ html .add-dialog { width:calc(100% - 20px);max-width:1066px;max-height:calc(var(--app-height,100dvh) - env(safe-area-inset-top) - 38px);padding:32px 38px 103px;border-radius:50px 50px 0 0; }
+ .add-dialog [data-sheet-handle]::before { width:62px;height:7px; }
+ .add-dialog .dialog-heading { margin:26px 0 61px; }
+ .add-dialog .dialog-heading h2 { font-size:48px;line-height:1.2; }
+ .add-dialog .dialog-heading .icon-button { margin-right:16px; }.add-dialog .dialog-heading .icon-button .icon { width:32px;height:32px; }
+ #analyze-form .supplement-name-field input { height:80px;font-size:22px;border-radius:20px; }
+ #analyze-form .or-line { margin:40px 0 36px;font-size:22px;gap:20px;line-height:28px; }
+ #analyze-form .or-line::before,#analyze-form .or-line::after { flex-basis:44px; }
+ #analyze-form .photo-picker { height:160px;font-size:23px;border-radius:28px;gap:18px; }.photo-picker .icon { width:42px;height:42px; }
+ #analyze-form .send-button { min-height:80px;margin-top:38px;border-radius:20px;font-size:26px; }
+ .upload-footer { margin-top:12px;gap:20px; }
+ #toggle-upload-queue { font-size:22px;padding:6px 16px; }
+ .upload-footer .ai-consent>summary { font-size:21px;gap:16px;padding:6px 16px; }.upload-footer .ai-consent .icon { width:28px;height:28px; }
+ .queue-spinner { width:22px;height:22px;border-width:2px; }
+}
+html[data-session-restoring="true"] #home-empty,html[data-session-restoring="true"] .progress-label,html[data-session-restoring="true"] #progress-message,html[data-session-restoring="true"] #progress-caption { visibility:hidden; }
+html[data-session-restoring="true"] .progress-ring { opacity:.5; }
+html[data-session-restoring="true"] #add-supplement { opacity:.6; }
+
+/* The launch surface exists before modules load; theme is applied before paint. */
+#startup-screen{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:var(--paper,#f8f7f3)}
+#startup-screen[hidden]{display:none}
+#startup-progress{width:112px;height:4px;overflow:hidden;border-radius:999px;background:var(--line,#dfe2d8)}
+#startup-progress span{display:block;width:10%;height:100%;border-radius:inherit;background:var(--green,#607e56);transition:width .25s ease}
+#startup-progress[aria-valuenow="30"] span{width:30%}
+#startup-progress[aria-valuenow="55"] span{width:55%}
+#startup-progress[aria-valuenow="80"] span{width:80%}
+#startup-progress[aria-valuenow="90"] span{width:90%}
+#startup-progress[aria-valuenow="100"] span{width:100%}
+html[data-starting="true"] body>:not(#startup-screen){visibility:hidden!important}
+@media(prefers-reduced-motion:reduce){#startup-progress span{transition:none}}
+/* Preserve the reference pill's proportions as its width grows on larger phones. */
+.app-nav{--nav-height:clamp(64px,16vw,91px);height:var(--nav-height);top:calc(var(--app-height,100dvh) - env(safe-area-inset-bottom) - 18px - var(--nav-height))}
+html .app-nav a,html[data-theme="light"] .app-nav a{min-height:0;font-size:clamp(11px,2.75vw,15.5px);gap:clamp(4px,1vw,6px)}
+.app-nav .icon{width:clamp(25px,6.25vw,35px);height:clamp(25px,6.25vw,35px)}
+
+
+
+/* Latest reference: ring left, date and action stacked right; no extra copy. */
+main{max-width:1096px;padding-left:clamp(22px,5.24vw,38px);padding-right:clamp(22px,5.24vw,38px);padding-top:calc(env(safe-area-inset-top) + clamp(34px,8.83vw,64px))}
+.brand{margin-bottom:clamp(36px,8.14vw,59px)}
+.brand .wordmark{display:block;font-size:clamp(36px,8.83vw,64px);line-height:1.1;letter-spacing:-2px;transform:scaleX(1.16);transform-origin:left center}
+.daily-summary{display:grid;grid-template-columns:clamp(112px,27.586vw,200px) minmax(0,1fr);gap:clamp(20px,5.38vw,39px);align-items:center;max-width:649px;padding:0;margin:0 0 48px}
+.progress-ring{width:clamp(104px,25.655vw,186px);height:clamp(104px,25.655vw,186px);justify-self:center}
+.progress-ring>svg{transform:rotate(-90deg) scale(1.08)}
+.progress-label strong{font-size:clamp(22px,4.97vw,36px);font-weight:500}.progress-label span{font-size:clamp(13px,3.03vw,22px)}
+.progress-copy{position:relative;align-self:stretch;display:flex;flex-direction:column;justify-content:center;border-left:1px solid var(--line);padding:clamp(12px,2.2vw,16px) clamp(0px,3.45vw,25px) clamp(10px,2.34vw,17px) clamp(20px,5.1vw,37px);transform:none}
+.progress-copy::before{display:none}
+.progress-copy .today-heading{justify-content:flex-start;flex-wrap:nowrap;gap:clamp(12px,3.3vw,24px);margin:0 0 clamp(16px,3.31vw,24px)}
+.today-heading h1{font-size:clamp(21px,4.69vw,34px);line-height:1.3;font-weight:600;letter-spacing:-.5px}#today-date{font-size:clamp(13px,3.03vw,22px);white-space:nowrap}
+.daily-summary .add-primary{width:100%;min-width:0;min-height:clamp(50px,11.86vw,86px);margin:0 0 0 4px;border-radius:clamp(13px,3.03vw,22px);font-size:clamp(16px,4.14vw,30px);font-weight:600;gap:clamp(10px,2.48vw,18px);padding:12px 10px;transform:none;white-space:nowrap}
+.add-primary .icon{width:clamp(24px,4.69vw,34px);height:clamp(24px,4.69vw,34px)}
+@media(min-width:1000px){main{max-width:1096px}.daily-summary{max-width:649px}}
+
+@media(max-width:360px){
+ main{padding-left:16px;padding-right:16px}
+ .daily-summary{grid-template-columns:94px minmax(0,1fr);gap:16px}
+ .progress-ring{width:88px;height:88px}
+ .progress-copy{padding:10px 0 10px 16px}.progress-copy .today-heading{gap:10px}
+ .today-heading h1{font-size:18px}#today-date{font-size:11px}
+ .daily-summary .add-primary{font-size:13px;gap:6px;padding:10px 6px;min-height:44px}.add-primary .icon{width:20px;height:20px}
+}

@@ -5,13 +5,15 @@ import os from 'node:os';
 import path from 'node:path';
 const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
-async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false,compatibilityMode='',partialDiagnostics=false}={}){
- let completed=false,added=preloaded,started=hybrid||gemini,configured=true,release,terminalJob=null,researchRequested=false,reviewApplied=false,released=false,detailsReady=!progressive;
+async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false,compatibilityMode='',partialDiagnostics=false,localization=false}={}){
+ let localeReady=false,completed=false,added=preloaded,started=hybrid||gemini,configured=true,release,terminalJob=null,researchRequested=false,reviewApplied=false,released=false,detailsReady=!progressive;
  let customGroupIcon='';const uploads=[],requests=[];release=()=>{released=true;};
  await page.route('https://perimove.com/supplement-api/**',async route=>{
   const request=route.request(),path=new URL(request.url()).pathname.replace('/supplement-api','');requests.push({path,method:request.method()});
   let result={ok:true},httpStatus=200;
   const ai={configured,model:gemini?'gemini-3.8-flash':'grok-4.7',models:[gemini?'gemini-3.8-flash':'grok-4.7']};
+  if(path==='/v1/supplements/localize'&&request.method()==='POST'){localeReady=true;await route.fulfill({json:{id:'locale-job',status:'running',phase:'enriching',result:{kind:'localization',items:[]}}});return;}
+  if(localization&&localeReady&&path==='/v1/supplements/jobs'){await route.fulfill({json:{job:{id:'locale-job',status:'complete',phase:'done',result:{kind:'localization',items:[]}},active:[]}});return;}
   if(path==='/health')result={ok:true,passwordRecoveryAvailable:false};
   else if(path==='/v1/login')result={token:'a'.repeat(64),expiresAt:null,user};
   else if(path==='/v1/me')result={user,expiresAt:null};
@@ -40,6 +42,7 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
   if(path==='/v1/dashboard'&&labelProduct&&added){result.supplements[0].name='Trans Resveratrolis (300 mg kapsulės, 60 vnt.)';result.supplements[0].analysis.manufacturer='L Cell';result.supplements[0].analysis.variant='300 mg kapsulės, 60 vnt.';}
   if(path==='/v1/dashboard'&&compatibilityMode&&added){const a=result.supplements[0].analysis;a.research.scope='full-product-details';result.groups.push({id:'44444444-4444-4444-8444-444444444444',name:'Evening · before bed',description:''});a.compatibility={summary:'Every routine compatibility paragraph should be hidden.',assessments:[{supplementId:'old',status:'duplicate',reason:'Ordinary overlap should be hidden.'},{supplementId:'uncertain',status:'insufficient_information',reason:'Missing quantities should be hidden.'},...(compatibilityMode==='severe'?[{supplementId:'existing',supplementName:'Conflicting product',status:'potential_conflict',severity:'severe',reason:'A significant same-time conflict.',canSeparate:true,recommendedGroupId:'44444444-4444-4444-8444-444444444444',recommendation:'Move to the evening group to separate intake.',sourceUrl:'https://manufacturer.example/label'}]:[])]};}
   if(path==='/v1/dashboard'&&conflict&&added)result.supplements[0].analysis.compatibility.assessments=[{supplementId:'existing',supplementName:'Other magnesium',status:'duplicate',reason:'Review total magnesium before combining.'}];
+  if(path==='/v1/dashboard'&&localization&&added){const a=result.supplements[0].analysis;a.language=localeReady?'en':'lt';a.localizationNeeded=!localeReady;a.benefitSummary=localeReady?'Immunity, collagen':'Imunitetas';a.benefits=[localeReady?'Potential benefit.':'Lietuviška nauda'];a.dosage.directions=localeReady?'1 capsule daily.':'1 kapsulė per dieną';a.whenToUse='';a.howToUse='';}
   if(path==='/v1/dashboard'&&basic&&added){const a=result.supplements[0].analysis;a.schemaVersion='basic-1';a.enrichment={status:researchRequested?'researching':'complete'};}
   if(groupReview&&path==='/v1/dashboard'){result.groups.push({id:'55555555-5555-4555-8555-555555555555',name:'With fats'});if(reviewApplied&&result.supplements.length)result.supplements[0].group_id=result.groups[1].id;}
   if(groupReview&&result.job?.status==='complete'){result.job.total_count=1;result.job.result={items:[{id,name:'Vitamin',status:'added',research:'complete'}],review:{status:reviewApplied?'applied':'ready',groups:[{id:group,name:'With a meal'},{id:'55555555-5555-4555-8555-555555555555',name:'With fats'}],changes:[{id}],assessments:[{id,name:'Vitamin',from:group,to:'55555555-5555-4555-8555-555555555555',reason:'Manufacturer recommends a fat-containing meal.',sourceUrl:'https://manufacturer.example/timing'}]}};}
@@ -103,7 +106,7 @@ test('login persists after closing the browser and logout clears the saved sessi
 test('batch report exposes each success, failure and unreadable label and clears on logout',async({page})=>{
  await mock(page,{batch:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Several products');await page.locator('#analyze-form button[type=submit]').click();
  await expect(page.locator('#analysis-results')).toContainText('1 of 2');await expect(page.locator('#analysis-results')).toContainText('Unconfirmed magnesium');await expect(page.locator('#analysis-results')).toContainText('Brand is blurred.');await expect(page.locator('#view-added')).toBeHidden();
- await page.locator('#analysis-results button').click();await expect(page.locator('#supplement-detail h1')).toBeVisible();await page.reload();await expect(page.locator('#home-analysis-results')).toContainText('Brand is blurred.');await page.locator('.account-link').click();await page.locator('#logout-button').click();await expect(page.locator('#home-analysis-results')).toBeEmpty();await expect(page.locator('#analysis-results')).toBeEmpty();
+ await page.locator('#toggle-upload-queue').click();await page.locator('#analysis-results button').click();await expect(page.locator('#supplement-detail h1')).toBeVisible();await page.reload();await expect(page.locator('#app-nav')).toBeVisible();await expect(page.locator('#route-dialog')).toBeHidden();await expect(page.locator('#home-report,#home-analysis-results')).toHaveCount(0);await page.locator('#add-supplement').click();await expect(page.locator('#analysis-results')).toContainText('Brand is blurred.');await page.locator('#close-add').click();await page.locator('.account-link').click();await page.locator('#logout-button').click();await expect(page.locator('#analysis-results')).toBeEmpty();
 });
 
 test('recognized products appear before research completes and a second add flow is available',async({page})=>{
@@ -225,7 +228,7 @@ test('individual photo removal preserves remaining images and never submits dele
 });
 
 test('group review shows proposed move and source, applies only after explicit acceptance',async({page})=>{
- const m=await mock(page,{basic:true,groupReview:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Vitamin');await page.locator('#analyze-form button[type=submit]').click();const review=page.locator('#analysis-results .group-review');await expect(review).toContainText('With a meal → With fats');await expect(review.locator('a')).toHaveAttribute('href','https://manufacturer.example/timing');expect(m.requests.filter(r=>r.path.endsWith('/apply-groups'))).toHaveLength(0);await review.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/group-review-preview.png',animations:'disabled'});await review.getByRole('button',{name:'Apply suggested group changes'}).click();await expect(review).toContainText('Group changes applied.');expect(m.requests.filter(r=>r.path.endsWith('/apply-groups'))).toHaveLength(1);
+ const m=await mock(page,{basic:true,groupReview:true});await login(page);await page.locator('#add-supplement').click();await page.locator('#analyze-form [name=name]').fill('Vitamin');await page.locator('#analyze-form button[type=submit]').click();const review=page.locator('#analysis-results .group-review');await expect(review).toContainText('With a meal → With fats');await expect(review.locator('a')).toHaveAttribute('href','https://manufacturer.example/timing');expect(m.requests.filter(r=>r.path.endsWith('/apply-groups'))).toHaveLength(0);await page.locator('#toggle-upload-queue').click();await review.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/group-review-preview.png',animations:'disabled'});await review.getByRole('button',{name:'Apply suggested group changes'}).click();await expect(review).toContainText('Group changes applied.');expect(m.requests.filter(r=>r.path.endsWith('/apply-groups'))).toHaveLength(1);
 });
 
 test('photo controls enlarge the full image, zoom locally and return to the preserved draft',async({page})=>{
@@ -316,4 +319,60 @@ test('login and registration password eyes preserve values and caret, remask on 
  expect(fake.requests.filter(r=>r.method==='POST')).toHaveLength(0);
  await login(page);await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form button').click();await page.locator('#logout-button').click();await expect(eye).toHaveAttribute('aria-label','Rodyti slaptažodį');await password.fill('Local test only');await eye.click();await expect(eye).toHaveAttribute('aria-label','Slėpti slaptažodį');
  await page.screenshot({path:'.runtime/password-login-lt-dark.png',animations:'disabled'});
+});
+
+test('floating reference navigation has three tabs, stays at the bottom and leaves Home uncluttered',async({page})=>{
+ await mock(page,{preloaded:true});await login(page);const nav=page.locator('#app-nav');
+ await expect(page.locator('main nav,#home-report,#home-analysis-results,.brand .account-link')).toHaveCount(0);await expect(nav.locator('a')).toHaveText(['Home','Groups','Account']);await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/');
+ for(const width of [320,402,768]){
+  await page.setViewportSize({width,height:874});await expect(nav).toBeVisible();const before=await nav.boundingBox();await page.locator('main').evaluate(n=>n.scrollTop=n.scrollHeight);const after=await nav.boundingBox();expect(after.y).toBe(before.y);expect(Math.round(after.y+after.height)).toBe(856);expect(after.x).toBeGreaterThanOrEqual(0);expect(after.x+after.width).toBeLessThanOrEqual(width);
+ }
+ await page.setViewportSize({width:402,height:874});await page.locator('main').evaluate(n=>n.scrollTop=0);
+ for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.screenshot({path:'.runtime/bottom-nav-'+theme+'.png',animations:'disabled'});}
+ await nav.locator('[data-route="/groups"]').click();await expect(page.locator('[data-screen="/groups"]')).toBeVisible();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/groups');
+ await nav.locator('[data-route="/account"]').click();await expect(page.locator('#route-dialog')).toBeVisible();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/account');await page.locator('#route-dialog [data-sheet-close]').click();await expect(page.locator('#route-dialog')).toBeHidden();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route','/groups');
+ await nav.locator('[data-route="/"]').click();await expect(page.locator('[data-screen="/"]')).toBeVisible();await page.evaluate(()=>document.documentElement.dataset.keyboard='true');await expect(nav).toBeHidden();await page.evaluate(()=>delete document.documentElement.dataset.keyboard);await expect(nav).toBeVisible();
+});
+
+test('English preference automatically translates historical AI text and avoids mixed-language display',async({page})=>{
+ const m=await mock(page,{preloaded:true,localization:true});const request=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/supplements/localize'));await login(page);expect((await request).postDataJSON().language).toBe('en');await expect(page.locator('.supplement-open .summary')).not.toContainText('Imunitetas');await page.locator('.supplement-open').click();await expect(page.locator('#supplement-detail')).not.toContainText('Lietuviška nauda');await expect(page.locator('[data-detail-section=dose]')).toContainText('1 capsule daily.');await expect(page.locator('[data-detail-section=benefits]')).toContainText('Potential benefit.');expect(m.requests.filter(r=>r.path==='/v1/supplements/localize')).toHaveLength(1);
+});
+
+test('photo picker cancellation keeps the sheet and draft without an upload',async({page})=>{
+ const m=await mock(page);await login(page);await page.locator('#add-supplement').click();
+ const input=page.locator('#analyze-form input[type=file]');
+ await page.locator('#analyze-form [name=name]').fill('Keep this draft');
+ await input.dispatchEvent('cancel',{bubbles:true});await input.setInputFiles([]);
+ await expect(page.locator('#add-dialog')).toBeVisible();
+ await expect(page.locator('#analyze-form [name=name]')).toHaveValue('Keep this draft');
+ expect(m.requests.filter(r=>r.path==='/v1/supplements/jobs'&&r.method==='POST')).toHaveLength(0);
+ await expect(page.locator('#upload-queue')).toBeHidden();
+ await page.locator('#toggle-upload-queue').click();await expect(page.locator('#upload-queue')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.locator('#add-dialog')).toBeHidden();
+});
+test('saved session launches through themed loader without ever opening login',async({page})=>{
+ await mock(page,{preloaded:true});await login(page);
+ await page.locator('.account-link').click();await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#settings-form button').click();
+ let release;const gate=new Promise(resolve=>release=resolve);
+ await page.route('**/v1/me',async route=>{await gate;await route.fulfill({json:{user,expiresAt:null}});});
+ await page.addInitScript(()=>{window.loginFlashes=0;new MutationObserver(()=>{if(document.querySelector('#route-dialog')?.open&&document.querySelector('#login-form')?.getBoundingClientRect().height&&!document.querySelector('#startup-screen')?.checkVisibility())window.loginFlashes++;}).observe(document,{subtree:true,attributes:true,childList:true});});
+ await page.reload();await expect(page.locator('#startup-screen')).toBeVisible();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');await expect(page.locator('#route-dialog')).not.toHaveAttribute('open','');
+ await page.screenshot({path:'.runtime/startup-dark.png'});release();
+ await expect(page.locator('#startup-screen')).toBeHidden();await expect(page.locator('[data-screen="/"]')).toBeVisible();expect(await page.evaluate(()=>window.loginFlashes)).toBe(0);
+});
+
+test('a waiting app update activates during loading before login is displayed',async({page})=>{
+ await mock(page);await page.addInitScript(()=>{
+  const registration=new EventTarget();registration.update=async()=>{};
+  registration.waiting={postMessage:message=>window.appliedStartupUpdate=message.type};
+  const workers=new EventTarget();workers.controller={};workers.register=async()=>registration;
+  Object.defineProperty(navigator,'serviceWorker',{value:workers});
+ });
+ await page.goto('/');await expect.poll(()=>page.evaluate(()=>window.appliedStartupUpdate)).toBe('ACTIVATE_UPDATE');
+ await expect(page.locator('#startup-screen')).toBeVisible();await expect(page.locator('#route-dialog')).not.toHaveAttribute('open','');
+});
+
+test('revoked saved session reveals login only after validation',async({page})=>{
+ await mock(page);await login(page);await page.route('**/v1/me',route=>route.fulfill({status:401,json:{error:'UNAUTHORIZED'}}));
+ await page.reload();await expect(page.locator('#startup-screen')).toBeHidden();await expect(page.locator('#login-form')).toBeVisible();await expect(page.locator('#app-nav')).toBeHidden();
 });

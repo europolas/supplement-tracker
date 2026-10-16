@@ -411,4 +411,8 @@ export default Object.freeze({
   "appTimingPlan": "This group is a timing plan, not confirmation that these supplements are safe to combine.",
   "appShowPassword": "Show password",
   "appHidePassword": "Hide password",
+  "appNavGroups": "Groups",
+  "appTranslatingInfo": "Preparing information in your selected language…",
+  "appTranslateInfo": "Information translation",
+  "appWorking": "Processing",
 });

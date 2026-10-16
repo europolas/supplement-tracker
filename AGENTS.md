@@ -468,3 +468,32 @@ Reuse modules/src/password-visibility.js (canonical toolkit example) and retain 
 input/autofill/caret. Remask on form reset, auth-tab change, sheet close and auth-state
 changes. Buttons are type=button with localized show/hide labels and aria-pressed;
 right-aligned 44px touch controls use 80% opacity SVG icons. No credential persistence.
+
+## 0.19.0 — floating three-tab navigation
+
+Navigation is outside main, fixed above its bottom mask, with Home/Groups/Account
+and the selected pill from the user's reference. Keep the footer/last-row scroll
+clearance, safe-area inset, 44px touch targets, keyboard hiding and EN/LT labels.
+Account remains a native routed sheet; its tab is selected while open, then the
+retained Home/Groups tab is restored. Do not duplicate the account control in the
+header. No Recent additions/analysis result block lives on Home; upload dialog
+retains server-backed history/results and grouping-review actions.
+
+0.19.0 also projects historical AI information into the selected EN/LT locale.
+Use language on dashboard reads and the owner-scoped asynchronous localization job;
+cache source fingerprints and descriptive text only. Never show original prose in
+a different selected language while translation is pending. Preserve numeric facts,
+URLs, identities, manual groups and newer research. See server/ANALYSIS.md and the
+canonical toolkit analysis-localization example. No automatic paid failure retry.
+
+The latest Home reference (725px wide) is authoritative: logo only above a
+186px ring on the left and Today/date plus Add supplement stacked on the right,
+with a fine vertical divider. Scale the two-column composition for smaller phones.
+Do not restore motivational copy, brand caption or top navigation.
+
+The Add supplement sheet uses a centered name placeholder and a collapsible Upload
+queue with an active-job spinner. Cancelling the native picker preserves the draft.
+Launch shows only a theme-aware central progress bar while session/dashboard and
+public worker updates are checked; available updates activate before opening Home.
+The update check is bounded at 3.5 seconds for offline/slow connections; later updates
+continue to use the existing unsaved-edit guard. No private profile is cached.

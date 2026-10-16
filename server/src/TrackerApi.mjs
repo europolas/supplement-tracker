@@ -1,3 +1,4 @@
+import {analysisTexts,textFingerprint,localizedAnalysis,validLocalization} from './analysis-localization.mjs';
 import {reviewSnapshot,groupReviewSchema,validGroupReview,groupReviewMessages} from './group-review.mjs';
 import {citationUrl} from './structured-research.mjs';
 import {basicProductsSchema,basicProductsMessages,validBasicProducts,normalizeBasicProducts} from './photo-products.mjs';
@@ -41,7 +42,7 @@ export function validatePhotos(body){
  const images=body.images.map(validatePhoto);if(images.some(x=>!x)||images.reduce((n,x)=>n+x.length,0)>4300000)throw new ApiError(400,'IMAGE_INVALID');return images;
 }
 export class TrackerApi {
- constructor(pool,auth,{vault,chat,discover,credentialProvider='xai',review=null,autoResearch=false,fullResearch=false,singlePass=true,discoveryModel='grok-4.7',models=['grok-4.7'],now=()=>new Date()}){if(!['xai','google'].includes(credentialProvider))throw TypeError('Invalid credential provider');this.autoResearch=autoResearch;this.fullResearch=fullResearch;this.credentialProvider=credentialProvider;this.credentialTable=credentialProvider==='google'?'google_provider_credentials':'provider_credentials';this.review=review;this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
+ constructor(pool,auth,{vault,chat,discover,localize=null,credentialProvider='xai',review=null,autoResearch=false,fullResearch=false,singlePass=true,discoveryModel='grok-4.7',models=['grok-4.7'],now=()=>new Date()}){if(!['xai','google'].includes(credentialProvider))throw TypeError('Invalid credential provider');this.localize=localize;this.autoResearch=autoResearch;this.fullResearch=fullResearch;this.credentialProvider=credentialProvider;this.credentialTable=credentialProvider==='google'?'google_provider_credentials':'provider_credentials';this.review=review;this.singlePass=singlePass;this.pool=pool;this.auth=auth;this.vault=vault;this.chat=chat;this.discover=discover;this.discoveryModel=discoveryModel;this.models=models;this.now=now;this.running=new Set();this.activeJobs=new Set();this.jobOwners=new Map();this.recognitionQueues=new Map();this.providerQueue=createTaskQueue({concurrency:4,maxPending:16});this.backgroundQueue=createTaskQueue({concurrency:3,maxPending:320});this.progressWrites=new Map();}
  get providers(){return this.providerQueue.running;}
  async provider(task,options){return this.providerQueue.enqueue(task,options);}
  async settings(user){
@@ -74,6 +75,7 @@ export class TrackerApi {
     await db.execute('DELETE FROM supplements WHERE user_id=?',[owner]);
    });return [200,{ok:true}];
   }
+  if(method==='POST'&&path==='/supplements/localize')return [202,await this.startLocalization(owner,body,authorization)];
   if(method==='POST'&&path==='/bootstrap')return [200,await this.bootstrap(owner,body)];
   if(path==='/settings/ai'){
    if(method==='GET')return [200,await this.settings(owner)];
@@ -93,7 +95,7 @@ export class TrackerApi {
    const zone=timezone(query.get('timezone')||'UTC'),day=calendarDay(zone,this.now());
    const [groups]=await this.pool.execute('SELECT id,name,description,position,icon FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]);
    const [rows]=await this.pool.execute('SELECT s.id,s.group_id,s.name,s.analysis,s.model,s.created_at,IF(c.supplement_id IS NULL,0,1) AS completed FROM supplements s LEFT JOIN supplement_completions c ON c.supplement_id=s.id AND c.local_day=? WHERE s.user_id=? ORDER BY s.created_at',[day,owner]);
-   return [200,{day,groups,supplements:rows.map(row=>({...row,completed:Boolean(row.completed),analysis:typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis})),ai:await this.settings(owner)}];
+   return [200,{day,groups,supplements:rows.map(row=>({...row,completed:Boolean(row.completed),analysis:query.has('language')?localizedAnalysis(typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis,query.get('language')==='lt'?'lt':'en'):typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis})),ai:await this.settings(owner)}];
   }
   if(method==='POST'&&path==='/groups'){
    const name=text(body.name,120),description=text(body.description||'',500,false),id=randomUUID();
@@ -294,6 +296,28 @@ export class TrackerApi {
  /** Explicit refresh/retry never performs recognition and never adds a second row.
   * It uses the selected UI language; a completed result is retained while refreshing.
   */
+ async startLocalization(owner,body,authorization){
+  if(!this.localize)throw new ApiError(503,'AI_PROVIDER_FAILED');if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');
+  const language=body.language==='lt'?'lt':'en',sealed=await this.checkKey(owner);let job,items=[];
+  await this.auth.transaction(async db=>{
+   await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
+   const [same]=await db.execute(`SELECT ${jobColumns} FROM analysis_jobs WHERE user_id=? AND (request_id=? OR status='running' AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.kind'))='localization') ORDER BY created_at DESC LIMIT 1`,[owner,body.requestId]);if(same.length){job=jobResult(same[0]);return;}
+   const [active]=await db.execute("SELECT COUNT(*) AS n FROM analysis_jobs WHERE user_id=? AND status='running'",[owner]);if(active[0].n>=4||this.activeJobs.size>=8)throw new ApiError(409,'AI_BUSY');
+   const [rows]=await db.execute('SELECT id,name,analysis FROM supplements WHERE user_id=? ORDER BY created_at',[owner]);let size=0;
+   for(const row of rows){const a=typeof row.analysis==='string'?JSON.parse(row.analysis):row.analysis;if(!localizedAnalysis(a,language).localizationNeeded||['queued','researching'].includes(a.enrichment?.status))continue;const fields=analysisTexts(a),length=JSON.stringify(fields).length;if(items.length&&(items.length>=4||size+length>48000))break;size+=length;items.push({id:row.id,name:row.name,fields,fingerprint:textFingerprint(a)});}
+   if(!items.length){job={status:'complete',result:{kind:'localization',items:[]}};return;}
+   await this.auth.limit('localization',owner,60,3600);
+   const id=randomUUID(),report={kind:'localization',language,items:items.map(i=>({id:i.id,name:i.name,status:'added',research:'queued'}))};
+   await db.execute("INSERT INTO analysis_jobs(id,user_id,request_id,status,phase,language,total_count,result) VALUES (?,?,?,'running','enriching',?,?,?)",[id,owner,body.requestId,language,items.length,JSON.stringify(report)]);job={id,status:'running',phase:'enriching',language,result:report,total_count:items.length};
+  });
+  if(!job.id||job.status!=='running'||this.activeJobs.has(job.id))return job;this.activeJobs.add(job.id);
+  void (async()=>{const started=Date.now();try{
+   job.result.monitor={pipeline:'gemini-localization',model:this.models[0],calls:1};await this.jobProgress(owner,job.id,job.result);
+   const response=await this.backgroundQueue.enqueue(()=>this.provider(()=>this.localize({key:this.vault.open(sealed,{owner,provider:this.credentialProvider}),items,language})));job.result.timings={localizationMs:Date.now()-started,totalMs:Date.now()-started};Object.assign(job.result.monitor,response.usage||{}, {model:response.model||this.models[0]});if(!validLocalization(response.result,items))throw new ProviderError('AI_INVALID_RESPONSE');await this.auth.authenticate(authorization);await this.checkKey(owner,sealed);
+   await this.auth.transaction(async db=>{for(const item of items){const [rows]=await db.execute('SELECT analysis FROM supplements WHERE id=? AND user_id=? FOR UPDATE',[item.id,owner]);if(!rows.length)continue;const a=typeof rows[0].analysis==='string'?JSON.parse(rows[0].analysis):rows[0].analysis;if(textFingerprint(a)!==item.fingerprint)continue;a.localizations={...(a.localizations||{}),[language]:{fingerprint:item.fingerprint,fields:response.result.products.find(p=>p.id===item.id).fields}};await db.execute('UPDATE supplements SET analysis=? WHERE id=? AND user_id=?',[JSON.stringify(a),item.id,owner]);}});
+   for(const item of job.result.items)item.research='complete';await this.jobProgress(owner,job.id,job.result,'done');await this.pool.execute("UPDATE analysis_jobs SET status='complete',finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[job.id,owner]);
+  }catch(error){const code=safeCode(error);for(const item of job.result.items){item.research='failed';item.error=code;}await this.jobProgress(owner,job.id,job.result,'done');await this.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,job.id,owner]);}finally{this.activeJobs.delete(job.id);}})().catch(()=>this.activeJobs.delete(job.id));return job;
+ }
  async startResearch(owner,supplementId,body,authorization){
   // Single-pass applies to adding products; this explicit action opts into research.
   if(!uuid(body.requestId))throw new ApiError(400,'INVALID_INPUT');const language=body.language==='lt'?'lt':'en';

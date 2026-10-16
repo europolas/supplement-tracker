@@ -27,7 +27,9 @@ export function createBottomSheet(dialog, { onDismiss, duration = 280 } = {}) {
     return animate([{ transform: 'translateY(0)' }, { transform: 'translateY(100%)' }], true);
   }
   const dismiss = () => { if (onDismiss) onDismiss(); else void close(); };
-  listen('cancel', event => { event.preventDefault(); dismiss(); });
+  // File-input cancellation bubbles too; only the dialog's own Escape event
+  // may dismiss a sheet. Cancelling the native photo chooser must keep the draft.
+  listen('cancel', event => { if(event.target!==dialog)return;event.preventDefault();dismiss(); });
   listen('click', event => { if (event.target.closest('[data-sheet-close]')) dismiss(); });
   // iOS takes over vertical pointer gestures and sends pointercancel. A non-passive
   // touchmove listener is required to intercept a downward pull BEFORE scrolling.

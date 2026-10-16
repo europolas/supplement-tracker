@@ -434,3 +434,16 @@ Detailed research returns manufacturer, composition, brief benefits and usage on
 AI-selected groups are checked, while manual assignments send no group context.
 
 Version 0.18.1 adds accessible show/hide password eyes to login and registration.
+
+Version 0.19.0 replaces top navigation with a floating Home/Groups/Account pill.
+Recent additions remain available in the upload dialog and are removed from Home.
+Historical AI descriptions are translated and cached in the selected English or
+Lithuanian language; new requests also use that explicit preference. Home's desktop
+header follows the latest reference: ring left, Today/date and the Add action stacked right, without motivational copy.
+
+The Add supplement sheet uses a centered name placeholder and a collapsible Upload
+queue with an active-job spinner. Cancelling the native picker preserves the draft.
+Launch shows only a theme-aware central progress bar while session/dashboard and
+public worker updates are checked; available updates activate before opening Home.
+The update check is bounded at 3.5 seconds for offline/slow connections; later updates
+continue to use the existing unsaved-edit guard. No private profile is cached.
