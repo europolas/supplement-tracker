@@ -54,7 +54,13 @@ const iconPaths={
 };
 function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');for(const[k,v]of Object.entries({viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':name==='sleep'?'1.1':'1.6','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',class:name==='add-circle'?'icon add-circle-icon':'icon'}))svg.setAttribute(k,v);if(name==='add-circle'){const circle=document.createElementNS(svg.namespaceURI,'circle');for(const[k,v]of Object.entries({cx:12,cy:12,r:12}))circle.setAttribute(k,v);svg.append(circle);}const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',name==='add-circle'?'M12 7v10 M7 12h10':iconPaths[name]||iconPaths.leaf);svg.append(path);return svg;}
 for(const node of document.querySelectorAll('[data-icon]'))node.append(icon(node.dataset.icon));
-const confirmDialog=(message,options)=>nativeConfirmDialog(message,{...options,presentation:'sheet'});
+// Compose the toolkit confirmation with the same app header. The existing Cancel
+// action owns dismissal/cleanup, so X also resolves false and preserves drafts.
+function confirmDialog(message,options){
+ const result=nativeConfirmDialog(message,{...options,presentation:'sheet'}),dialog=[...document.querySelectorAll('dialog[aria-labelledby^="dialog-"]')].at(-1);
+ const title=dialog.querySelector('h2'),cancel=dialog.querySelector('button:not(.primary)'),header=element('div',{className:'sheet-header',attributes:{'data-sheet-drag':''}}),close=element('button',{className:'icon-button',attributes:{type:'button','aria-label':i18n.t('appClose')}});
+ close.append(icon('close'));close.addEventListener('click',()=>cancel.click());header.append(title,close);dialog.prepend(element('div',{attributes:{'data-sheet-handle':'','aria-hidden':'true'}}),header);title.focus({preventScroll:true});return result;
+}
 const config=createConfig(await(await fetch('./app.config.json')).json());
 const get=id=>document.getElementById(id),storage=createStorage(config.id);
 const settings=createSettings(storage,{language:config.language,theme:config.theme},{language:v=>['en','lt'].includes(v),theme:v=>['light','dark','system'].includes(v)});
@@ -79,17 +85,18 @@ for(const control of document.querySelectorAll('[data-auth-mode]'))control.addEv
 get('route-dialog').addEventListener('close',passwordVisibility.reset);
 auth.state.subscribe(passwordVisibility.reset);
 const api=auth.api;
-let baseRoute='/';
+let baseRoute='/',detailReturnRoute='/';
 const addSheet=createBottomSheet(get('add-dialog'),{onDismiss:()=>closeAdd()});
 const photoViewer=createImageViewer({labels:()=>({title:i18n.t('appPhotoPreview'),close:i18n.t('appClose'),zoom:i18n.t('appZoomIn'),fit:i18n.t('appFitImage')})});
 const groupSheet=createBottomSheet(get('group-dialog'));
 const recheckSheet=createBottomSheet(get('recheck-dialog'));
 const pauseSheet=createBottomSheet(get('pause-dialog'));let pauseTarget=null,pauseSaving=false;
-const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(baseRoute);}});
+const usageSheet=createBottomSheet(get('usage-dialog'),{onDismiss:()=>router.navigate('/account')});
+const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(router.current==='/detail'?detailReturnRoute:baseRoute);}});
 const routineWizard=createRoutineWizard({dialog:get('routine-wizard-dialog'),editorDialog:get('routine-time-dialog'),i18n,icon,confirm:message=>confirmDialog(message,{i18n}),onError:error=>err(error),onSave:async(routine,revision)=>{
  const session=current();writes++;renderRoutineLoading();try{const result=await api.request('/v1/settings/routine',{method:'PUT',body:{routine,revision}});if(session!==current())return false;state.ai={...state.ai,routine:result.routine,routineRevision:result.revision};renderAccount();notify(i18n.t('appRoutineSaved'));return true;}catch(error){if(error.status===409&&session===current())await load(false);throw error;}finally{writes--;renderRoutineLoading();}
 }});
-const usageCalendar=createUsageCalendar({root:get('usage-content'),i18n,icon,groupIcon:renderGroupIcon,request:(path,options)=>api.get(path,options),onProduct:id=>router.navigate('/detail?id='+encodeURIComponent(id)),onBack:()=>router.navigate('/account'),isActive:()=>Boolean(current()&&router?.current==='/usage')});
+const usageCalendar=createUsageCalendar({root:get('usage-content'),i18n,icon,groupIcon:renderGroupIcon,request:(path,options)=>api.get(path,options),onProduct:id=>router.navigate('/detail?id='+encodeURIComponent(id)),isActive:()=>Boolean(current()&&router?.current==='/usage')});
 get('open-routine-wizard').addEventListener('click',()=>routineWizard.open(state.ai||{}));
 
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router,appReady=false;
@@ -110,7 +117,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
- usageCalendar.reset();routineWizard.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
+ void routeSheet.close({immediate:true});void usageSheet.close({immediate:true});get('route-header').querySelector('.detail-name')?.remove();usageCalendar.reset();routineWizard.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
  routineChecks={active:null,latest:null,proposals:[]};recheckBusy=false;recheckStarting=false;get('recheck-content').replaceChildren();recheckAbort?.abort();recheckWatcher=null;void recheckSheet.close({immediate:true});
  groupDrag=null;get('profile-form').hidden=true;get('connection-editor').open=false;
  appReady=false;collectionEpoch++;uploadQueueExpanded=false;localizationAttempts.clear();localizationSending=false;
@@ -296,7 +303,7 @@ function renderDetail(){
  const prose=(target,value)=>{if(Array.isArray(value)){const list=element('ul');for(const text of value)list.append(element('li',{text}));target.append(list);}else target.append(element('p',{text:value}));};
  const assigned=state.groups.find(group=>group.id===item.group_id),badge=element('div',{className:'group-badge'});badge.append(assigned?renderGroupIcon(assigned):icon('info'),element('span',{text:assigned?.name||i18n.t('appUnassigned')}));
  const productInfo=productLabel({name:item.name,manufacturer:analysis.manufacturer,variant:analysis.variant});
- card.append(element('h1',{text:productInfo.name,className:'detail-name',attributes:{id:'product-detail-title',tabindex:'-1','data-sheet-focus':'',autofocus:''}}));
+ get('route-header').querySelector('.detail-name')?.remove();get('route-header').prepend(element('h1',{text:productInfo.name,className:'detail-name',attributes:{id:'product-detail-title',tabindex:'-1','data-sheet-focus':'',autofocus:''}}));
  const subtitle=element('p',{className:'product-subtitle'});if(productInfo.manufacturer)subtitle.append(element('b',{text:productInfo.manufacturer}));if(productInfo.variant)subtitle.append(document.createTextNode((productInfo.manufacturer?' · ':'')+productInfo.variant));if(subtitle.textContent)card.append(subtitle);
  card.append(badge);if(item.paused)card.append(element('p',{className:'pause-status',text:pauseStatus(item),attributes:{role:'status'}}));card.append(primary);
  const basic=analysis.schemaVersion==='basic-1';
@@ -619,14 +626,17 @@ function showRoute(path){
  if(path!=='/account'&&!current()){location.hash='/account';return;}
  const sheet=['/detail','/diagnostics'].includes(path);
  if(path!=='/account')passwordVisibility.reset();
- if(!sheet)baseRoute=path;document.documentElement.dataset.tab=baseRoute;
+ if(path==='/detail')detailReturnRoute=get('usage-dialog').open?'/usage':baseRoute;
+ if(path==='/usage')baseRoute='/account';else if(!sheet)baseRoute=path;document.documentElement.dataset.tab=baseRoute;
  for(const section of document.querySelectorAll('main [data-screen]'))section.hidden=section.dataset.screen!==baseRoute;
  if(sheet)for(const section of get('route-dialog').querySelectorAll('[data-screen]'))section.hidden=section.dataset.screen!==path;
  for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===((path==='/usage'||baseRoute==='/usage')?'/account':path==='/account'?'/account':baseRoute))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
+ if(path==='/diagnostics')get('route-header').querySelector('.detail-name')?.remove();
  if(sheet){get('route-title').textContent=path==='/diagnostics'?i18n.t('appDiagnostics'):'';get('route-dialog').classList.toggle('product-sheet',path==='/detail');get('route-dialog').setAttribute('aria-labelledby',path==='/detail'?'product-detail-title':'route-title');}
  get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();
- if(path==='/usage')usageCalendar.open({resetScroll:document.querySelector('main').dataset.tab!=='/usage'});if(path==='/detail')renderDetail();if(path==='/diagnostics')renderDiagnostics();
- if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open)get('supplement-detail').replaceChildren();});if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}
+ if(path==='/usage'){const fresh=!get('usage-dialog').open;usageSheet.open();usageCalendar.open({resetScroll:fresh});}
+ else if(!(path==='/detail'&&detailReturnRoute==='/usage'))void usageSheet.close();if(path==='/detail')renderDetail();if(path==='/diagnostics')renderDiagnostics();
+ if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open){get('supplement-detail').replaceChildren();get('route-header').querySelector('.detail-name')?.remove();}});if(path!=='/usage'){if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}}
 }
 router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/usage','/detail','/diagnostics'].map(path=>[path,()=>showRoute(path)])),onNotFound:()=>{location.hash=current()?'/':'/account';}});
 // The generic router ignores query-only changes; details must follow the item ID.

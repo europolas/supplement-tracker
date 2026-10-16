@@ -24,7 +24,7 @@ export function createRoutineWizard({dialog,editorDialog,i18n,icon,confirm,onSav
   const row=node('div',undefined,className);row.setAttribute('role','group');
   for(const [v,label] of values){const b=button(label,()=>select(v),'routine-choice');b.setAttribute('aria-pressed',String(v===selected));b.dataset.value=v;row.append(b);}return row;
  }
- function toolbar(back,close){const bar=node('div',undefined,'routine-toolbar');bar.setAttribute('data-sheet-drag','');const b=button('',back,'icon-button routine-back');b.setAttribute('aria-label',t('Back'));b.append(icon('chevron'));const x=button('',close,'icon-button');x.setAttribute('aria-label',t('Close'));x.append(icon('close'));bar.append(b,x);return bar;}
+ function toolbar(back,close,title){const bar=node('div',undefined,'routine-toolbar routine-heading sheet-header');bar.setAttribute('data-sheet-drag','');const b=button('',back,'icon-button routine-back');b.setAttribute('aria-label',t('Back'));b.append(icon('chevron'));const x=button('',close,'icon-button');x.setAttribute('aria-label',t('Close'));x.append(icon('close'));bar.append(title,x);if(step){b.classList.add('routine-step-back');bar.afterBack=b;}return bar;}
  const sheet=createBottomSheet(dialog,{onDismiss:()=>void dismiss()});
  const editSheet=createBottomSheet(editorDialog,{onDismiss:()=>void editSheet.close()});
  async function dismiss(){if(saving)return;if(!equal(draft,baseline)&&!await confirm(t('Discard')))return;draft=null;await sheet.close();}
@@ -32,8 +32,9 @@ export function createRoutineWizard({dialog,editorDialog,i18n,icon,confirm,onSav
  function goto(next){if(next===1&&!complete()){root.querySelector('[data-routine-error]').textContent=t('Complete');return;}step=next;render();dialog.scrollTop=0;root.querySelector('h2')?.focus();}
  function tabs(){const row=node('div',undefined,'routine-tabs');for(const n of [0,1]){const b=button(t(n?'StepPreferences':'StepDay'),()=>goto(n),'routine-tab');b.setAttribute('aria-current',n===step?'step':'false');if(n===0&&step===1)b.append(glyph('check'));row.append(b);}return row;}
  function render(){
-  if(!draft)return;root.replaceChildren();root.append(toolbar(()=>step?goto(0):void dismiss(),()=>void dismiss()));
-  const header=node('header',undefined,'routine-heading');if(!step)header.append(node('p',t('Breadcrumb'),'routine-breadcrumb'));const title=node('h2',t(step?'Preferences':'Title'));title.tabIndex=-1;title.setAttribute('data-sheet-focus','');header.append(title);if(!step)header.append(node('p',t('Subtitle')));root.append(header,tabs());
+  if(!draft)return;root.replaceChildren();const title=node('h2',t(step?'Preferences':'Title'));title.tabIndex=-1;title.setAttribute('data-sheet-focus','');
+  const bar=toolbar(()=>goto(0),()=>void dismiss(),title);root.append(bar);if(bar.afterBack)root.append(bar.afterBack);
+  if(!step){const intro=node('div',undefined,'routine-heading');intro.append(node('p',t('Breadcrumb'),'routine-breadcrumb'),node('p',t('Subtitle')));root.append(intro);}root.append(tabs());
   const body=node('div',undefined,'routine-wizard-body');root.append(body);
   if(!step){
    const timeline=node('div',undefined,'routine-timeline');
@@ -54,7 +55,7 @@ export function createRoutineWizard({dialog,editorDialog,i18n,icon,confirm,onSav
  function openEditor(key){editing=key;editDraft=clone(value(key));if(key!=='sleep'&&editDraft.status===null)editDraft.status='yes';mode=editDraft.timing?.mode==='exact'?'exact':'approximate';renderEditor();void editSheet.open();}
  function renderEditor(){
   editRoot.replaceChildren();const handle=node('div');handle.setAttribute('data-sheet-handle','');editRoot.append(handle);
-  const header=node('div',undefined,'routine-editor-heading');const title=node('h2',t('Edit_'+editing));title.tabIndex=-1;title.setAttribute('data-sheet-focus','');const close=button('',()=>void editSheet.close(),'icon-button');close.setAttribute('aria-label',t('Close'));close.append(icon('close'));header.append(title,close);editRoot.append(header);
+  const header=node('div',undefined,'routine-editor-heading sheet-header');const title=node('h2',t('Edit_'+editing));title.tabIndex=-1;title.setAttribute('data-sheet-focus','');const close=button('',()=>void editSheet.close(),'icon-button');close.setAttribute('aria-label',t('Close'));close.append(icon('close'));header.append(title,close);editRoot.append(header);
   if(editing==='exercise')editRoot.append(node('h3',t('ExerciseQuestion'),'routine-subheading'));
   if(editing!=='sleep')editRoot.append(choices([['yes',t(editing==='exercise'?'Yes':'Eat')],['no',t(editing==='exercise'?'No':'DoNotEat')],['varies',t('Varies')]],editDraft.status,v=>{editDraft.status=v;if(v==='no'){editDraft.timing=variable();if(editing==='exercise')editDraft.frequency='varies';}renderEditor();},'routine-choice-row routine-presence'));
   if(editDraft.status!=='no'){

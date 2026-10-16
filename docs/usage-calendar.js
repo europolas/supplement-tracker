@@ -5,7 +5,7 @@ const monday=day=>shift(day,-((new Date(day+'T12:00:00Z').getUTCDay()+6)%7));
 /** Session-only history view. Abort/generation guards prevent old account, date or
  * language responses repainting the current view. No records or calendar caches
  * are persisted. Read-only: clicking a product opens its existing detail sheet. */
-export function createUsageCalendar({root,i18n,icon,groupIcon,request,onProduct,onBack,isActive}){
+export function createUsageCalendar({root,i18n,icon,groupIcon,request,onProduct,isActive}){
  let selected=localDay(),mode='week',filter='all',data=null,error='',loading=false,epoch=0,controller,language=i18n.language;
  const t=(key,values)=>i18n.t(key,values),text=(tag,value,cls='')=>element(tag,{text:value,className:cls});
  const button=(label,action,cls='',aria=label)=>{const b=element('button',{text:label,className:cls,attributes:{type:'button',...(aria?{'aria-label':aria}:{})}});b.addEventListener('click',action);return b;};
@@ -16,7 +16,7 @@ export function createUsageCalendar({root,i18n,icon,groupIcon,request,onProduct,
   if(!isActive())return;controller?.abort();controller=new AbortController();const version=++epoch;loading=true;error='';const range=windowRange();if(data?.from!==range.from||data?.to!==range.to)data=null;render();
   try{const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',result=await request('/v1/usage?'+new URLSearchParams({...range,timezone:zone}),{signal:controller.signal});if(version!==epoch)return;data=result;}
   catch(e){if(version!==epoch||e.name==='AbortError')return;error=i18n.message(e?.data?.error||e.message||'REQUEST_FAILED');}
-  finally{if(version===epoch){loading=false;render();if(resetScroll)requestAnimationFrame(()=>{if(version===epoch&&isActive())root.closest('main').scrollTop=0;});}}
+  finally{if(version===epoch){loading=false;render();if(resetScroll)requestAnimationFrame(()=>{if(version===epoch&&isActive())(root.closest('dialog')||root.closest('main')).scrollTop=0;});}}
  }
  function changeDay(day){selected=day;filter='all';const range=windowRange();if(data?.from===range.from&&data.to===range.to)render();else void refresh();}
  function navigate(direction){
@@ -33,7 +33,7 @@ export function createUsageCalendar({root,i18n,icon,groupIcon,request,onProduct,
  }
  function render(){
   language=i18n.language;root.replaceChildren();const wrap=element('div',{className:'usage-calendar',attributes:{'aria-busy':String(loading)}});
-  const back=button('',onBack,'usage-back',t('appUsageBack'));back.append(icon('back'));wrap.append(back,text('h1',t('appUsageTitle')));
+
   const tabs=element('div',{className:'usage-tabs',attributes:{role:'group','aria-label':t('appUsageView')}});
   for(const value of ['week','month']){const b=button(t(value==='week'?'appUsageWeek':'appUsageMonth'),()=>{if(mode===value)return;mode=value;void refresh();});b.dataset.mode=value;b.setAttribute('aria-pressed',String(mode===value));tabs.append(b);}wrap.append(tabs);
   const range=windowRange(),toolbar=element('div',{className:'usage-period'}),prev=button('',()=>navigate(-1),'',t('appUsagePrevious')),next=button('',()=>navigate(1),'',t('appUsageNext'));prev.append(icon('back'));next.append(icon('chevron'));

@@ -1,3 +1,20 @@
+## 0.26.1 — unified bottom sheet headers
+
+Usage calendar is now a native createBottomSheet dialog over Account, with the
+same height as Daily routine. Its data/filter/date state remains session-only.
+A product opened from history stacks above that dialog; closing returns to the
+same calendar selection and scroll, then closing the calendar returns to Account.
+Logout closes both layers immediately and clears data/requests. Existing PWA dirty
+and open-dialog protections apply. No API/database/provider change in this release.
+
+All sheets share .sheet-header: one flex row, 27px title (25px on narrow phones),
+44px X, aligned vertical centres, same horizontal padding, handle and rounded shell.
+This includes group/add/detail/diagnostics/recheck/pause, routine/editor, calendar
+and transient confirmations. Confirmation X invokes the toolkit Cancel action;
+no separate promise/cleanup lifecycle. Product h1 now lives in the header and retains
+its aria-labelledby/data-sheet-focus contract. Outgoing content survives close
+animation. Wizard back/step controls remain below its common title row.
+
 ## 0.26.0 — immutable historical groups
 
 Migration 013 records append-only assignment/name/icon/order events and an immutable
