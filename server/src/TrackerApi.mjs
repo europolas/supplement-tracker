@@ -1,3 +1,4 @@
+import {usageRange,usageCalendar} from './usage-calendar.mjs';
 import {pausedOn,dateOnly,validReturnDate} from './supplement-pause.mjs';
 import {validRoutine,routineFromRow} from './routine-preferences.mjs';
 import {routineRecheckSchema,validRoutineRecheck,routineRecheckMessages,productFingerprint,groupFingerprint,readAnalysis} from './routine-recheck.mjs';
@@ -114,6 +115,16 @@ export class TrackerApi {
     await this.pool.execute('UPDATE tracker_preferences SET model=? WHERE user_id=?',[body.model,owner]);return [200,await this.settings(owner)];
    }
    if(method==='DELETE'){await this.pool.execute(`DELETE FROM ${this.credentialTable} WHERE user_id=?`,[owner]);return [200,await this.settings(owner)];}
+  }
+  if(method==='GET'&&path==='/usage'){
+   const {from,to}=usageRange(query),zone=timezone(query.get('timezone')||'UTC');
+   const [[products],[groups],[completions],[pauses]]=await Promise.all([
+    this.pool.execute('SELECT id,name,group_id,analysis,created_at FROM supplements WHERE user_id=? ORDER BY created_at,id',[owner]),
+    this.pool.execute('SELECT id,name,icon FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]),
+    this.pool.execute('SELECT supplement_id,local_day,completed_at FROM supplement_completions WHERE user_id=? AND local_day BETWEEN ? AND ?',[owner,from,to]),
+    this.pool.execute('SELECT supplement_id,started_at,resumed_at,resume_on,timezone FROM supplement_pauses WHERE user_id=? ORDER BY started_at DESC',[owner])
+   ]);
+   return [200,usageCalendar({from,to,zone,now:this.now(),products,groups,completions,pauses})];
   }
   if(method==='GET'&&path==='/dashboard'){
    const zone=timezone(query.get('timezone')||'UTC'),day=calendarDay(zone,this.now());

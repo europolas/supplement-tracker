@@ -121,6 +121,15 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    await request(a,'PUT',pause,{paused:false});await request(a,'PUT',pause,{paused:false});item=(await request(a,'GET','/dashboard',{},query))[1].supplements[0];assert.equal(item.paused,false);assert.equal(item.pause_revision,3);
    [periods]=await pool.query('SELECT * FROM supplement_pauses WHERE supplement_id=?',[first]);assert.equal(periods.length,2);assert.ok(periods.every(p=>p.resumed_at));assert.equal(calls,beforeCalls);now=originalNow;
   });
+  await t.test('usage calendar reads only owned records and never writes or calls AI',async()=>{
+   const range=new URLSearchParams({from:'2026-10-14',to:'2026-10-18',timezone:'Europe/Vilnius'}),before=calls;
+   const [[stored]]=await pool.execute('SELECT created_at FROM supplements WHERE id=?',[first]);await pool.execute('UPDATE supplements SET created_at=? WHERE id=?',['2026-10-13 00:00:00',first]);
+   const own=(await request(a,'GET','/usage',{},range))[1],other=(await request(b,'GET','/usage',{},range))[1];
+   await pool.execute('UPDATE supplements SET created_at=? WHERE id=?',[stored.created_at,first]);
+   assert.equal(own.today,'2026-10-15');assert.equal(own.days.find(d=>d.day==='2026-10-14').items.find(i=>i.id===first).status,'taken');assert.equal(other.days.flatMap(d=>d.items).length,0);assert.equal(calls,before);assert.equal(own.days.find(d=>d.day==='2026-10-16').future,true);
+   await assert.rejects(request(a,'GET','/usage',{},new URLSearchParams({from:'2026-01-01',to:'2026-12-31'})),e=>e.status===400);
+   await assert.rejects(request(a,'GET','/usage',{},new URLSearchParams({from:'2026-10-14',to:'2026-10-15',timezone:'Invalid/Zone'})),e=>e.status===400);
+  });
   await t.test('AI receives all existing supplements and conflicts retain a planning group with review warnings',async()=>{
    mode='conflict';const second=(await request(a,'POST','/supplements/analyze',{requestId:randomUUID(),name:'Another product'}))[1].id;const context=JSON.parse(lastInput.messages[1].content[0].text);assert.equal(context.existingSupplements[0].id,first);
    dashboard=(await request(a,'GET','/dashboard',{},query))[1];const item=dashboard.supplements.find(s=>s.id===second);assert.equal(item.group_id,group);assert.equal(item.analysis.needsReview,true);assert.equal(item.analysis.compatibility.assessments[0].supplementName,'Example manufacturer product');
@@ -291,7 +300,7 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
    const research=async input=>{lookups++;await paused;return chat(input);};
    const api=new TrackerApi(pool,auth,{vault,discover,chat:research,autoResearch:true,fullResearch:true,credentialProvider:'google',models:['gemini-3.8-flash']});const call=(m,p,b={})=>api.handle(m,p,b,'Bearer '+session.token,'auto');
    await call('POST','/bootstrap',{});await call('PUT','/settings/ai',{key:'google-private-auto-test',model:'gemini-3.8-flash'});const [,job]=await call('POST','/supplements/jobs',{name:'Unbranded product',requestId:randomUUID()});
-   let dash;for(let i=0;i<100;i++){dash=(await call('GET','/dashboard'))[1];if(dash.supplements.length&&lookups)break;await new Promise(r=>setTimeout(r,10));}assert.equal(dash.supplements.length,1);assert.equal(dash.supplements[0].analysis.enrichment.status,'researching');const id=dash.supplements[0].id,manual=dash.groups[1].id;
+   let dash;for(let i=0;i<100;i++){dash=(await call('GET','/dashboard'))[1];if(dash.supplements[0]?.analysis.enrichment.status==='researching'&&lookups)break;await new Promise(r=>setTimeout(r,10));}assert.equal(dash.supplements.length,1);assert.equal(dash.supplements[0].analysis.enrichment.status,'researching');const id=dash.supplements[0].id,manual=dash.groups[1].id;
    await call('PATCH','/supplements/'+id,{groupId:manual});release();for(let i=0;i<200&&api.activeJobs.size;i++)await new Promise(r=>setTimeout(r,10));
    const [,done]=await call('GET','/supplements/jobs/'+job.id);assert.equal(done.status,'complete');assert.equal(done.result.items[0].research,'complete');assert.ok(done.result.timings.detailsMs>=0);assert.ok(done.result.timings.totalMs>=done.result.recognitionMs);assert.equal(done.error_code,null);dash=(await call('GET','/dashboard'))[1];assert.equal(dash.supplements[0].analysis.manufacturer,'Example');assert.equal(dash.supplements[0].analysis.identity.manufacturer,'Example');assert.equal(dash.supplements[0].group_id,manual);assert.equal(dash.supplements[0].analysis.research.scope,'full-product-details');assert.equal(dash.supplements[0].analysis.enrichment.status,'complete');
    await call('POST','/supplements/jobs',{name:'Unbranded product',requestId:randomUUID()});for(let i=0;i<200&&api.activeJobs.size;i++)await new Promise(r=>setTimeout(r,10));assert.equal((await call('GET','/dashboard'))[1].supplements.length,1);assert.equal(lookups,1);

@@ -1,3 +1,27 @@
+## 0.25.0 — Usage calendar (selected history B)
+
+Account → Tools → Usage calendar opens a full main-scroller page, preserving the
+same app navigation with Account selected. Weekly day cards and a month grid share
+one selected date, period navigation, taken/missed/paused filters, progress and
+current-group journal rows. Each product opens the existing detail sheet and returns
+to the calendar. Paused records have their own section outside the daily denominator.
+EN/LT, dark theme, narrow viewports, request retry, focus/midnight refresh and session
+cleanup are supported. design/intake-history-b.png is the mandatory visual reference;
+.runtime/usage-calendar-b-light.png is the comparable running-app capture.
+
+GET /v1/usage?from=YYYY-MM-DD&to=YYYY-MM-DD&timezone=IANA is owner-scoped and
+read-only, accepts at most 42 inclusive days, never calls AI and needs no migration.
+Only stored current inventory and its surviving completion/pause rows contribute.
+A completion wins over a pause; future dates and pre-creation dates are never missed.
+Past days sample effective pauses at local day end, today samples now. DST conversion
+uses local midnight, while scheduled pause expiry retains its original timezone.
+Today unmarked is pending, past unmarked is missed. No retrospective writes or
+fabricated history. Deleted product/account/clear-all history follows the existing
+explicit cascade policy. Group/identity labels reflect CURRENT inventory: older
+versions did not store group/name snapshots, so earlier assignments cannot be
+reconstructed. This is stated beneath the journal. Dates/counts are server-derived;
+browser caches are session-memory only and cleared/aborted on logout.
+
 ## 0.24.0 — supplement pauses
 
 The product sheet offers Pause supplement and Resume. Pausing hides the product

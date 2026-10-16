@@ -6,10 +6,14 @@ import {createConfig,createStorage,createSettings,createTheme,createI18n,createR
  bindForm,trackDirty,setupViewport,setupGestures,setupPwa,watchNetwork,createAuth,setupAccount,
  element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet,productLabel,createImageViewer} from './modules/index.js';
 import {setupPasswordVisibility} from './modules/password-visibility.js';
+import {createUsageCalendar} from './usage-calendar.js';
 import {createRoutineWizard} from './routine-wizard.js';
 import {parseCustomIcon} from './custom-icon.js';
 // Local presentation icons use fixed SVG paths, never server/model markup.
 const iconPaths={
+ back:'m15 5-7 7 7 7',
+ pause:'M9 5v14 M15 5v14',
+ 'pause-circle':'M9 8v8 M15 8v8 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
  coffee:'M4 8h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4Z M16 8h2a3 3 0 0 1 0 6h-2 M3 21h17 M7 3v2 M11 2v3',
  bowl:'M3 11h18a9 9 0 0 1-18 0Z M6 21h12 M7 6l2-3 M12 7l2-4 M17 6l2-3',
  sliders:'M3 6h18 M3 12h18 M3 18h18 M7 4v4 M16 10v4 M10 16v4',
@@ -85,6 +89,7 @@ const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(curren
 const routineWizard=createRoutineWizard({dialog:get('routine-wizard-dialog'),editorDialog:get('routine-time-dialog'),i18n,icon,confirm:message=>confirmDialog(message,{i18n}),onError:error=>err(error),onSave:async(routine,revision)=>{
  const session=current();writes++;renderRoutineLoading();try{const result=await api.request('/v1/settings/routine',{method:'PUT',body:{routine,revision}});if(session!==current())return false;state.ai={...state.ai,routine:result.routine,routineRevision:result.revision};renderAccount();notify(i18n.t('appRoutineSaved'));return true;}catch(error){if(error.status===409&&session===current())await load(false);throw error;}finally{writes--;renderRoutineLoading();}
 }});
+const usageCalendar=createUsageCalendar({root:get('usage-content'),i18n,icon,groupIcon:renderGroupIcon,request:(path,options)=>api.get(path,options),onProduct:id=>router.navigate('/detail?id='+encodeURIComponent(id)),onBack:()=>router.navigate('/account'),isActive:()=>Boolean(current()&&router?.current==='/usage')});
 get('open-routine-wizard').addEventListener('click',()=>routineWizard.open(state.ai||{}));
 
 let state={groups:[],supplements:[],ai:null,day:localDay()},owner=null,generation=0,writes=0,router,appReady=false;
@@ -105,7 +110,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
- routineWizard.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
+ usageCalendar.reset();routineWizard.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
  routineChecks={active:null,latest:null,proposals:[]};recheckBusy=false;recheckStarting=false;get('recheck-content').replaceChildren();recheckAbort?.abort();recheckWatcher=null;void recheckSheet.close({immediate:true});
  groupDrag=null;get('profile-form').hidden=true;get('connection-editor').open=false;
  appReady=false;collectionEpoch++;uploadQueueExpanded=false;localizationAttempts.clear();localizationSending=false;
@@ -385,7 +390,7 @@ function render(){
  get('diagnostics-link').hidden=!current();renderAccount();renderDiagnostics();
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
- get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');renderHome();renderRoutineCheck();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
+ get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');usageCalendar.languageChanged();renderHome();renderRoutineCheck();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');if(get('group-dialog').open)renderGroupIconOptions();
  renderUploadQueue();
 }
@@ -617,13 +622,13 @@ function showRoute(path){
  if(!sheet)baseRoute=path;document.documentElement.dataset.tab=baseRoute;
  for(const section of document.querySelectorAll('main [data-screen]'))section.hidden=section.dataset.screen!==baseRoute;
  if(sheet)for(const section of get('route-dialog').querySelectorAll('[data-screen]'))section.hidden=section.dataset.screen!==path;
- for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===(path==='/account'?'/account':baseRoute))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
+ for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===((path==='/usage'||baseRoute==='/usage')?'/account':path==='/account'?'/account':baseRoute))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
  if(sheet){get('route-title').textContent=path==='/diagnostics'?i18n.t('appDiagnostics'):'';get('route-dialog').classList.toggle('product-sheet',path==='/detail');get('route-dialog').setAttribute('aria-labelledby',path==='/detail'?'product-detail-title':'route-title');}
  get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();
- if(path==='/detail')renderDetail();if(path==='/diagnostics')renderDiagnostics();
+ if(path==='/usage')usageCalendar.open();if(path==='/detail')renderDetail();if(path==='/diagnostics')renderDiagnostics();
  if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open)get('supplement-detail').replaceChildren();});if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}
 }
-router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/detail','/diagnostics'].map(path=>[path,()=>showRoute(path)])),onNotFound:()=>{location.hash=current()?'/':'/account';}});
+router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/usage','/detail','/diagnostics'].map(path=>[path,()=>showRoute(path)])),onNotFound:()=>{location.hash=current()?'/':'/account';}});
 // The generic router ignores query-only changes; details must follow the item ID.
 window.addEventListener('hashchange',()=>{if(router.current==='/detail')renderDetail();});
 auth.state.subscribe(async({user})=>{
@@ -634,6 +639,7 @@ auth.state.subscribe(async({user})=>{
  catch(error){if(current()===session)failure(error);}
 },true);
 function refreshDay(){
+ usageCalendar.refreshDay();
  // Native photo pickers fire focus/visibility events even on cancel. The open
  // composer owns that interaction; real upload jobs keep their separate polling.
  if(state.day!==localDay()){state.day=localDay();state.supplements=state.supplements.map(item=>({...item,completed:false}));renderHome();}

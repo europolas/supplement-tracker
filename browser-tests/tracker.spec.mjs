@@ -576,3 +576,45 @@ test('Lithuanian pause form follows app typography, theme and logout cleanup',as
  await mock(page,{preloaded:true});await login(page);await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#app-nav [data-route="/"]').click();await page.locator('.supplement-open').click();await page.locator('.pause-supplement').click();await expect(page.locator('#pause-title')).toHaveText('Pristabdyti papildą');await expect(page.locator('#pause-date-label')).toBeHidden();await page.screenshot({path:'.runtime/pause-dark-lt.png'});
  await page.locator('#pause-form [type=submit]').click();await expect(page.locator('.pause-status')).toHaveText('Pristabdyta iki grąžinimo');await page.locator('#route-dialog [data-sheet-close]').click();await page.locator('.account-link').click();await page.locator('#logout-button').click();await expect(page.locator('#paused-supplements')).toBeEmpty();await expect(page.locator('#pause-dialog')).not.toBeVisible();
 });
+
+// The calendar reads owned API history; fixtures never create production records.
+test.describe('usage calendar B',()=>{
+ test.use({timezoneId:'Europe/Vilnius'});
+ async function history(page,{delay=false,fail=false}={}){
+  let release;const gate=new Promise(r=>release=r),requests=[];let failNext=fail;
+  await page.clock.setFixedTime(new Date('2026-10-16T09:00:00Z'));
+  await mock(page,{preloaded:true});
+  await page.route('https://perimove.com/supplement-api/v1/usage?*',async route=>{
+   const q=new URL(route.request().url()).searchParams;requests.push(Object.fromEntries(q));if(delay&&requests.length===1)await gate;
+   if(failNext){failNext=false;await route.fulfill({status:503,json:{error:'REQUEST_FAILED'}});return;}
+   const groups=[{id:group,name:'Rytas'},{id:'44444444-4444-4444-8444-444444444444',name:'Vakaras'}],days=[];
+   for(let d=q.get('from');d<=q.get('to');d=new Date(Date.parse(d+'T12:00:00Z')+86400000).toISOString().slice(0,10)){
+    const future=d>'2026-10-16',items=future?[]:[{id,name:'L-Lysine',manufacturer:'Swanson',groupId:group,status:'taken',completedAt:d+'T05:10:00Z',resumeOn:null},{id:'55555555-5555-4555-8555-555555555555',name:'Vitamin C',manufacturer:'NOW',groupId:group,status:d==='2026-10-16'?'pending':'missed',completedAt:null,resumeOn:null},{id:'66666666-6666-4666-8666-666666666666',name:'L-Tryptophan',manufacturer:'ZeinPharma',groupId:groups[1].id,status:'taken',completedAt:d+'T18:45:00Z',resumeOn:null},{id:'77777777-7777-4777-8777-777777777777',name:'Magnesium Bisglycinate',manufacturer:'Zenyth',groupId:groups[1].id,status:'paused',completedAt:null,resumeOn:'2026-10-22'}];
+    const counts=Object.fromEntries(['taken','missed','pending','paused'].map(status=>[status,items.filter(i=>i.status===status).length]));days.push({day:d,future,items,counts,total:items.length-counts.paused});
+   }
+   await route.fulfill({json:{from:q.get('from'),to:q.get('to'),timezone:q.get('timezone'),today:'2026-10-16',groups,days}});
+  });return {release,requests};
+ }
+ async function openHistory(page){await login(page);await page.locator('.account-link').click();await page.locator('#usage-link').click();await expect(page.locator('.usage-calendar')).toBeVisible();}
+ test('matches B composition, changes days/views/filters, opens details and returns to Account',async({page})=>{
+  const fake=await history(page);await openHistory(page);await expect(page.locator('.usage-summary')).toContainText('2 of 3');await expect(page.locator('.usage-summary')).toContainText('1 remaining');await expect(page.locator('.usage-product-time')).toContainText(['08:10','Remaining','21:45']);
+  await page.locator('.usage-day[data-day="2026-10-15"]').click();await expect(page.locator('.usage-summary')).toContainText('1 missed');await expect(page.locator('#app-nav .account-link')).toHaveAttribute('aria-current','page');
+  await page.locator('.usage-filters [data-filter="missed"]').click();await expect(page.locator('.usage-product')).toHaveCount(1);await expect(page.locator('.usage-product')).toContainText('Vitamin C');await page.locator('.usage-filters [data-filter="paused"]').click();await expect(page.locator('.usage-journal')).toHaveCount(0);await expect(page.locator('.usage-paused')).toContainText('Magnesium');
+  await page.locator('.usage-filters [data-filter="all"]').click();await page.screenshot({path:'.runtime/usage-calendar-en-light.png'});await page.locator('.usage-journal .usage-product').first().click();await expect(page.locator('#route-dialog')).toBeVisible();await page.locator('#route-dialog [data-sheet-close]').click();await expect(page.locator('.usage-calendar')).toBeVisible();await expect(page.locator('.usage-day[data-day="2026-10-15"]')).toHaveAttribute('aria-pressed','true');
+  await page.locator('.usage-tabs [data-mode="month"]').click();await expect(page.locator('.usage-days-month .usage-day')).toHaveCount(35);await page.locator('.usage-day[data-day="2026-10-18"]').click();await expect(page.locator('.usage-empty')).toContainText('Future dates');await page.locator('.usage-period button').first().click();await expect.poll(()=>fake.requests.at(-1).from).toBe('2026-08-31');await page.locator('.usage-back').click();await expect(page.locator('#account-screen')).toBeVisible();
+ });
+ test('Lithuanian light reference, narrow and dark states fit the same shared scroller/navigation',async({page})=>{
+  await history(page);await login(page);await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#usage-link').click();await page.locator('.usage-day[data-day="2026-10-15"]').click();await expect(page.locator('.usage-summary')).toContainText('2 iš 3');await page.screenshot({path:'.runtime/usage-calendar-b-light.png'});
+  const layout=await page.evaluate(()=>({overflow:document.querySelector('.usage-calendar').scrollWidth>document.querySelector('.usage-calendar').clientWidth,scrollers:document.querySelector('main').scrollHeight>document.querySelector('main').clientHeight,fonts:[...new Set([...document.querySelectorAll('.usage-calendar h1,.usage-calendar button,.usage-calendar p')].map(n=>getComputedStyle(n).fontFamily))]}));expect(layout.overflow).toBe(false);expect(layout.fonts).toHaveLength(1);
+  await page.setViewportSize({width:320,height:700});expect(await page.locator('.usage-calendar').evaluate(n=>n.scrollWidth<=n.clientWidth)).toBe(true);await page.locator('.usage-back').click();await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#usage-link').click();await expect(page.locator('html')).toHaveAttribute('data-theme','dark');await page.screenshot({path:'.runtime/usage-calendar-dark-narrow.png'});
+ });
+ test('retry, rapid range changes and logout do not expose stale account history',async({page})=>{
+  await history(page,{fail:true});await openHistory(page);await expect(page.locator('.usage-calendar [role=alert]')).toBeVisible();await page.locator('.usage-calendar').getByRole('button',{name:'Try again'}).click();await expect(page.locator('.usage-summary')).toBeVisible();
+  await page.locator('.usage-period button').first().click();await page.locator('.usage-period button').last().click();await expect(page.locator('.usage-day[data-day="2026-10-16"]')).toBeVisible();await page.locator('.usage-back').click();await page.locator('#logout-button').click();await expect(page.locator('#usage-content')).toBeEmpty();await page.goto('/#/usage');await expect(page.locator('#login-form')).toBeVisible();await expect(page.locator('#usage-content')).toBeEmpty();
+ });
+ test('late requests cannot replace a newer period; outside-month dates load their complete month',async({page})=>{
+  const fake=await history(page,{delay:true});await openHistory(page);await expect(page.locator('.usage-loading')).toBeVisible();await page.locator('.usage-period button').first().click();await expect(page.locator('.usage-summary h2')).toContainText('October 9');fake.release();await expect(page.locator('.usage-day[data-day="2026-10-09"]')).toHaveAttribute('aria-pressed','true');
+  await page.locator('.usage-tabs [data-mode="month"]').click();await expect(page.locator('.usage-summary')).toBeVisible();await page.locator('.usage-day[data-day="2026-11-01"]').click();await expect.poll(()=>fake.requests.at(-1).from).toBe('2026-10-26');await expect(page.locator('.usage-days-month .usage-day')).toHaveCount(42);await expect(page.locator('.usage-period strong')).toContainText('November 2026');
+ });
+
+});
