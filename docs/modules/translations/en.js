@@ -1,5 +1,7 @@
 /** English is the canonical default; add each new key to both dictionaries. */
 export default Object.freeze({
+  "appSuggestedGroup": "Suggested group: {name}",
+  "appSevereConflicts": "Significant incompatibilities",
   "appIcon_info": "Information",
   "appIcon_calendar": "Calendar",
   "appIcon_home": "Home",

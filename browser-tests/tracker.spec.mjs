@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
-async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false}={}){
+async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false,compatibilityMode=''}={}){
  let completed=false,added=preloaded,started=hybrid||gemini,configured=true,release,terminalJob=null,researchRequested=false,reviewApplied=false,released=false,detailsReady=!progressive;
  let customGroupIcon='';const uploads=[],requests=[];release=()=>{released=true;};
  await page.route('https://perimove.com/supplement-api/**',async route=>{
@@ -38,6 +38,7 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
   if(path==='/v1/dashboard'&&fallback&&added){result.supplements[0].analysis.dosage={directions:null,servingSize:null,dailyServingsMin:null};result.supplements[0].analysis.doseFallback={basis:'established_adult_intake',ingredient:'Example ingredient',dailyAmountMin:25,dailyAmountMax:50,unit:'mg',sourceUrl:'https://guideline.example/reference',explanation:'General adult reference; no verified product capsule strength.'};}
   if(path==='/v1/dashboard'&&unknownDose&&added){result.supplements[0].analysis.dosage={directions:null,servingSize:null};result.supplements[0].analysis.doseFallback={basis:'unavailable',explanation:'No verified dose.'};}
   if(path==='/v1/dashboard'&&labelProduct&&added){result.supplements[0].name='Trans Resveratrolis (300 mg kapsulės, 60 vnt.)';result.supplements[0].analysis.manufacturer='L Cell';result.supplements[0].analysis.variant='300 mg kapsulės, 60 vnt.';}
+  if(path==='/v1/dashboard'&&compatibilityMode&&added){const a=result.supplements[0].analysis;a.research.scope='full-product-details';result.groups.push({id:'44444444-4444-4444-8444-444444444444',name:'Evening · before bed',description:''});a.compatibility={summary:'Every routine compatibility paragraph should be hidden.',assessments:[{supplementId:'old',status:'duplicate',reason:'Ordinary overlap should be hidden.'},{supplementId:'uncertain',status:'insufficient_information',reason:'Missing quantities should be hidden.'},...(compatibilityMode==='severe'?[{supplementId:'existing',supplementName:'Conflicting product',status:'potential_conflict',severity:'severe',reason:'A significant same-time conflict.',canSeparate:true,recommendedGroupId:'44444444-4444-4444-8444-444444444444',recommendation:'Move to the evening group to separate intake.',sourceUrl:'https://manufacturer.example/label'}]:[])]};}
   if(path==='/v1/dashboard'&&conflict&&added)result.supplements[0].analysis.compatibility.assessments=[{supplementId:'existing',supplementName:'Other magnesium',status:'duplicate',reason:'Review total magnesium before combining.'}];
   if(path==='/v1/dashboard'&&basic&&added){const a=result.supplements[0].analysis;a.schemaVersion='basic-1';a.enrichment={status:researchRequested?'researching':'complete'};}
   if(groupReview&&path==='/v1/dashboard'){result.groups.push({id:'55555555-5555-4555-8555-555555555555',name:'With fats'});if(reviewApplied&&result.supplements.length)result.supplements[0].group_id=result.groups[1].id;}
@@ -185,9 +186,9 @@ test('compact labels and a real touch pull close product and upload sheets',asyn
 });
 
 
-test('historical planning warnings remain on Home while details use the compact presentation',async({page})=>{
+test('Home omits historical compatibility badges and details omit ungraded assessments',async({page})=>{
  await mock(page,{preloaded:true,conflict:true,labelProduct:true});await login(page);
- await expect(page.locator('.group-block .supplement-row')).toHaveCount(1);await expect(page.locator('.review-combination')).toHaveText('Review combination');
+ await expect(page.locator('.group-block .supplement-row')).toHaveCount(1);await expect(page.locator('.review-combination')).toHaveCount(0);
  await page.screenshot({animations:'disabled',path:'.runtime/speed-warning-home.png'});
  await page.locator('.supplement-open').click();await expect(page.locator('[data-detail-section=compatibility]')).toHaveCount(0);await expect(page.locator('.doctor-note')).toHaveText('Consult a doctor before using each supplement.');
  await page.screenshot({animations:'disabled',path:'.runtime/speed-warning-detail.png'});
@@ -270,4 +271,11 @@ test('original app icons can be picked, saved and restored to automatic without 
  const moon=page.locator('#group-icon-options button').filter({hasText:'Evening'});await moon.click();await expect(moon).toHaveAttribute('aria-pressed','true');await expect(page.locator('#group-form [name=icon]')).toHaveValue(/M20 15A9/);await expect(page.locator('#group-icon-preview svg')).toHaveCount(1);
  await page.screenshot({path:'.runtime/app-icon-picker.png'});await page.locator('#group-form button[type=submit]').click();await expect(page.locator('#group-dialog')).not.toBeVisible();await expect(page.locator('.group-symbol svg path')).toHaveAttribute('d',/M20 15A9/);
  await page.locator('.group-edit').click();await expect(page.locator('#group-icon-options button').filter({hasText:'Evening'})).toHaveAttribute('aria-pressed','true');await page.locator('#group-icon-options button').filter({hasText:'Automatic'}).click();await expect(page.locator('#group-form [name=icon]')).toHaveValue('');await page.locator('#group-form button[type=submit]').click();await expect(page.locator('#group-dialog')).not.toBeVisible();await expect(page.locator('.group-symbol svg path')).toHaveAttribute('d',/^M5 3v7/);
+});
+
+test('details show only severe conflicts and a suggested existing group without automatic moves',async({page})=>{
+ await mock(page,{preloaded:true,compatibilityMode:'severe'});await login(page);await expect(page.locator('.review-combination')).toHaveCount(0);await page.locator('.supplement-open').click();const section=page.locator('[data-detail-section=compatibility]');await expect(section).toContainText('Conflicting product');await expect(section).toContainText('Suggested group: Evening');await expect(section.locator('.interaction-alert')).toHaveCount(1);await expect(section).not.toContainText('should be hidden');await section.scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/severe-conflict-detail.png'});
+});
+test('details omit the compatibility section when no severe alert exists',async({page})=>{
+ await mock(page,{preloaded:true,compatibilityMode:'benign'});await login(page);await page.locator('.supplement-open').click();await expect(page.locator('[data-detail-section=compatibility]')).toHaveCount(0);await expect(page.locator('#supplement-detail')).not.toContainText('should be hidden');
 });

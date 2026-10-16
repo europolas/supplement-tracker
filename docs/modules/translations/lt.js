@@ -1,5 +1,7 @@
 /** Lithuanian translations; missing keys fall back to the English dictionary. */
 export default Object.freeze({
+  "appSuggestedGroup": "Siūloma grupė: {name}",
+  "appSevereConflicts": "Svarbūs nesuderinamumai",
   "appIcon_info": "Informacija",
   "appIcon_calendar": "Kalendorius",
   "appIcon_home": "Namai",

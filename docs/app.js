@@ -112,7 +112,6 @@ function renderHome(){
    open.append(element('strong',{text:label.name,className:'product-title'}));
    const summary=item.analysis.benefitTags?.length?item.analysis.benefitTags.slice(0,3).map(b=>b[i18n.language]||b.en).join(', '):compactText(item.analysis.benefitSummary||item.analysis.benefits?.[0]||item.analysis.whenToUse);
    const meta=element('span',{className:'summary'});if(label.manufacturer)meta.append(element('b',{text:label.manufacturer,className:'product-manufacturer'}));if(summary)meta.append(document.createTextNode((label.manufacturer?' · ':'')+summary));if(meta.textContent)open.append(meta);
-   if(item.analysis.compatibility?.assessments?.some(a=>['potential_conflict','duplicate'].includes(a.status)))open.append(element('span',{text:i18n.t('appReviewCombination'),className:'research-badge review-combination'}));
    if(item.analysis.enrichment&&item.analysis.enrichment.status!=='complete')open.append(element('span',{text:i18n.t('appInfo_'+item.analysis.enrichment.status),className:'research-badge'}));
 
    const check=button('',async()=>{if(check.disabled)return;check.disabled=true;await mutate(()=>api.request('/v1/supplements/'+item.id+'/completion',{method:'PUT',body:{completed:!(state.day===localDay()&&item.completed),timezone:zone()}}));check.disabled=false;},'check-button');
@@ -209,8 +208,11 @@ function renderDetail(){
  for(const value of new Set([analysis.whenToUse,analysis.howToUse].filter(Boolean)))prose(dose,value);
  prose(section('appBenefits','benefits'),analysis.benefits?.length?analysis.benefits:i18n.t(pending?'appInfo_'+analysis.enrichment.status:'appNoBenefits'));
  if(analysis.research?.scope==='full-product-details'){
- const compatibility=section('appCompatibility','compatibility');if(analysis.compatibility?.summary)prose(compatibility,analysis.compatibility.summary);
- if(analysis.compatibility?.assessments?.length)prose(compatibility,analysis.compatibility.assessments.map(a=>(a.supplementName?a.supplementName+': ':'')+a.reason));
+ const severe=(analysis.compatibility?.assessments||[]).filter(a=>a.severity==='severe'&&['potential_conflict','duplicate'].includes(a.status));
+ if(severe.length){const compatibility=section('appSevereConflicts','compatibility');
+ for(const a of severe){const block=element('div',{className:'interaction-alert'});if(a.supplementName)block.append(heading(a.supplementName,'h4'));prose(block,a.reason);
+ const recommended=state.groups.find(g=>g.id===a.recommendedGroupId);if(a.recommendation&&(!a.recommendedGroupId||recommended&&recommended.id!==item.group_id))prose(block,a.recommendation);
+ if(recommended&&recommended.id!==item.group_id)block.append(element('p',{text:i18n.t('appSuggestedGroup',{name:recommended.name}),className:'detail-meta'}));compatibility.append(block);}}
  if(analysis.cautions?.length)prose(section('appRestrictions','restrictions'),analysis.cautions);
  }
  if(!draft&&analysis.sources?.length){

@@ -1,3 +1,22 @@
+## 0.16.0 — concise significant incompatibilities
+
+Home never displays a compatibility badge. Full research returns sparse,
+source-backed severe supplement conflicts only, prioritizing same-group pairs.
+Ordinary overlap, unknown quantities and compatible pairs are omitted. Empty
+alerts do not establish safety. The compatibility section is absent when no
+explicitly graded severe alert exists; ungraded historical pair essays are hidden.
+Drug/contraindication cautions and the doctor footer remain separate.
+
+Each alert has an owned supplement ID, severity=severe, short reason, source URL,
+canSeparate, optional owned recommendedGroupId and brief recommendation. Sources
+must be encountered and classified as manufacturer/clinical/regulatory. A timing
+recommendation is allowed only for a supported separation mechanism and another
+compatible existing group. No automatic moves or claims that time fixes systemic
+interactions. Deleted/current-group recommendations are not displayed.
+Group names/descriptions, selected group ID and each existing product group ID
+are extraction context; private routine data still never goes to Search.
+No DB migration or automatic paid rewrite of old analyses.
+
 ## 0.15.1 — built-in group icon picker
 
 Group editing exposes the original local sun/meal/moon and other app glyphs as
