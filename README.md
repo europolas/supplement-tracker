@@ -637,3 +637,9 @@ success and failure. No API, AI, scroller or private persistence changes.
 show one full-width Update Application button, without an explanatory surface or
 paragraph, separated from preceding content by 16px. EN/LT labels and existing
 startup activation, dirty-form/photo/write guards remain unchanged.
+
+
+0.22.7: Groups and Account use exactly the Home floating navigation geometry,
+typography, icon sizes and surfaces. Remove tab-specific navigation overrides,
+including --nav-height, so footer clearance and safe-area positioning agree on
+all three pages. Only the active aria-current pill changes on tab navigation.

@@ -410,10 +410,7 @@ main[data-tab="/groups"],main[data-tab="/account"]{max-width:862px;padding-left:
 #account-screen .account-version{font-size:calc(10 * var(--page-u));margin:calc(9 * var(--page-u)) 0 0}
 @media(max-width:360px){.managed-group{gap:7px;padding:10px 8px}.managed-group-icon{width:40px;height:44px}.managed-group-icon .icon,.managed-group-icon .custom-group-svg{width:28px;height:28px}.quick-group-grid button{gap:6px;padding:8px}.quick-group-grid .quick-icon{width:30px}.quick-group-grid strong{font-size:13px}.profile-overview{gap:9px}#account-screen #edit-profile-name{padding:8px;font-size:11px}.profile-initials{width:42px;height:42px}#account-screen .setting-value{max-width:118px}}
 
-html[data-tab="/groups"],html[data-tab="/account"]{--nav-height:calc(54 * var(--page-u))}
-html[data-tab="/groups"] .app-nav,html[data-tab="/account"] .app-nav{width:min(calc(100% - 20 * var(--page-u)),calc(390 * var(--page-u)));padding:calc(4 * var(--page-u));height:var(--nav-height)}
-html[data-tab="/groups"] .app-nav a,html[data-tab="/account"] .app-nav a{font-size:calc(11 * var(--page-u));gap:calc(4 * var(--page-u));padding:calc(3 * var(--page-u));min-height:44px}
-html[data-tab="/groups"] .app-nav .icon,html[data-tab="/account"] .app-nav .icon{width:calc(22 * var(--page-u));height:calc(22 * var(--page-u))}
+/* All tabs share the Home navigation geometry; only aria-current selects the pill. */
 /* Product controls share one rhythm. Expanded details join their summary surface. */
 .detail-section{--detail-gap:12px}
 .detail-section .group-badge{margin-bottom:var(--detail-gap)}
