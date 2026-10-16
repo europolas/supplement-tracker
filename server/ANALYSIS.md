@@ -1,3 +1,23 @@
+## 0.16.2 — grounded research evidence binding
+
+Research extraction selects short source IDs from a strict schema enum; server
+code resolves them to encountered URLs. Model-generated/copy-corrupted URLs
+cannot become citations. Grounding titles and verified redirect aliases stay
+attached to sources. This does not add an LLM request or automatic retries.
+
+Known scanned manufacturers are preserved. A different returned brand cannot
+replace identity or contribute its dose/composition/compatibility claims. Invalid
+manufacturer provenance becomes unknown quantities/directions rather than
+discarding the whole useful result; safety/source validation still runs afterwards.
+
+NIH DSLD label evidence is accepted only after a bounded server lookup of an
+encountered exact /label/<id> URL, matching known brand and normalized product name.
+No arbitrary publisher URL is fetched. Verified registry evidence has its own
+label_registry source kind; numeric quantities and daily serving range are checked
+against that label. Unverified regulatory/retail data cannot establish manufacturer
+quantities. Background lookups cannot claim to have read a supplied photo.
+The original Gemini TEST2 recognition/grouping request is unchanged.
+
 ## 0.16.0 — concise significant incompatibilities
 
 Home never displays a compatibility badge. Full research returns sparse,

@@ -1,6 +1,6 @@
 /** Bounded server-only Gemini generateContent transport. One HTTP request; no
- * retries, redirects, stored prompts or images. Search is opt-in for explicitly
- * requested details only, and must be evidenced by grounding metadata.
+ * retries, redirects, stored prompts or images. Search is opt-in per adapter and must be evidenced by grounding metadata.
+ * The caller owns automatic/manual research policy.
  */
 import {ProviderError} from './structured-chat.mjs';
 import {citationUrl} from './structured-research.mjs';
@@ -25,13 +25,13 @@ export function createGeminiStructured({fetch:send=globalThis.fetch,timeout=9000
   let data,result;const reader=response.body.getReader(),chunks=[];let size=0;
   try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>512*1024){await reader.cancel();throw new ProviderError('AI_INVALID_RESPONSE');}chunks.push(value);}}catch(e){throw e instanceof ProviderError?e:new ProviderError('AI_CONNECTION_FAILED');}
   try{data=JSON.parse(Buffer.concat(chunks).toString());const c=data.candidates?.[0];if(c?.finishReason!=='STOP')throw Error();const text=c.content.parts.filter(p=>p.text&&!p.thought).map(p=>p.text).join('');result=textOnly?{text}:JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,''));if(validate(result)!==true)throw Error();}catch{throw new ProviderError('AI_INVALID_RESPONSE');}
-  const grounding=data.candidates[0].groundingMetadata,urls=new Set();
-  for(const chunk of grounding?.groundingChunks||[]){const url=citationUrl(chunk.web?.uri);if(!url)continue;urls.add(url);
+  const grounding=data.candidates[0].groundingMetadata,urls=new Set(),citationTitles={},citationAliases={};
+  for(const chunk of grounding?.groundingChunks||[]){const url=citationUrl(chunk.web?.uri);if(!url)continue;urls.add(url);citationTitles[url]=String(chunk.web?.title||'').slice(0,250);
    // Google may return opaque grounding redirects. Resolve only Google's own
    // proxy, with no follow to an arbitrary destination; retain encountered URLs.
-   if(new URL(url).hostname==='vertexaisearch.cloud.google.com')try{const r=await send(url,{redirect:'manual',signal});const target=citationUrl(r.headers.get('location'));await r.body?.cancel();if(target)urls.add(target);}catch{ /* No invented citation when resolution fails. */ }
+   if(new URL(url).hostname==='vertexaisearch.cloud.google.com')try{const r=await send(url,{redirect:'manual',signal});const target=citationUrl(r.headers.get('location'));await r.body?.cancel();if(target){urls.add(target);citationTitles[target]=citationTitles[url];citationAliases[url]=target;}}catch{ /* No invented citation when resolution fails. */ }
   }
   const searches=grounding?.webSearchQueries?.length||0;if(requireSearch&&(!searches||!urls.size))throw new ProviderError('AI_RESEARCH_FAILED');
-  return {result,model:data.modelVersion||model,citations:[...urls],searches,usage:{inputTokens:data.usageMetadata?.promptTokenCount,outputTokens:data.usageMetadata?.candidatesTokenCount,thinkingTokens:data.usageMetadata?.thoughtsTokenCount}};
+  return {result,model:data.modelVersion||model,citations:[...urls],citationTitles,citationAliases,searches,usage:{inputTokens:data.usageMetadata?.promptTokenCount,outputTokens:data.usageMetadata?.candidatesTokenCount,thinkingTokens:data.usageMetadata?.thoughtsTokenCount}};
  };
 }

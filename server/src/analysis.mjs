@@ -17,7 +17,7 @@ export function analysisSchema(groups,supplements=[],language='en'){
  groupId:{type:['string','null'],enum:[...groups.map(g=>g.id),null]},benefits:list(text(500),6),howToUse:text(1800),whenToUse:text(1000),labelDirections:nullable(1500),cautions:list(text(500),10),confidence:{type:'string',enum:['high','medium','low']},needsReview:{type:'boolean'},reviewReason:nullable(1000),evidenceNote:text(1500),
  dosage:object({directions:nullable(1500),servingSize:nullable(250),dailyServingsMin:{type:['number','null'],minimum:0,maximum:100},dailyServingsMax:{type:['number','null'],minimum:0,maximum:100},sourceUrl:nullable(1800),evidence:{type:'string',enum:['manufacturer','label_photo','unknown']}}),
  nutrients:list(object({name:text(150),amount:number,unit:{type:'string',enum:['g','mg','ug','IU','other']},originalUnit:nullable(80),nrvCode:{type:['string','null'],enum:[...Object.keys(NRVS),null]},nrvComparable:{type:'boolean'},amountNote:text(300),sourceUrl:nullable(1800),evidence:{type:'string',enum:['manufacturer','label_photo','unknown']}}),40),
- sources:list(object({url:text(1800),title:text(250),kind:{type:'string',enum:['manufacturer','clinical','regulatory','retailer','other']}}),12),
+ sources:list(object({url:text(1800),title:text(250),kind:{type:'string',enum:['manufacturer','label_registry','clinical','regulatory','retailer','other']}}),12),
  compatibility:object({summary:text(1500),requiresReview:{type:'boolean'},assessments:list(object({supplementId:{type:'string',...(supplements.length?{enum:supplements.map(s=>s.id)}:{})},status:{type:'string',enum:['no_known_issue','potential_conflict','duplicate','insufficient_information']},reason:text(600)}),supplements.length,supplements.length)})});
 }
 export function validAnalysis(value,groups,supplements=[],language='en'){
@@ -43,7 +43,7 @@ export function validAnalysis(value,groups,supplements=[],language='en'){
  if((d.dailyServingsMin===null)!==(d.dailyServingsMax===null)||d.dailyServingsMin!==null&&(d.dailyServingsMin<=0||d.dailyServingsMax<d.dailyServingsMin))return false;
  return true;
 }
-export function finalizeAnalysis(result,{citations=[],image=false,now=new Date()}={}){
+export function finalizeAnalysis(result,{citations=[],image=false,verifiedLabelSources=[],now=new Date()}={}){
  const encountered=new Set(citations.map(citationUrl).filter(Boolean));
  if(result.confidence==='low')result.needsReview=true;
  // An unused bibliography link must not discard an otherwise sourced identity.
@@ -60,7 +60,7 @@ export function finalizeAnalysis(result,{citations=[],image=false,now=new Date()
  const sourceFor=url=>result.sources.find(s=>s.url===citationUrl(url));
  const verify=(entry)=>{
   if(entry.evidence==='label_photo')return Boolean(image);
-  return entry.evidence==='manufacturer'&&sourceFor(entry.sourceUrl)?.kind==='manufacturer';
+  const source=sourceFor(entry.sourceUrl);return entry.evidence==='manufacturer'&&(source?.kind==='manufacturer'||source?.kind==='label_registry'&&verifiedLabelSources.includes(citationUrl(entry.sourceUrl)));
  };
  const d=result.dosage;
  if(d.evidence!=='unknown'&&!verify(d))throw new ProviderError('AI_SOURCES_UNVERIFIED');
@@ -83,7 +83,7 @@ export function finalizeAnalysis(result,{citations=[],image=false,now=new Date()
  // An unavailable official label must not erase a clearly identified product or
  // a separately sourced adult reference. Manufacturer dose claims still require
  // exact manufacturer/label evidence above; retailer-only research cannot suffice.
- if(result.identified&&!image&&!result.sources.some(s=>['manufacturer','clinical','regulatory'].includes(s.kind)))throw new ProviderError('AI_SOURCES_UNVERIFIED');
+ if(result.identified&&!image&&!result.sources.some(s=>(['manufacturer','clinical','regulatory'].includes(s.kind)||s.kind==='label_registry'&&verifiedLabelSources.includes(s.url))))throw new ProviderError('AI_SOURCES_UNVERIFIED');
  if(result.identified&&!result.sources.length)throw new ProviderError('AI_SOURCES_UNVERIFIED');
  if(d.directions===null||d.dailyServingsMin===null)result.needsReview=true;
  result.nutrients=enrichNutrients(result);
