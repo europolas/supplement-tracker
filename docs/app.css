@@ -516,7 +516,7 @@ html .routine-event{position:relative;display:flex;align-items:center;gap:16px;b
 html .routine-choice{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:11px;font-size:13px;line-height:1.35;min-height:44px;padding:9px}
 html .routine-choice[aria-pressed="true"]{border-color:var(--green);background:var(--soft);color:var(--ink)}
 .routine-days .routine-choice::before{content:'';display:inline-block;width:13px;height:13px;border:1px solid var(--muted);border-radius:50%;margin-right:7px;vertical-align:-2px}.routine-days .routine-choice[aria-pressed="true"]::before{background:var(--green);border-color:var(--green);box-shadow:inset 0 0 0 3px var(--surface)}
-.routine-help{font-size:12px;color:var(--muted);line-height:1.5;margin:10px 0 0}.routine-wizard-actions{margin-top:auto;padding-top:2px}.routine-wizard-actions .primary{width:100%;min-height:48px}
+.routine-help{font-size:12px;color:var(--muted);line-height:1.5;margin:10px 0 0}.routine-wizard-actions{margin-top:0;padding-top:2px}.routine-wizard-actions .primary{width:100%;min-height:48px}
 .routine-error{color:#ae493e;font-size:12px;line-height:1.4;margin:0}.routine-error:empty{display:none}
 .routine-strategies{display:flex;flex-direction:column;gap:10px}
 html .routine-strategy{display:flex;align-items:center;gap:14px;text-align:left;min-height:76px;padding:15px 13px;background:var(--surface);border:1px solid var(--line);border-radius:14px;color:var(--ink);width:100%}
@@ -541,7 +541,7 @@ html .routine-range{position:relative;display:flex;flex-direction:column;align-i
 @media(max-width:360px){html .routine-wizard-dialog,html .routine-time-dialog{padding-left:15px;padding-right:15px}.routine-heading h2{font-size:25px}.routine-event{gap:12px}.routine-choice{padding:8px 5px}.routine-event strong{font-size:13px}.routine-range{padding:13px 10px}.routine-strategy{gap:9px}}
 
 .routine-recap-copy{font-size:13px;line-height:1.5;margin:4px 0;color:var(--ink)}
-.routine-wizard-actions{position:sticky;bottom:0;z-index:2;background:var(--paper);padding:12px 0 max(0px,env(safe-area-inset-bottom))}
+/* Routine actions follow the last form card and scroll with both wizard steps. */
 
 /* Pausing preserves inventory access without adding inactive items to daily totals. */
 .paused-supplements { margin-top:16px; }.paused-supplements h2 { font-size:16px;margin-bottom:8px; }

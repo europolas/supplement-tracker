@@ -1,3 +1,10 @@
+## 0.26.2 — scrolling routine actions
+
+Continue and Save routine stay in normal document flow after the final form card.
+Neither action is sticky or pushed down with an automatic flex margin; both scroll
+inside the existing full-height wizard sheet without covering its choices.
+No API or database change.
+
 ## 0.26.1 — unified bottom sheet headers
 
 Usage calendar is now a native createBottomSheet dialog over Account, with the
