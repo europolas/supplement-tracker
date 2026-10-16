@@ -1,3 +1,9 @@
+## 0.26.3 — simpler routine headings
+
+Routine removes the introductory breadcrumb/subtitle, preferences back arrow and
+strategy section heading. The day tab and recap Edit action still return to the
+first step without discarding the draft. Shared title/X headers are unchanged.
+
 ## 0.26.2 — scrolling routine actions
 
 Continue and Save routine stay in normal document flow after the final form card.

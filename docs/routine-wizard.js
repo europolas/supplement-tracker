@@ -24,7 +24,7 @@ export function createRoutineWizard({dialog,editorDialog,i18n,icon,confirm,onSav
   const row=node('div',undefined,className);row.setAttribute('role','group');
   for(const [v,label] of values){const b=button(label,()=>select(v),'routine-choice');b.setAttribute('aria-pressed',String(v===selected));b.dataset.value=v;row.append(b);}return row;
  }
- function toolbar(back,close,title){const bar=node('div',undefined,'routine-toolbar routine-heading sheet-header');bar.setAttribute('data-sheet-drag','');const b=button('',back,'icon-button routine-back');b.setAttribute('aria-label',t('Back'));b.append(icon('chevron'));const x=button('',close,'icon-button');x.setAttribute('aria-label',t('Close'));x.append(icon('close'));bar.append(title,x);if(step){b.classList.add('routine-step-back');bar.afterBack=b;}return bar;}
+ function toolbar(close,title){const bar=node('div',undefined,'routine-toolbar routine-heading sheet-header');bar.setAttribute('data-sheet-drag','');const x=button('',close,'icon-button');x.setAttribute('aria-label',t('Close'));x.append(icon('close'));bar.append(title,x);return bar;}
  const sheet=createBottomSheet(dialog,{onDismiss:()=>void dismiss()});
  const editSheet=createBottomSheet(editorDialog,{onDismiss:()=>void editSheet.close()});
  async function dismiss(){if(saving)return;if(!equal(draft,baseline)&&!await confirm(t('Discard')))return;draft=null;await sheet.close();}
@@ -33,15 +33,14 @@ export function createRoutineWizard({dialog,editorDialog,i18n,icon,confirm,onSav
  function tabs(){const row=node('div',undefined,'routine-tabs');for(const n of [0,1]){const b=button(t(n?'StepPreferences':'StepDay'),()=>goto(n),'routine-tab');b.setAttribute('aria-current',n===step?'step':'false');if(n===0&&step===1)b.append(glyph('check'));row.append(b);}return row;}
  function render(){
   if(!draft)return;root.replaceChildren();const title=node('h2',t(step?'Preferences':'Title'));title.tabIndex=-1;title.setAttribute('data-sheet-focus','');
-  const bar=toolbar(()=>goto(0),()=>void dismiss(),title);root.append(bar);if(bar.afterBack)root.append(bar.afterBack);
-  if(!step){const intro=node('div',undefined,'routine-heading');intro.append(node('p',t('Breadcrumb'),'routine-breadcrumb'),node('p',t('Subtitle')));root.append(intro);}root.append(tabs());
+  root.append(toolbar(()=>void dismiss(),title));
+  root.append(tabs());
   const body=node('div',undefined,'routine-wizard-body');root.append(body);
   if(!step){
    const timeline=node('div',undefined,'routine-timeline');
    for(const key of events){const row=button('',()=>openEditor(key),'routine-event');row.dataset.routineEvent=key;row.append(glyph(eventIcons[key]));const text=node('span',undefined,'routine-event-text');text.append(node('strong',t('Event_'+key)),node('small',summary(key)));row.append(text,glyph('chevron'));timeline.append(row);}body.append(timeline);
    const days=node('section',undefined,'routine-card routine-days');days.append(node('h3',t('DaysQuestion')),choices([['similar',t('SimilarDays')],['varies',t('ChangingDays')]],draft.days,v=>{draft.days=v;render();}),node('p',t('CanEdit'),'routine-help'));body.append(days);
   }else{
-   body.append(node('h3',t('WhenSeveral'),'routine-subheading'));
    const strategies=node('div',undefined,'routine-strategies');
    for(const [key,symbol] of [['rhythm','calendar'],['fewer','chart'],['keep','sliders']]){const b=button('',()=>{draft.strategy=key;render();},'routine-strategy');b.dataset.strategy=key;b.setAttribute('aria-pressed',String(draft.strategy===key));b.append(glyph(symbol));const text=node('span');text.append(node('strong',t('Strategy_'+key)),node('small',t('StrategyHelp_'+key)));b.append(text,node('span',undefined,'routine-radio'));strategies.append(b);}body.append(strategies);
    const rest=button('',()=>{draft.restEvening=!draft.restEvening;render();},'routine-rest');rest.setAttribute('role','switch');rest.setAttribute('aria-checked',String(draft.restEvening));rest.append(glyph('moon'));const restText=node('span');restText.append(node('strong',t('RestEvening')),node('small',t('RestHelp')));rest.append(restText,node('span',undefined,'routine-switch'));body.append(rest);
