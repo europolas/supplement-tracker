@@ -1,3 +1,9 @@
+## Upload limit: 0.14.1
+
+Up to six photos per submission. Browser compression shares the remaining 4.3 MB
+encoded-image budget across selected photos (10 KB reserve); server/proxy limits
+remain enforced. EN/LT help and server count validation agree.
+
 ## Current production design: 0.14.0 — Gemini TEST2
 
 Gemini 3.8 Flash / LOW is the default (`AI_PIPELINE=gemini`). Adding calls

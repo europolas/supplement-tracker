@@ -36,7 +36,7 @@ export function validatePhoto(image){
 export function validatePhotos(body){
  if(body.images!==undefined&&body.image)throw new ApiError(400,'IMAGE_INVALID');
  if(body.images===undefined){const image=validatePhoto(body.image);return image?[image]:[];}
- if(!Array.isArray(body.images)||body.images.length>5)throw new ApiError(400,'IMAGE_INVALID');
+ if(!Array.isArray(body.images)||body.images.length>6)throw new ApiError(400,'IMAGE_INVALID');
  const images=body.images.map(validatePhoto);if(images.some(x=>!x)||images.reduce((n,x)=>n+x.length,0)>4300000)throw new ApiError(400,'IMAGE_INVALID');return images;
 }
 export class TrackerApi {

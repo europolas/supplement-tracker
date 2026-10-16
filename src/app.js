@@ -305,13 +305,15 @@ get('remove-photo').addEventListener('click',()=>{clearPhoto();requestId=crypto.
 get('analyze-form').elements.name.addEventListener('input',()=>{requestId=crypto.randomUUID();});
 for(const name of ['photo'])get('analyze-form').elements[name].addEventListener('change',async event=>{
  const selected=[...event.target.files];if(!selected.length)return;
- if(photo.length+selected.length>5){status('analysis-status',i18n.t('appPhotoLimit'),true);event.target.value='';return;}
+ if(photo.length+selected.length>6){status('analysis-status',i18n.t('appPhotoLimit'),true);event.target.value='';return;}
  const version=++imageGeneration;get('analyze-form').querySelector('button[type="submit"]').disabled=true;
  status('analysis-status',i18n.t('appPreparingPhoto'));
  try{
   const prepared=[];
-  // Bound each compressed photo so five fit the existing server/proxy limit.
-  for(const file of selected){let data,lastError;for(const maxSide of [1800,1400,1000,700]){try{data=await prepareImage(file,{maxSide,maxBytes:600000});break;}catch(error){lastError=error;}}if(!data)throw lastError;if(version!==imageGeneration)return;prepared.push(data);}
+  // Share the remaining encoded payload budget across new photos. Six photos
+  // must still fit the deployed API/proxy limits, including base64 expansion.
+  const maxBytes=Math.min(600000,Math.floor((4300000-10000-photo.reduce((sum,data)=>sum+data.length,0))*3/4/selected.length));
+  for(const file of selected){let data,lastError;for(const maxSide of [1800,1400,1000,700]){try{data=await prepareImage(file,{maxSide,maxBytes});break;}catch(error){lastError=error;}}if(!data)throw lastError;if(version!==imageGeneration)return;prepared.push(data);}
   if(version!==imageGeneration)return;photo.push(...prepared);requestId=crypto.randomUUID();renderPhotoPreviews();event.target.value='';status('analysis-status','');
  }
  catch(error){if(version===imageGeneration){clearPhoto();status('analysis-status',err(error),true);}}

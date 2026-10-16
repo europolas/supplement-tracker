@@ -265,7 +265,7 @@ test('tracker ownership, encrypted credentials, validated AI and daily records',
 });
 
 test('multi-photo validation bounds count, format and aggregate payload',()=>{
- const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64');assert.equal(validatePhotos({images:[image,image]}).length,2);assert.equal(validatePhotos({image}).length,1);
- for(const body of [{images:Array(6).fill(image)},{images:['bad']},{images:[null]},{images:'bad'},{image,images:[image]}])assert.throws(()=>validatePhotos(body));
+ const image='data:image/jpeg;base64,'+Buffer.from([255,216,255,0,0,0,0,0]).toString('base64');assert.equal(validatePhotos({images:[image,image]}).length,2);assert.equal(validatePhotos({image}).length,1);assert.equal(validatePhotos({images:Array(6).fill(image)}).length,6);
+ for(const body of [{images:Array(7).fill(image)},{images:['bad']},{images:[null]},{images:'bad'},{image,images:[image]}])assert.throws(()=>validatePhotos(body));
  const large='data:image/jpeg;base64,'+Buffer.concat([Buffer.from([255,216,255]),Buffer.alloc(1800000)]).toString('base64');assert.throws(()=>validatePhotos({images:[large,large]}));
 });
