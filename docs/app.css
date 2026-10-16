@@ -166,3 +166,11 @@ html .photo-thumb .photo-zoom { bottom:0;right:0; }
 .custom-group-svg { width:28px;height:28px;flex-shrink:0; }
 .group-symbol .bi,.group-badge .bi { font-size:28px;line-height:1; }
 .group-list .bi { font-size:24px; }
+
+.group-icon-options { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:8px 0 18px; }
+html .app-dialog .group-icon-option { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:76px;padding:10px 4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:11px;line-height:1.25;overflow-wrap:anywhere; }
+html .app-dialog .group-icon-option[aria-pressed="true"] { border-color:var(--green);background:var(--soft);box-shadow:inset 0 0 0 1px var(--green); }
+.group-icon-option .icon,.group-icon-preview .icon { width:24px;height:24px; }
+.group-icon-preview { display:flex;align-items:center;gap:12px;min-height:44px;margin:12px 0;color:var(--muted);font-size:13px; }
+.group-icon-preview .bi { font-size:24px; }
+.group-symbol .custom-group-svg { width:24px;height:24px; }

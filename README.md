@@ -1,3 +1,10 @@
+## 0.15.1 — built-in group icon picker
+
+Group editing exposes the original local sun/meal/moon and other app glyphs as
+buttons plus Automatic. Choosing a glyph populates the existing SVG icon field;
+the same validated SVG API persists it. Custom SVG/Bootstrap input remains available
+with a live safe preview. Original glyph paths are unchanged; no backend migration.
+
 ## Current production behavior: 0.15.0
 
 Newly added supplements are committed immediately, then researched automatically

@@ -1,5 +1,18 @@
 /** English is the canonical default; add each new key to both dictionaries. */
 export default Object.freeze({
+  "appIcon_info": "Information",
+  "appIcon_calendar": "Calendar",
+  "appIcon_home": "Home",
+  "appIcon_shield": "Shield",
+  "appIcon_dose": "Supplement",
+  "appIcon_clock": "Time",
+  "appIcon_leaf": "Leaf",
+  "appIcon_moon": "Evening",
+  "appIcon_meal": "Meal",
+  "appIcon_sun": "Morning",
+  "appIconPreview": "Icon preview",
+  "appIconDefault": "Automatic",
+  "appBuiltInIcons": "App icons",
   "appDiagResearchProgress": "Research: complete / failed / total",
   "appDiagDetails": "Background research incl. waiting",
   "appRestrictions": "Restrictions and interactions",

@@ -1,5 +1,18 @@
 /** Lithuanian translations; missing keys fall back to the English dictionary. */
 export default Object.freeze({
+  "appIcon_info": "Informacija",
+  "appIcon_calendar": "Kalendorius",
+  "appIcon_home": "Namai",
+  "appIcon_shield": "Skydas",
+  "appIcon_dose": "Papildas",
+  "appIcon_clock": "Laikas",
+  "appIcon_leaf": "Lapas",
+  "appIcon_moon": "Vakaras",
+  "appIcon_meal": "Valgis",
+  "appIcon_sun": "Rytas",
+  "appIconPreview": "Ikonos peržiūra",
+  "appIconDefault": "Automatinė",
+  "appBuiltInIcons": "Programėlės ikonos",
   "appDiagResearchProgress": "Tyrimai: baigti / klaidos / iš viso",
   "appDiagDetails": "Tyrimas fone su laukimu",
   "appRestrictions": "Apribojimai ir sąveikos",

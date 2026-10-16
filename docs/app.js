@@ -127,8 +127,24 @@ function groupSymbol(name){return /evening|bed|sleep|vakar|mieg/i.test(name)?'mo
 function openGroup(group){
  const form=get('group-form');resetGroup();
  if(group){form.elements.id.value=group.id;form.elements.name.value=group.name;form.elements.description.value=group.description||'';form.elements.icon.value=group.icon||'';get('group-form-title').textContent=i18n.t('appEditGroup');get('cancel-group').hidden=false;}
- groupSheet.open();
+ renderGroupIconOptions();groupSheet.open();
 }
+/** The original hand-drawn app glyphs are persisted as ordinary safe SVG. This
+ * reuses the existing icon contract/API; no remote icon service or new format. */
+const groupIconPresets=['sun','meal','moon','leaf','clock','dose','shield','home','calendar','info'];
+function renderGroupIconOptions(){
+ const root=get('group-icon-options');root.replaceChildren();
+ for(const name of ['',...groupIconPresets]){const svg=icon(name||groupSymbol(get('group-form').elements.name.value)),value=name?svg.outerHTML:'';
+ const node=button('',()=>{get('group-form').elements.icon.value=value;get('group-form').elements.icon.dispatchEvent(new Event('input',{bubbles:true}));},'group-icon-option');node.dataset.iconValue=value;node.setAttribute('aria-pressed','false');node.append(svg,element('span',{text:i18n.t(name?'appIcon_'+name:'appIconDefault')}));root.append(node);}
+ updateGroupIconPreview();
+}
+function updateGroupIconPreview(){
+ const value=get('group-form').elements.icon.value.trim(),root=get('group-icon-preview');root.replaceChildren();
+ for(const node of get('group-icon-options').children)node.setAttribute('aria-pressed',String(node.dataset.iconValue===value));
+ try{const graphic=parseCustomIcon(value)||icon(groupSymbol(get('group-form').elements.name.value));root.append(graphic,element('span',{text:i18n.t('appIconPreview')}));}catch{root.append(element('span',{text:i18n.t('INVALID_GROUP_ICON'),className:'status-error'}));}
+}
+get('group-form').elements.icon.addEventListener('input',updateGroupIconPreview);
+get('group-form').elements.name.addEventListener('input',updateGroupIconPreview);
 get('new-group').addEventListener('click',()=>openGroup());
 function renderGroups(){
  const list=get('group-list');list.replaceChildren();
@@ -236,7 +252,7 @@ function render(){
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
  get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');renderHome();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
- get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');
+ get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');if(get('group-dialog').open)renderGroupIconOptions();
  renderReport('home-analysis-results',latestReport);renderUploadQueue();
 }
 /** Only server-owned account metadata is displayed; model text always uses safe
