@@ -482,7 +482,10 @@ html .photo-picker:focus-within{outline:none}
 /* Routine recheck is a separate owner-scoped sheet, not an upload or an auto move. */
 .recheck-home{display:grid;gap:4px;margin:24px 0 0}.recheck-home>button{width:100%;min-height:46px;font-size:14px}.recheck-home .text-button{font-size:12px;color:var(--green);min-height:36px;padding:8px}
 html .recheck-dialog{width:calc(100% - 20px);max-width:600px}.recheck-dialog .dialog-heading h2{font-size:26px}
-.recheck-progress{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--soft);margin-bottom:16px}.recheck-progress p{font-size:13px;line-height:1.5;margin:0 0 12px}.recheck-progress progress{width:100%;height:6px;accent-color:var(--green)}
+.recheck-progress{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--soft);margin-bottom:16px}.recheck-progress p{font-size:13px;line-height:1.5;margin:0 0 12px}.recheck-progress-track{height:6px;width:100%;overflow:hidden;border-radius:999px;background:var(--line)}
+.recheck-progress-track>span{display:block;width:25%;height:100%;border-radius:inherit;background:var(--green);animation:recheck-sweep 1.3s ease-in-out infinite alternate}
+@keyframes recheck-sweep{from{transform:translateX(0)}to{transform:translateX(300%)}}
+@media(prefers-reduced-motion:reduce){.recheck-progress-track>span{animation:none;transform:translateX(150%)}}
 .recheck-proposals{display:grid;gap:12px}.recheck-proposal{padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow-wrap:anywhere}.recheck-proposal h3{font-size:15px;font-weight:600;line-height:1.4;margin:0 0 4px}.recheck-manufacturer{font-size:12px;color:var(--muted);margin:0}.recheck-move{font-size:13px;line-height:1.6;margin:14px 0}.recheck-proposal .button-row{gap:10px}.recheck-proposal button{min-width:0;min-height:44px;padding:10px;margin:0;font-size:13px}.recheck-empty{font-size:14px;line-height:1.6;color:var(--muted)}
 
 /* Animate only the ring stroke; counts and routine layout stay steady during refresh. */

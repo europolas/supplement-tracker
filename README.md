@@ -580,3 +580,9 @@ writes and active upload/research/localization work animate a dedicated stroke o
 the Taken circle without rotating its count or shifting groups. Settled reads,
 failures and session reset clear the indicator; reduced motion uses a static arc.
 Detailed job progress/errors remain in Upload queue and action errors use toasts.
+
+
+0.22.2: Recheck uses a theme-aware indeterminate progressbar with a 25% segment
+that moves smoothly back and forth using ease-in-out/alternate. The animated node
+stays connected across polling so its movement never resets on server refresh.
+Reduced motion shows a static centered segment; no fabricated percentage.

@@ -358,8 +358,11 @@ function renderRoutineCheck(){
  const {active,latest,proposals}=routineChecks;get('recheck-home').hidden=!current();
  get('recheck-all').textContent=i18n.t(active?'appRecheckRunning':'appRecheckAll');get('recheck-all').disabled=recheckBusy||!state.ai?.configured||!state.supplements.length||!state.groups.length;
  get('recheck-pending').hidden=!proposals.length;get('recheck-pending').textContent=i18n.t('appRecheckPending',{count:proposals.length});
- const root=get('recheck-content');root.replaceChildren();if(!current())return;
- if(active||recheckStarting){const progress=element('section',{className:'recheck-progress',attributes:{role:'status','aria-live':'polite'}});progress.append(element('p',{text:i18n.t(active?.phase==='queued'?'appRecheckQueued':'appRecheckProgress',{count:active?.total_count||state.supplements.length})}),element('progress',{attributes:{'aria-label':i18n.t('appRecheckRunning')}}));root.append(progress);}
+ const root=get('recheck-content'),running=Boolean(current()&&(active||recheckStarting));
+ // Keep the animated node connected across polling; removing it restarts CSS animation.
+ let progress=running?root.querySelector('.recheck-progress'):null;
+ for(const child of [...root.children])if(child!==progress)child.remove();if(!current())return;
+ if(running){if(!progress){progress=element('section',{className:'recheck-progress',attributes:{role:'status','aria-live':'polite'}});const track=element('div',{className:'recheck-progress-track',attributes:{role:'progressbar'}});track.append(element('span',{attributes:{'aria-hidden':'true'}}));progress.append(element('p'),track);root.prepend(progress);}progress.querySelector('p').textContent=i18n.t(active?.phase==='queued'?'appRecheckQueued':'appRecheckProgress',{count:active?.total_count||state.supplements.length});progress.querySelector('[role="progressbar"]').setAttribute('aria-label',i18n.t('appRecheckRunning'));}
  if(latest?.status==='failed')root.append(element('p',{className:'status-error',text:err(new Error(latest.error_code||'REQUEST_FAILED')),attributes:{role:'status'}}));
  if(latest?.skippedCount)root.append(element('p',{className:'form-help',text:i18n.t('appRecheckStale')}));
  if(!active&&!proposals.length&&!recheckBusy)root.append(element('p',{className:'recheck-empty',text:i18n.t(latest?.status==='complete'?(latest.proposedCount?'appRecheckResolved':'appRecheckNoChanges'):'appRecheckIntro')}));
