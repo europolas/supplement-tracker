@@ -579,4 +579,5 @@ export default Object.freeze({
   "appUsageEmpty": "Šios dienos vartojimo istorijos nėra.",
   "INVALID_CALENDAR_RANGE": "Pasirink tinkamą, ne ilgesnį nei 42 dienų laikotarpį.",
   "appUsageCurrentGroups": "Grupavimas pagal dabartinę rutiną.",
+  "appUsageUnknownGroup": "Grupė neužfiksuota",
 });

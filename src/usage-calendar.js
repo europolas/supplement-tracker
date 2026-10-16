@@ -28,12 +28,12 @@ export function createUsageCalendar({root,i18n,icon,groupIcon,request,onProduct,
  function productRow(item,paused=false){
   const row=button('',()=>onProduct(item.id),'usage-product'),label=productLabel({name:item.name,manufacturer:item.manufacturer});
   if(!paused)row.append(stateGlyph(item.status));const copy=element('span',{className:'usage-product-copy'});copy.append(text('strong',label.name));
-  if(paused){const returning=item.resumeOn?t('appUsageReturns',{date:titleDay(item.resumeOn)}):t('appPausedManual');copy.append(text('small',returning));}else if(label.manufacturer)copy.append(text('small',label.manufacturer));
+  if(paused){const returning=item.resumeOn?t('appUsageReturns',{date:titleDay(item.resumeOn)}):t('appPausedManual'),historical=(data.days.find(d=>d.day===selected)?.groups||[]).find(g=>g.key===item.groupKey),name=historical?(historical.unknown?t('appUsageUnknownGroup'):historical.name||t('appUnassigned')):'';copy.append(text('small',(name?name+' · ':'')+returning));}else if(label.manufacturer)copy.append(text('small',label.manufacturer));
   row.append(copy);if(!paused){const value=item.status==='taken'?new Intl.DateTimeFormat(i18n.language,{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:data.timezone}).format(new Date(item.completedAt)):t('appUsageStatus_'+item.status);row.append(text('span',value,'usage-product-time'));}return row;
  }
  function render(){
   language=i18n.language;root.replaceChildren();const wrap=element('div',{className:'usage-calendar',attributes:{'aria-busy':String(loading)}});
-  const back=button('',onBack,'usage-back',t('appUsageBack'));back.append(icon('back'));wrap.append(back,text('h1',t('appUsageTitle')),text('p',t('appUsageSubtitle'),'usage-subtitle'));
+  const back=button('',onBack,'usage-back',t('appUsageBack'));back.append(icon('back'));wrap.append(back,text('h1',t('appUsageTitle')));
   const tabs=element('div',{className:'usage-tabs',attributes:{role:'group','aria-label':t('appUsageView')}});
   for(const value of ['week','month']){const b=button(t(value==='week'?'appUsageWeek':'appUsageMonth'),()=>{if(mode===value)return;mode=value;void refresh();});b.dataset.mode=value;b.setAttribute('aria-pressed',String(mode===value));tabs.append(b);}wrap.append(tabs);
   const range=windowRange(),toolbar=element('div',{className:'usage-period'}),prev=button('',()=>navigate(-1),'',t('appUsagePrevious')),next=button('',()=>navigate(1),'',t('appUsageNext'));prev.append(icon('back'));next.append(icon('chevron'));
@@ -54,12 +54,20 @@ export function createUsageCalendar({root,i18n,icon,groupIcon,request,onProduct,
     const counts=element('div',{className:'usage-counts'});counts.append(text('span',t('appUsageTakenCount',{count:day.counts.taken})),text('span',t(selected===data.today?'appUsagePendingCount':'appUsageMissedCount',{count:selected===data.today?day.counts.pending:day.counts.missed})));summary.append(counts);wrap.append(summary);
     const filters=element('div',{className:'usage-filters',attributes:{role:'group','aria-label':t('appUsageFilter')}});for(const value of ['all','taken','missed','paused']){const b=button(t('appUsageFilter_'+value),()=>{filter=value;render();});b.dataset.filter=value;b.setAttribute('aria-pressed',String(filter===value));filters.append(b);}wrap.append(filters);
     const visible=day.items.filter(i=>filter==='all'||filter===i.status),active=visible.filter(i=>i.status!=='paused'),paused=visible.filter(i=>i.status==='paused');
-    if(active.length){const journal=element('section',{className:'usage-journal'}),groups=[...data.groups];if(active.some(i=>!groups.some(g=>g.id===i.groupId)))groups.push({id:null,name:t('appUnassigned')});for(const group of groups){const items=active.filter(i=>(data.groups.some(g=>g.id===i.groupId)?i.groupId:null)===group.id);if(!items.length)continue;const title=element('h2');title.append(groupIcon(group),text('span',group.name));journal.append(title,...items.map(i=>productRow(i)));}wrap.append(journal);}
+    if(active.length){
+     const journal=element('section',{className:'usage-journal'}),groups=[...(day.groups||data.groups)];
+     const itemKey=item=>item.groupKey??item.groupId,groupKey=group=>group.key??group.id;
+     if(active.some(item=>!groups.some(group=>groupKey(group)===itemKey(item))))groups.push({id:null,name:t('appUnassigned')});
+     for(const group of groups){const items=active.filter(item=>(groups.some(g=>groupKey(g)===itemKey(item))?itemKey(item):null)===groupKey(group));if(!items.length)continue;
+      const section=element('section',{className:'usage-journal-group'}),title=element('h2'),name=group.unknown?t('appUsageUnknownGroup'):group.name||t('appUnassigned');
+      title.append(group.unknown||!group.id?icon('info'):groupIcon({...group,name}),text('span',name));section.append(title,...items.map(item=>productRow(item)));journal.append(section);
+     }wrap.append(journal);
+    }
     if(paused.length){const box=element('section',{className:'usage-paused'}),title=element('h2');title.append(icon('pause-circle'),text('span',t('appUsagePausedCount',{count:paused.length})));box.append(title,...paused.map(i=>productRow(i,true)),text('p',t('appUsagePauseNote'),'usage-pause-note'));wrap.append(box);}
     if(!visible.length){const message=text('p',t(day.future?'appUsageFuture':day.items.length?'appUsageNoMatch':'appUsageEmpty'),'usage-empty');message.setAttribute('role','status');wrap.append(message);}
    }
   }
-  if(data)wrap.append(text('p',t('appUsageCurrentGroups'),'usage-context-note'));root.append(wrap);
+  root.append(wrap);
  }
  return {open:({resetScroll=false}={})=>void refresh(resetScroll),refreshDay(){if(isActive())void refresh();},languageChanged(){if(language!==i18n.language&&isActive())void refresh();},reset(){epoch++;controller?.abort();data=null;error='';loading=false;selected=localDay();mode='week';filter='all';root.replaceChildren();},render};
 }

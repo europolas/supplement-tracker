@@ -579,4 +579,5 @@ export default Object.freeze({
   "appUsageEmpty": "No usage history for this day.",
   "INVALID_CALENDAR_RANGE": "Choose a valid calendar range of up to 42 days.",
   "appUsageCurrentGroups": "Groups reflect your current routine.",
+  "appUsageUnknownGroup": "Group not recorded",
 });

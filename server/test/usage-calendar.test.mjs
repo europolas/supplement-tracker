@@ -20,3 +20,10 @@ test('history range is bounded and tracker-owned',()=>{
  assert.equal(isTrackerRoute('/usage'),true);assert.equal(isTrackerRoute('/usage-other'),false);assert.deepEqual(usageRange(new URLSearchParams({from:'2026-10-01',to:'2026-11-11'})),{from:'2026-10-01',to:'2026-11-11'});
  for(const [from,to]of [['2026-02-30','2026-03-01'],['2026-10-20','2026-10-19'],['2026-01-01','2026-12-31'],['bad','bad']])assert.throws(()=>usageRange(new URLSearchParams({from,to})),e=>e.status===400);
 });
+test('historical group labels survive later moves, rename, deletion and same-day completion changes',()=>{
+ const groupHistory=[{id:1,supplement_id:'one',group_id:'old',group_name:'Morning',group_icon:'sun',group_position:0,effective_at:'2026-10-12T08:00:00Z'},{id:2,supplement_id:'one',group_id:'next',group_name:'Evening',group_icon:'moon',group_position:3,effective_at:'2026-10-15T08:00:00Z'},{id:3,supplement_id:'one',group_id:'next',group_name:'Renamed',group_icon:'dose',group_position:1,effective_at:'2026-10-16T08:00:00Z'},{id:4,supplement_id:'one',group_id:null,group_name:null,group_icon:null,group_position:null,effective_at:'2026-10-16T08:30:00Z'}];
+ const result=usageCalendar({...base,groups:[],groupHistory,completions:[{supplement_id:'one',local_day:'2026-10-16',completed_at:'2026-10-16T07:00:00Z',group_snapshot:{groupId:'next',name:'Evening',icon:'moon',position:3}}]});
+ assert.equal(result.days.find(d=>d.day==='2026-10-14').groups[0].name,'Morning');assert.equal(result.days.find(d=>d.day==='2026-10-15').groups[0].name,'Evening');assert.equal(result.days.find(d=>d.day==='2026-10-16').groups[0].name,'Evening');
+ const current=usageCalendar({...base,groupHistory}).days.find(d=>d.day==='2026-10-16');assert.equal(current.groups[0].id,null);assert.equal(current.groups[0].unknown,false);
+ const unknown=usageCalendar({...base,groupHistory:groupHistory.slice(1)}).days.find(d=>d.day==='2026-10-14');assert.equal(unknown.groups[0].unknown,true);assert.equal(unknown.items[0].groupId,null);
+});

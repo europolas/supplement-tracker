@@ -618,3 +618,12 @@ test.describe('usage calendar B',()=>{
  });
 
 });
+
+test('history keeps server-snapshotted deleted group labels, compact metadata and border-free group endings',async({page})=>{
+ await mock(page,{preloaded:true});
+ await page.route('https://perimove.com/supplement-api/v1/usage?*',async route=>{
+  const q=new URL(route.request().url()).searchParams,days=[];for(let day=q.get('from');day<=q.get('to');day=new Date(Date.parse(day+'T12:00:00Z')+86400000).toISOString().slice(0,10))days.push({day,future:false,total:3,counts:{taken:1,missed:0,pending:2,paused:0},groups:[{key:'old-morning',id:'deleted-group',name:'Historical morning',icon:''},{key:'old-evening',id:'renamed-group',name:'Original evening',icon:''}],items:[{id,name:'First product',manufacturer:'Manufacturer A',groupId:'deleted-group',groupKey:'old-morning',status:'taken',completedAt:day+'T05:10:00Z'},{id:'two',name:'Second product',manufacturer:'Manufacturer B',groupId:'deleted-group',groupKey:'old-morning',status:'pending'},{id:'three',name:'Third product',manufacturer:'Manufacturer C',groupId:'renamed-group',groupKey:'old-evening',status:'pending'}]});await route.fulfill({json:{...Object.fromEntries(q),today:new Date().toLocaleDateString('sv-SE'),timezone:'UTC',groups:[],days}});
+ });
+ await login(page);await page.locator('.account-link').click();await page.locator('#usage-link').click();await expect(page.locator('.usage-journal-group')).toHaveCount(2);await expect(page.locator('.usage-journal h2')).toHaveText(['Historical morning','Original evening']);await expect(page.locator('.usage-subtitle,.usage-context-note')).toHaveCount(0);
+ const style=await page.evaluate(()=>{const groups=[...document.querySelectorAll('.usage-journal-group')],last=groups.map(g=>getComputedStyle(g.querySelector('.usage-product:last-child'))),strong=getComputedStyle(document.querySelector('.usage-product-copy strong')),small=getComputedStyle(document.querySelector('.usage-product-copy small'));return {gap:parseFloat(getComputedStyle(groups[1]).marginTop),borders:last.map(s=>s.borderBottomWidth),title:parseFloat(strong.fontSize),manufacturer:parseFloat(small.fontSize),metadataGap:small.marginTop};});expect(style.gap).toBeGreaterThanOrEqual(20);expect(style.borders).toEqual(['0px','0px']);expect(style.title).toBeLessThan(14);expect(style.manufacturer).toBeLessThan(12);expect(style.metadataGap).toBe('0px');await page.screenshot({path:'.runtime/history-groups-light.png'});
+});

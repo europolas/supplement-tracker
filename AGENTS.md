@@ -1,3 +1,30 @@
+## 0.26.0 — immutable historical groups
+
+Migration 013 records append-only assignment/name/icon/order events and an immutable
+JSON group snapshot on every newly inserted completion. Database triggers run in
+all existing write transactions: manual moves, recognition, research, accepted AI
+moves, group rename/icon/order updates, and the unassign-before-delete group path.
+Historical group IDs deliberately have no day_groups FK, so deleted/renamed groups
+remain readable. Product/account deletion and explicit clear-all retain their existing
+cascade contract. Trigger definer is the privileged migration role; runtime remains
+DML-only. The deployment must stop API writes briefly while baseline/triggers install,
+after confirming no active AI work, then start the updated API.
+
+Taken entries use their captured completion group, including changes later on the
+same day. Pending/missed/paused entries use assignment events at now/day end, in
+the calendar timezone. Historical name/icon/order versions have distinct stable
+keys, so a deleted group or two same-day names cannot collapse into today's group.
+The owner-only read API returns per-day snapshot groups, never substitutes current
+inventory groups. Existing records start a migration-time baseline; assignments
+before tracking began are explicitly Group not recorded / Grupė neužfiksuota.
+No backdated guesswork from current grouping; earlier true assignments cannot be
+reconstructed. Product names/manufacturers remain current labels.
+
+Usage UI removes the subtitle/current-group note, separates group sections by 22px,
+reduces product/manufacturer text to 13px/11px with no extra metadata margin, and
+uses row separators only between products in the same group. No trailing group
+border. Paused rows also identify their historical group alongside return date.
+
 ## 0.25.0 — Usage calendar (selected history B)
 
 Account → Tools → Usage calendar opens a full main-scroller page, preserving the

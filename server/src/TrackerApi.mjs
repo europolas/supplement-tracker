@@ -118,13 +118,14 @@ export class TrackerApi {
   }
   if(method==='GET'&&path==='/usage'){
    const {from,to}=usageRange(query),zone=timezone(query.get('timezone')||'UTC');
-   const [[products],[groups],[completions],[pauses]]=await Promise.all([
+   const [[products],[groups],[completions],[pauses],[groupHistory]]=await Promise.all([
     this.pool.execute('SELECT id,name,group_id,analysis,created_at FROM supplements WHERE user_id=? ORDER BY created_at,id',[owner]),
     this.pool.execute('SELECT id,name,icon FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]),
-    this.pool.execute('SELECT supplement_id,local_day,completed_at FROM supplement_completions WHERE user_id=? AND local_day BETWEEN ? AND ?',[owner,from,to]),
-    this.pool.execute('SELECT supplement_id,started_at,resumed_at,resume_on,timezone FROM supplement_pauses WHERE user_id=? ORDER BY started_at DESC',[owner])
+    this.pool.execute('SELECT supplement_id,local_day,completed_at,group_snapshot FROM supplement_completions WHERE user_id=? AND local_day BETWEEN ? AND ?',[owner,from,to]),
+    this.pool.execute('SELECT supplement_id,started_at,resumed_at,resume_on,timezone FROM supplement_pauses WHERE user_id=? ORDER BY started_at DESC',[owner]),
+    this.pool.execute('SELECT id,supplement_id,group_id,group_name,group_icon,group_position,effective_at FROM supplement_group_history WHERE user_id=? ORDER BY effective_at DESC,id DESC',[owner])
    ]);
-   return [200,usageCalendar({from,to,zone,now:this.now(),products,groups,completions,pauses})];
+   return [200,usageCalendar({from,to,zone,now:this.now(),products,groups,completions,pauses,groupHistory})];
   }
   if(method==='GET'&&path==='/dashboard'){
    const zone=timezone(query.get('timezone')||'UTC'),day=calendarDay(zone,this.now());
