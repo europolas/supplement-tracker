@@ -838,3 +838,23 @@ test('wellbeing reference remains balanced in Lithuanian light/dark, narrow and 
 test('late journal reads after logout cannot show private notes in another session',async({page})=>{
  await mock(page,{preloaded:true});const fake=await journalMock(page,{seeded:true}),release=fake.delayRead();await login(page);await page.locator('.account-link').click();await page.locator('#wellbeing-link').click();await expect(page.locator('.wellbeing-loading')).toBeVisible();await page.locator('#wellbeing-dialog [data-sheet-close]').click();await page.locator('#logout-button').click();release();await expect(page.locator('#wellbeing-dialog')).toBeHidden();await expect(page.locator('#wellbeing-content')).toBeEmpty();
 });
+
+test('navigation stays above composited content at every scroll offset and tab',async({page})=>{
+ await mock(page,{design:true,preloaded:true});await login(page);const nav=page.locator('#app-nav');
+ // Stress the same layer boundary as accelerated iPhone table/card painting.
+ // A large descendant z-index must remain confined to the main scroller.
+ await page.evaluate(()=>document.styleSheets[document.styleSheets.length-1].insertRule('main .group-block,main .account-card,main .managed-group{position:relative;z-index:999;transform:translateZ(0)}'));
+ for(const theme of ['light','dark']){
+  await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+  for(const route of ['/','/groups','/account']){
+   await nav.locator(`[data-route="${route}"]`).click();await expect(nav.locator('[aria-current=page]')).toHaveAttribute('data-route',route);
+   for(const ratio of [0,.3,.7,1]){
+    await page.locator('main').evaluate((n,ratio)=>n.scrollTop=(n.scrollHeight-n.clientHeight)*ratio,ratio);
+    const result=await nav.evaluate(n=>{const r=n.getBoundingClientRect(),css=getComputedStyle(n),glass=getComputedStyle(n,'::before');return {bottom:r.bottom,height:innerHeight,isolated:getComputedStyle(document.querySelector('main')).isolation,ownBlur:css.backdropFilter,glassBlur:glass.backdropFilter||glass.webkitBackdropFilter,above:[...n.querySelectorAll('a')].every(a=>{const b=a.getBoundingClientRect();return [0.25,0.5,0.75].every(y=>a.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height*y)));})};});
+    expect(result.above).toBe(true);expect(result.isolated).toBe('isolate');expect(result.ownBlur).toBe('none');expect(result.glassBlur).toContain('blur');expect(result.bottom).toBeLessThanOrEqual(result.height);
+   }
+   await page.screenshot({path:'.runtime/nav-layer-'+theme+'-'+(route.slice(1)||'home')+'.png',animations:'disabled'});
+  }
+ }
+ await nav.locator('[data-route="/"]').click();await page.locator('.supplement-open').first().click();await expect(page.locator('#route-dialog')).toBeVisible();const covered=await nav.evaluate(n=>{const r=n.getBoundingClientRect();return !n.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));});expect(covered).toBe(true);
+});

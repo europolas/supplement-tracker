@@ -938,3 +938,20 @@ Visual checks cover EN/LT, light/dark, 320/402/768px and a 480px keyboard-sized
 viewport; actual top/bottom screenshots are compared with the selected reference.
 All controls remain reachable and Save is never fixed/sticky. Schema/API checks use
 only the disposable DB, never production journal data or paid AI calls.
+
+## 0.30.1 — floating navigation paint isolation
+
+Fix the reported iPhone navigation being partially covered by scrolling product
+rows. Main now owns an isolated z=0 stacking context; accelerated table/card layers
+cannot escape into the fixed navigation. The translated navigation shell has its
+own stable layer and isolation. Its translucent blurred glass surface is a separate
+pointer-transparent ::before layer; links/icons/labels paint above that surface.
+No filter is applied to the interactive shell. Both light/dark surfaces retain the
+existing gradients, geometry, selected pill, safe-area positioning and keyboard
+visibility. Shared graduated body edge masks and full-height scroller stay intact.
+
+Regression stresses accelerated/high-z product cards at multiple scroll offsets
+on Home/Groups/Account, checks hit testing over every tab, and verifies native modal
+sheets remain above navigation. Existing phone/tablet geometry, safe-area and
+keyboard tests remain applicable. This is an app-only CSS fix; no API/DB or shared
+module upgrade. Desktop checks cannot reproduce the physical iPhone compositor.
