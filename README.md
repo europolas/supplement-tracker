@@ -1,3 +1,13 @@
+## 0.30.2 — aligned supplement detail cards
+
+Composition, Usage, Benefits and additional detail sections use one flex header
+with vertically centered icon/title. Body text starts at the card's normal left
+inset instead of inheriting an icon gutter. Semantic lists retain their structure
+without visible bullets or indentation; subtle theme-aware rules separate adjacent
+items, with no trailing rule. Ingredient amounts and their notes remain together.
+The expanded More information content and source list follow the same text layout.
+App-only presentation change; no API, data, provider or shared-module changes.
+
 ## 0.26.1 — unified bottom sheet headers
 
 Usage calendar is now a native createBottomSheet dialog over Account, with the
