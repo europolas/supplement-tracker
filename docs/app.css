@@ -419,7 +419,7 @@ main[data-tab="/groups"],main[data-tab="/account"]{padding-top:calc(env(safe-are
 .connection-badge[data-connected="true"]::before{content:'';width:7px;height:7px;border-radius:50%;background:#4b8559}
 #account-screen #connection-editor,#account-screen .password-details,#account-screen #admin-panel{border:0;padding:0;margin:0;background:none;border-radius:0}
 #account-screen .password-details>summary{padding:calc(9 * var(--page-u)) 0;font-size:calc(12.5 * var(--page-u));font-weight:400}
-#account-screen .setting-editor,#account-screen .password-details form{padding:12px 0 6px}#account-screen #admin-panel>#load-users{margin:8px 0}
+#account-screen .setting-editor,#account-screen .password-details form{padding:12px 0 0}#account-screen #admin-panel>#load-users{margin:8px 0}
 #account-screen #clear-data-panel{padding:0 calc(13 * var(--page-u));background:var(--surface)}
 #account-screen #clear-supplements{padding:calc(9 * var(--page-u)) 0;border:0;color:#be1830;font-size:calc(12.5 * var(--page-u));min-height:max(48px,calc(47 * var(--page-u)))}
 #account-screen #clear-supplements small{color:var(--muted)}
@@ -454,7 +454,7 @@ html .local-image-viewer h2,html .local-image-viewer button{font-family:var(--fo
 
 /* Row padding already supplies space below its text. Do not add a second full
    card inset beneath the last row; all account setting cards share this rhythm. */
-#account-screen .account-setting-card{padding-bottom:calc(6 * var(--page-u))}
+#account-screen .account-setting-card{padding-bottom:0}
 
 /* Upload history uses compact, whole-row product targets; status is conveyed by
    colour and an accessible label, without repeated copy below each button. */
@@ -715,5 +715,11 @@ html .wellbeing-save{display:block;width:100%;min-height:44px;margin:0;padding:1
 #account-screen #clear-supplements{min-height:max(64px,calc(46 * var(--page-u)));padding-block:calc(14 * var(--page-u));align-items:center;align-content:center}
 #account-screen .account-setting-card .setting-row>[data-icon]{align-self:center;justify-self:center}
 #account-screen .account-setting-card h2{padding-bottom:calc(14 * var(--page-u))}
-#account-screen .account-setting-card{padding-bottom:calc(13 * var(--page-u))}
-#account-screen :is(#account-tools,#preferences,#account-security){padding-bottom:0}
+
+/* Expanded settings must not add a second trailing inset beneath their action. */
+#account-screen .setting-editor>:last-child,
+#account-screen .password-details form>:last-child,
+#account-screen #admin-users,
+#account-screen #admin-users li:last-child{margin-bottom:0}
+#account-screen #admin-users:empty{margin:0}
+#account-screen #logout-button{min-height:max(64px,calc(46 * var(--page-u)));padding-block:calc(14 * var(--page-u))}

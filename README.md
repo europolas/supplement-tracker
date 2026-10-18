@@ -1,3 +1,19 @@
+## 0.33.5 — consistent trailing spacing across Account blocks
+
+Zero bottom padding is now the general account-setting-card rule, covering Tools,
+Preferences, Security and Clear all without a three-ID exception. Expanded AI
+connection/security editors no longer add 6px bottom padding; final actions and
+admin-list items have no trailing margin, and an empty user list adds no gap.
+The standalone Sign out control matches the 64px/scaled setting-row minimum and
+14-unit vertical padding. Profile and sign-in card insets remain intentional
+content padding, not list-row spacing. Navigation and editable control sizes are
+unchanged; shared library styles are not edited.
+
+Validation: 42 unit checks and 3 affected browser flows pass. Live LT review
+checks all four setting-card insets, matching logout height, expanded connection
+and both security forms without submitting changes; screenshots captured, no
+page errors, all tabs and modal/logout ordering pass.
+
 ## 0.33.4 — remove bottom inset from Account sections
 
 Tools, Preferences and Security have padding-bottom:0. The last row keeps its
