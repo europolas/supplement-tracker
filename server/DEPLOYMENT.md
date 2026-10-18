@@ -117,3 +117,12 @@ Take a private DB backup, briefly stop writes for migration, then recreate API.
 Build frontend into staging and preserve the old docs inode until web is recreated.
 Use only the disposable integration DB for entry save/conflict tests. Live checks
 may open/cancel a draft but must not write fake personal journal records.
+
+## Private PDF exports (0.33.0)
+
+The API image installs the pinned Playwright Chromium headless shell, its system
+dependencies and DejaVu fonts. Rebuild the API image when upgrading Playwright;
+installing only the Node package is insufficient. Keep /tmp writable through the
+existing tmpfs. PDF rendering uses a fresh offline browser, fixed escaped app HTML
+and in-memory output. Do not expose a persistent exports directory or cache this
+endpoint. No migration is needed for 0.33.0.

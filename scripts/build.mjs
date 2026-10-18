@@ -16,7 +16,7 @@ export async function buildStarter({ source = path.join(root, 'src'), output = p
   try { const files = await readdir(output); if (files.length && !files.includes('.starter-build')) throw new Error('Refusing to overwrite unmanaged output'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   const config = createConfig(input || JSON.parse(await readFile(path.join(source, 'app.config.json'), 'utf8')));
   await mkdir(output, { recursive: true });
-  for (const name of ['index.html', 'translations', 'startup.js', 'app.js', 'intake-editor.js', 'wellbeing-journal.js', 'routine-wizard.js', 'routine-options.js', 'routine-conclusion.js', 'usage-calendar.js', 'custom-icon.js', 'vendor', 'account.html', 'icon-192.png', 'icon-512.png', 'app.css']) await cp(path.join(source, name), path.join(output, name),{recursive:true});
+  for (const name of ['index.html', 'translations', 'startup.js', 'app.js', 'intake-editor.js', 'wellbeing-journal.js', 'data-export.js', 'routine-wizard.js', 'routine-options.js', 'routine-conclusion.js', 'usage-calendar.js', 'custom-icon.js', 'vendor', 'account.html', 'icon-192.png', 'icon-512.png', 'app.css']) await cp(path.join(source, name), path.join(output, name),{recursive:true});
   await cp(path.join(modules, 'src'), path.join(output, 'modules'), { recursive: true });
   await cp(path.join(modules, 'styles/base.css'), path.join(output, 'style.css'));
   await writeFile(path.join(output, 'app.config.json'), JSON.stringify(config, null, 2) + '\n');

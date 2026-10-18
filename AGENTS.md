@@ -1,3 +1,62 @@
+## 0.33.0 — private period PDF export, selected B layout
+
+Account → Tools → Data export opens the standard bottom sheet, with 7/30/90-day
+presets and a custom from/to range (max 366 inclusive, ending today or earlier).
+EN default/LT explicit, native full-width date fields and theme-safe app controls.
+An explicit Download prepares the PDF, starts a Blob download and retains a local
+Download again link; Refresh PDF explicitly refreshes the same range. Changing
+range, closing or logout revokes the Blob URL. Epoch/abort guards suppress late
+responses immediately on dismissal, without waiting for the close animation.
+Ordinary polling does not redraw the date picker. No export state in localStorage,
+IndexedDB, service worker cache or public file tree. Manual update guards include
+export activity; launch-only auto-update behavior and navigation remain intact.
+
+POST /v1/exports/pdf accepts only {from,to,timezone,language}. Authentication supplies
+owner. One transactional snapshot serializes with owner writes; routine and current
+inventory are explicitly labelled as current at export, while usage/assignments
+and wellbeing are historical. Removed products with period history are included.
+Routine profile fields in this private owner download do not depend on AI consent;
+no data is sent to AI. The latest saved conclusion up to period end is included
+with original text/score, and earlier period conclusions contain only date/score.
+No invented score, missing diary rating, dosage, causal summary or provider request.
+
+JSON response {filename,mime:'application/pdf',pdf:<base64>} uses the existing
+credentialed JSON API client, never a public/bearer download URL. API cache-control
+remains no-store. Browser validates PDF prefix/MIME/size before creating its own
+Blob URL. The generic element URL guard stays strict: only the internally created
+Blob URL is assigned to the download anchor directly. Rate limits 3/min and 30/day,
+one render slot/process, bounded 366-day range/1000 prior reports/50 PDF pages and
+8MiB output. Account/session validity is rechecked before returning PDF bytes.
+
+B reference: design/exports/duomenu-eksportas-b-{1..4}.png. Current report is rendered
+from a fixed, escaped HTML/CSS template with packaged DejaVu fonts, no JavaScript,
+no service workers and all browser network blocked. A fresh Chromium process closes
+on success/error/timeout; output remains in RAM and is not published. Docker installs
+pinned Playwright 1.64.0, its Chromium headless shell/system deps and DejaVu. The
+container remains nonroot/read-only/cap-drop; the renderer only accepts the fixed
+app template, never arbitrary user HTML or navigation. Up to ~16s render budget
+including browser launch fits the existing 20s API client. No schema migration.
+
+Selected B composition preserves the two charts and summaries, full three-section
+routine/group page, one-page inventory and complete saved AI report. Long reports
+continue in matching pages, rather than clipping text. Inventory is fitted on its
+own A4 page without truncating names/rows; very large lists necessarily shrink text.
+No missing diary values are joined across gaps; periods over 12 days use labelled
+consecutive groups with summed intake counts and averaged available ratings.
+All bar counts are horizontally centered inside their bars, with the same 2-unit
+baseline offset; zeroes are shown at that baseline without a fabricated bar.
+
+scripts/sync-export-labels.mjs generates server/src/data-export/labels.mjs from app
+and shared EN/LT dictionaries; edit src/translations and regenerate, not the label
+artifact. Public synthetic A/B design PDFs also use the new count placement. Private
+real-data exports never overwrite those synthetic public previews.
+
+Validation: 42 unit checks; browser suite 89 passing plus both export flows passing
+after the Blob download fix; isolated server integration 126 passing (2 opt-in
+paid tests skipped). Live authenticated download verified with all 16 current
+products on page 3, both themes at 320/393/768px and no browser errors. The real
+7-page PDF was visually checked against B; no private report is published.
+
 ## 0.32.0 — scored conclusions, period-focused PDF designs and retained usage
 
 Conclusion synthesis now returns a strict score {value:integer 0..100,explanation}

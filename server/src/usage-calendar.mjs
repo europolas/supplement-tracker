@@ -11,7 +11,7 @@ import {dateOnly} from './supplement-pause.mjs';
 export const dayInZone=(value,zone)=>new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(value);
 export const addDay=(day,n)=>new Date(Date.parse(day+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);
 const validDay=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
-export function usageRange(query){const from=query.get('from'),to=query.get('to');if(!validDay(from)||!validDay(to)||from>to||(Date.parse(to)-Date.parse(from))/86400000>41)throw new ApiError(400,'INVALID_CALENDAR_RANGE');return {from,to};}
+export function usageRange(query,maxDays=42){const from=query.get('from'),to=query.get('to');if(!validDay(from)||!validDay(to)||from>to||(Date.parse(to)-Date.parse(from))/86400000>maxDays-1)throw new ApiError(400,'INVALID_CALENDAR_RANGE');return {from,to};}
 // Convert a local midnight, not a fixed 24-hour subtraction: DST days vary in length.
 export function localMidnight(day,zone){const desired=Date.parse(day+'T00:00:00Z');let stamp=desired;const format=new Intl.DateTimeFormat('en-GB',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});for(let i=0;i<4;i++){const p=Object.fromEntries(format.formatToParts(new Date(stamp)).map(p=>[p.type,p.value])),local=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second),delta=desired-local;if(!delta)break;stamp+=delta;}return new Date(stamp);}
 export function usageCalendar({from,to,zone,now,products,groups,completions,pauses,groupHistory=[],intakeHistory=[]}){

@@ -1,3 +1,5 @@
+import {exportSnapshot} from './data-export/snapshot.mjs';
+import {renderExportPdf} from './data-export/renderer.mjs';
 import {readWellbeing,saveWellbeing} from './wellbeing-journal.mjs';
 import {saveIntake,setIntakeCompletion,decorateIntake} from './supplement-intake.mjs';
 import {RoutineConclusions} from './routine-conclusion.mjs';
@@ -72,21 +74,27 @@ export class TrackerApi {
    }else await db.execute('UPDATE tracker_preferences SET timezone=? WHERE user_id=?',[zone,user]);
   });return {ok:true};
  }
- async usage(owner,query){
-   const {from,to}=usageRange(query),zone=timezone(query.get('timezone')||'UTC');
+ async usage(owner,query,{db=this.pool,maxDays=42}={}){
+   const {from,to}=usageRange(query,maxDays),zone=timezone(query.get('timezone')||'UTC');
    const [[products],[groups],[completions],[pauses],[groupHistory],[intakeHistory]]=await Promise.all([
-    this.pool.execute('SELECT id,name,group_id,analysis,created_at,deleted_at FROM supplements WHERE user_id=? ORDER BY created_at,id',[owner]),
-    this.pool.execute('SELECT id,name,icon FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]),
-    this.pool.execute('SELECT supplement_id,local_day,completed_at,group_snapshot,slot,quantity,unit FROM supplement_completions WHERE user_id=? AND local_day BETWEEN ? AND ?',[owner,from,to]),
-    this.pool.execute('SELECT supplement_id,started_at,resumed_at,resume_on,timezone FROM supplement_pauses WHERE user_id=? ORDER BY started_at DESC',[owner]),
-    this.pool.execute('SELECT id,supplement_id,group_id,group_name,group_icon,group_position,effective_at FROM supplement_group_history WHERE user_id=? ORDER BY effective_at DESC,id DESC',[owner]),
-    this.pool.execute('SELECT id,supplement_id,effective_day,plan FROM supplement_intake_history WHERE user_id=? ORDER BY effective_day DESC,id DESC',[owner])
+    db.execute('SELECT id,name,group_id,analysis,created_at,deleted_at FROM supplements WHERE user_id=? ORDER BY created_at,id',[owner]),
+    db.execute('SELECT id,name,icon FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]),
+    db.execute('SELECT supplement_id,local_day,completed_at,group_snapshot,slot,quantity,unit FROM supplement_completions WHERE user_id=? AND local_day BETWEEN ? AND ?',[owner,from,to]),
+    db.execute('SELECT supplement_id,started_at,resumed_at,resume_on,timezone FROM supplement_pauses WHERE user_id=? ORDER BY started_at DESC',[owner]),
+    db.execute('SELECT id,supplement_id,group_id,group_name,group_icon,group_position,effective_at FROM supplement_group_history WHERE user_id=? ORDER BY effective_at DESC,id DESC',[owner]),
+    db.execute('SELECT id,supplement_id,effective_day,plan FROM supplement_intake_history WHERE user_id=? ORDER BY effective_day DESC,id DESC',[owner])
    ]);
    return usageCalendar({from,to,zone,now:this.now(),products,groups,completions,pauses,groupHistory,intakeHistory});
  }
  async handle(method,path,body,authorization,ip,query=new URLSearchParams()){
   const {user}=await this.auth.authenticate(authorization);const owner=user.id;
   await this.auth.limit('tracker',owner,180,60);
+  if(method==='POST'&&path==='/exports/pdf'){
+   await this.auth.limit('pdf-export-minute',owner,3,60);await this.auth.limit('pdf-export-day',owner,30,86400);
+   const snapshot=await exportSnapshot(this,user,body),pdf=await renderExportPdf(snapshot);
+   await this.auth.authenticate(authorization);
+   return [200,{filename:'supplement-tracker-'+snapshot.from+'-'+snapshot.to+'.pdf',mime:'application/pdf',pdf:pdf.toString('base64')}];
+  }
   if(method==='DELETE'&&path==='/supplements'){
    if(body.confirm!==true)throw new ApiError(400,'INVALID_INPUT');
    // Serialize against recognition's commit; deleting jobs invalidates in-flight
