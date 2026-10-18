@@ -11,7 +11,7 @@
   "dependencies": {
     "@europolas/app-modules": "file:./modules"
   },
-  "version": "0.33.2",
+  "version": "0.33.3",
   "devDependencies": {
     "@playwright/test": "^1.64.0",
     "fake-indexeddb": "^6.2.5"

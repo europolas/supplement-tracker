@@ -1,3 +1,17 @@
+## 0.33.3 — Account section row spacing
+
+Tools, Preferences, Security and Clear all rows share 14 scaled units of vertical
+padding and a 64px minimum touch height (scaled up on wider layouts). Icons, full
+text/subtitle blocks, select values and chevrons are centered in the same grid row.
+Section headings have matching increased bottom spacing. Long translated labels
+wrap naturally rather than using fixed heights. Navigation positioning/sizing,
+export dates and all application behavior are unchanged.
+
+Validation: 42 unit checks and 3 affected browser flows pass. Local 320/402px
+and wide screenshots inspected. Live LT light/dark review measured all visible
+Account rows: >=64px high, >=14px vertical padding, child center offsets <=1px,
+no horizontal overflow, all three tabs/modal/logout working and no page errors.
+
 ## 0.33.2 — custom export dates only, iOS input sizing
 
 Data export renders From/To editors and their range hint only for Custom period.
