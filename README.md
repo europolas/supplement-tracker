@@ -1,3 +1,8 @@
+## 0.33.7 — Home action bottom spacing adjustment
+
+Per user request, reduce the Conclusion/Recheck row bottom margin from 32px to
+26px. Preserve its top padding, equal-width layout and navigation geometry.
+
 ## 0.33.6 — Home routine-action bottom clearance
 
 The shared Conclusion/Recheck action row has 32px bottom margin, increasing
