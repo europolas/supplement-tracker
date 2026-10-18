@@ -1,3 +1,14 @@
+## 0.33.6 — Home routine-action bottom clearance
+
+The shared Conclusion/Recheck action row has 32px bottom margin, increasing
+clearance above navigation while retaining its 50/50 layout and existing top
+spacing. This also separates it from an available manual update button.
+Navigation geometry and Account spacing remain unchanged.
+
+Validation: 42 unit checks and both Home update visibility/spacing flows pass.
+Live light/dark Home-at-bottom captures inspected; measured 32px action margin,
+all tabs/modal/logout pass without page errors.
+
 ## 0.33.5 — consistent trailing spacing across Account blocks
 
 Zero bottom padding is now the general account-setting-card rule, covering Tools,

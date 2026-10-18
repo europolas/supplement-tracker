@@ -534,7 +534,7 @@ for(const preloaded of [false,true])test('Home update is one spaced button and R
  if(preloaded)await expect(page.locator('#recheck-home')).toBeVisible();else await expect(page.locator('#recheck-home')).toBeHidden();
  await page.evaluate(()=>window.announceTestUpdate());const update=page.locator('#update-button');await expect(update).toBeVisible();await expect(update).toHaveText('Update Application');await expect(page.locator('#update-card')).toHaveCount(0);expect(await update.evaluate(el=>el.parentElement.tagName)).toBe('MAIN');
  await page.locator('main').evaluate(n=>n.scrollTop=n.scrollHeight);
- if(preloaded){const recheck=await page.locator('#recheck-home').boundingBox(),b=await update.boundingBox();expect(Math.round(b.y-recheck.y-recheck.height)).toBe(16);}
+ if(preloaded){const recheck=await page.locator('#recheck-home').boundingBox(),b=await update.boundingBox();expect(Math.round(b.y-recheck.y-recheck.height)).toBe(32);}
  await page.screenshot({path:'.runtime/home-update-'+(preloaded?'products':'empty')+'.png'});
  await update.click();await expect.poll(()=>page.evaluate(()=>window.testUpdateApplied)).toBe('ACTIVATE_UPDATE');
 });
