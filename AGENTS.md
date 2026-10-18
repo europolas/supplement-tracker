@@ -1,3 +1,17 @@
+## 0.33.2 — custom export dates only, iOS input sizing
+
+Data export renders From/To editors and their range hint only for Custom period.
+7/30/90 presets still calculate dates in memory and send the same validated API
+payload, including when no editor exists. Switching to Custom retains preset dates.
+iOS date fields use explicit appearance/inline sizing, zero intrinsic grid minimums,
+a shared 46px height and a single column at <=360px. Native date pickers remain.
+Navigation, PDF rendering, backend and shared modules are unchanged.
+
+Validation: 42 unit checks and both export flows pass in Chromium and WebKit.
+Custom controls were measured at 320/402/768px in both themes and the actual
+WebKit screenshot inspected. Live LT checks confirm hidden preset editors,
+custom-field sizing and hiding again when switching back to 90 days.
+
 ## 0.33.1 — navigation bounded by the visible iPhone viewport
 
 Repeated partial navigation was previously treated as scroll-layer overpaint
