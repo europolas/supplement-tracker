@@ -1,3 +1,43 @@
+## 0.30.0 — wellbeing journal matching the selected reference
+
+Account → Tools → Wellbeing journal opens a full-height bottom sheet above Account.
+The mandatory reference is design/wellbeing-journal-reference.png. The screen keeps
+its composition: centred title/X, previous/next local-day navigation, seven ISO
+week day pills, five expressive face ratings, sleep/energy/digestion dot ratings,
+six inline observation toggles, a note, actual intake summary and in-flow Save.
+Native calendar day labels remain correct (the generated reference's weekday/date
+mismatch is not copied). App typography, sage colors, theme variables and safe-area
+scroller are reused. English default/Lithuanian explicit. No external icons/fonts.
+
+Four ratings are nullable integers 1–5; a selected rating can be cleared, keyboard
+arrows/Home/End select with roving focus. Observations are six stable allowlisted
+IDs, note <=1,000 characters. All are optional; a completely blank new day disables
+Save. An existing entry can be cleared explicitly. Nothing auto-saves. Prev/next,
+week pills, X, swipe/Escape and browser Back preserve a dirty draft until the user
+confirms discard. Save conflicts/network errors retain it; reloading a saved entry
+asks before discard. Busy saves prevent leaving. Manual updates guard this draft.
+Date/owner epochs and aborts prevent late requests from repainting another view.
+No private journal cache/storage; logout clears DOM/draft immediately.
+
+GET /v1/wellbeing?from=&to=&timezone= reads a bounded 42-day maximum window and the
+existing owner-scoped historical usage projection for per-day intake counts.
+PUT /v1/wellbeing/YYYY-MM-DD accepts {revision,entry,timezone}; the owner comes only
+from authentication. A user/day key, owner lock and optimistic revision prevent
+cross-device overwrites. Invalid/future dates and unknown fields/tags are rejected.
+The earliest editable date is 2000-01-01. No AI, medical/causal conclusions, stock,
+completion or group writes. Journal data is not added to any AI prompt.
+
+Migration 016_wellbeing_journal adds independent owner/day records and account
+cascade cleanup. Clear all supplements retains personal journal entries. API read
+refactoring reuses TrackerApi.usage without another auth/limit dispatch. Shared
+nullable rating-group contributed to canonical app-modules 1.14.0 with keyboard,
+validation and lifecycle browser regression plus usage documentation.
+
+Visual checks cover EN/LT, light/dark, 320/402/768px and a 480px keyboard-sized
+viewport; actual top/bottom screenshots are compared with the selected reference.
+All controls remain reachable and Save is never fixed/sticky. Schema/API checks use
+only the disposable DB, never production journal data or paid AI calls.
+
 ## 0.29.0 — supplement inventory and recurring usage schedules
 
 The product detail sheet has a Schedule and stock disclosure styled like existing

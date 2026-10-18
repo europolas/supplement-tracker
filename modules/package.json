@@ -1,6 +1,6 @@
 {
   "name": "@europolas/app-modules",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "type": "module",
   "description": "Reusable browser and Node modules for mobile PWA applications",
   "files": [

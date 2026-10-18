@@ -127,3 +127,9 @@ Generated apps carry their own starter CHANGELOG.md plus modules/CHANGELOG.md.
 [intake-plan](../src/intake-plan.js) exports normalizeIntakePlan, intakeSlots,
 and stockChange. See [intake and inventory](INTAKE-PLAN.md) for day/slot identity,
 transaction, historical version and undo requirements. No medical dose policy.
+
+## Nullable rating groups
+
+[rating-group](../src/rating-group.js) exports createRatingGroup. Host-owned
+labels/artwork, accessible keyboard selection and explicit clearing; no persistence.
+See [RATING-GROUP.md](RATING-GROUP.md) for lifecycle and examples.

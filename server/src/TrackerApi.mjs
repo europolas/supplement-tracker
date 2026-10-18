@@ -1,3 +1,4 @@
+import {readWellbeing,saveWellbeing} from './wellbeing-journal.mjs';
 import {saveIntake,setIntakeCompletion,decorateIntake} from './supplement-intake.mjs';
 import {RoutineConclusions} from './routine-conclusion.mjs';
 import {usageRange,usageCalendar} from './usage-calendar.mjs';
@@ -71,6 +72,18 @@ export class TrackerApi {
    }else await db.execute('UPDATE tracker_preferences SET timezone=? WHERE user_id=?',[zone,user]);
   });return {ok:true};
  }
+ async usage(owner,query){
+   const {from,to}=usageRange(query),zone=timezone(query.get('timezone')||'UTC');
+   const [[products],[groups],[completions],[pauses],[groupHistory],[intakeHistory]]=await Promise.all([
+    this.pool.execute('SELECT id,name,group_id,analysis,created_at FROM supplements WHERE user_id=? ORDER BY created_at,id',[owner]),
+    this.pool.execute('SELECT id,name,icon FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]),
+    this.pool.execute('SELECT supplement_id,local_day,completed_at,group_snapshot,slot,quantity,unit FROM supplement_completions WHERE user_id=? AND local_day BETWEEN ? AND ?',[owner,from,to]),
+    this.pool.execute('SELECT supplement_id,started_at,resumed_at,resume_on,timezone FROM supplement_pauses WHERE user_id=? ORDER BY started_at DESC',[owner]),
+    this.pool.execute('SELECT id,supplement_id,group_id,group_name,group_icon,group_position,effective_at FROM supplement_group_history WHERE user_id=? ORDER BY effective_at DESC,id DESC',[owner]),
+    this.pool.execute('SELECT id,supplement_id,effective_day,plan FROM supplement_intake_history WHERE user_id=? ORDER BY effective_day DESC,id DESC',[owner])
+   ]);
+   return usageCalendar({from,to,zone,now:this.now(),products,groups,completions,pauses,groupHistory,intakeHistory});
+ }
  async handle(method,path,body,authorization,ip,query=new URLSearchParams()){
   const {user}=await this.auth.authenticate(authorization);const owner=user.id;
   await this.auth.limit('tracker',owner,180,60);
@@ -124,17 +137,12 @@ export class TrackerApi {
    }
    if(method==='DELETE'){await this.pool.execute(`DELETE FROM ${this.credentialTable} WHERE user_id=?`,[owner]);return [200,await this.settings(owner)];}
   }
-  if(method==='GET'&&path==='/usage'){
-   const {from,to}=usageRange(query),zone=timezone(query.get('timezone')||'UTC');
-   const [[products],[groups],[completions],[pauses],[groupHistory],[intakeHistory]]=await Promise.all([
-    this.pool.execute('SELECT id,name,group_id,analysis,created_at FROM supplements WHERE user_id=? ORDER BY created_at,id',[owner]),
-    this.pool.execute('SELECT id,name,icon FROM day_groups WHERE user_id=? ORDER BY position,name',[owner]),
-    this.pool.execute('SELECT supplement_id,local_day,completed_at,group_snapshot,slot,quantity,unit FROM supplement_completions WHERE user_id=? AND local_day BETWEEN ? AND ?',[owner,from,to]),
-    this.pool.execute('SELECT supplement_id,started_at,resumed_at,resume_on,timezone FROM supplement_pauses WHERE user_id=? ORDER BY started_at DESC',[owner]),
-    this.pool.execute('SELECT id,supplement_id,group_id,group_name,group_icon,group_position,effective_at FROM supplement_group_history WHERE user_id=? ORDER BY effective_at DESC,id DESC',[owner]),
-    this.pool.execute('SELECT id,supplement_id,effective_day,plan FROM supplement_intake_history WHERE user_id=? ORDER BY effective_day DESC,id DESC',[owner])
-   ]);
-   return [200,usageCalendar({from,to,zone,now:this.now(),products,groups,completions,pauses,groupHistory,intakeHistory})];
+  if(method==='GET'&&path==='/usage')return [200,await this.usage(owner,query)];
+  if(method==='GET'&&path==='/wellbeing')return [200,await readWellbeing(this,owner,query)];
+  const wellbeing=/^\/wellbeing\/(\d{4}-\d{2}-\d{2})$/.exec(path);
+  if(wellbeing&&method==='PUT'){
+   const zone=timezone(body.timezone||'UTC'),today=calendarDay(zone,this.now());
+   return [200,await saveWellbeing(this,owner,wellbeing[1],body,zone,today)];
   }
   if(method==='GET'&&path==='/dashboard'){
    const zone=timezone(query.get('timezone')||'UTC'),day=calendarDay(zone,this.now());

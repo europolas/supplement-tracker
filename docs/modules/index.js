@@ -53,3 +53,4 @@ export * from './activity-calendar.js';
 export * from './report-view.js';
 export * from './pause-editor.js';
 export * from './intake-plan.js';
+export * from './rating-group.js';

@@ -1,3 +1,12 @@
+## 1.14.0 — accessible nullable rating groups
+
+Added createRatingGroup: 2–10 host-labelled choices, one-based nullable values,
+optional safe DOM artwork, roving focus, Arrow/Home/End selection and explicit
+clear-by-click. setValue only updates presentation; setDisabled and destroy own
+control lifecycle. No health policy, text defaults, data persistence or implicit
+writes. Used by the Supplement Tracker wellbeing journal. Browser regression covers
+keyboard, clear, callback isolation, validation and teardown. See RATING-GROUP.md.
+
 ## 1.13.0 — recurring intake plans and stock arithmetic
 
 Added dependency-free intake-plan primitives for browser/server use: daily,

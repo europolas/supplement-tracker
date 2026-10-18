@@ -1,3 +1,4 @@
+import {createWellbeingJournal} from './wellbeing-journal.js';
 import {createIntakeEditor} from './intake-editor.js';
 import appEn from './translations/en.js';
 import appLt from './translations/lt.js';
@@ -53,6 +54,8 @@ const iconPaths={
  moon:'M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z',
  sun:'M12 2v2 M12 20v2 M2 12h2 M20 12h2 m-3-9 1.5-1.5 M5 19l-1.5 1.5 M3 3l2 2 M19 19l2 2 M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0',
  leaf:'M4 20c0-9 7-14 16-16 0 11-5 16-12 14 M4 20 15 9',
+ heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',
+ bolt:'m13 2-9 12h7l-1 8 10-13h-7Z',
  clock:'M12 6v6l4 3 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
  dose:'M9 3h6v3H9Z M7 6h10l2 4v11H5V10Z M9 13h6 M12 10v6',
  check:'m5 12 4 4 10-10',chevron:'m9 5 7 7-7 7'
@@ -97,6 +100,7 @@ const photoViewer=createImageViewer({labels:()=>({title:i18n.t('appPhotoPreview'
 const groupSheet=createBottomSheet(get('group-dialog'));
 const recheckSheet=createBottomSheet(get('recheck-dialog'));
 const pauseSheet=createBottomSheet(get('pause-dialog'));let pauseTarget=null,pauseSaving=false;
+const wellbeingSheet=createBottomSheet(get('wellbeing-dialog'),{onDismiss:()=>{void wellbeing.allowLeave().then(ok=>{if(ok){wellbeing.discard();router.navigate('/account');}});}});
 const usageSheet=createBottomSheet(get('usage-dialog'),{onDismiss:()=>router.navigate('/account')});
 const routeSheet=createBottomSheet(get('route-dialog'),{onDismiss:()=>{if(current())router.navigate(router.current==='/detail'?detailReturnRoute:baseRoute);}});
 const routineWizard=createRoutineWizard({dialog:get('routine-wizard-dialog'),editorDialog:get('routine-time-dialog'),goalsDialog:get('routine-goals-dialog'),i18n,icon,confirm:message=>confirmDialog(message,{i18n}),onError:error=>err(error),onSave:async(routine,revision)=>{
@@ -110,6 +114,8 @@ const intakeEditor=createIntakeEditor({i18n,icon,today:()=>state.day||localDay()
  finally{writes--;renderRoutineLoading();}
 }});
 get('route-dialog').addEventListener('close',()=>intakeEditor.reset());
+const wellbeing=createWellbeingJournal({root:get('wellbeing-content'),i18n,icon,request:(path,options)=>api.request(path,options),confirm:message=>confirmDialog(message,{i18n}),isActive:()=>Boolean(current()&&router?.current==='/wellbeing')});
+get('wellbeing-dialog').addEventListener('close',()=>wellbeing.reset());
 const usageCalendar=createUsageCalendar({root:get('usage-content'),i18n,icon,groupIcon:renderGroupIcon,request:(path,options)=>api.get(path,options),onProduct:id=>router.navigate('/detail?id='+encodeURIComponent(id)),isActive:()=>Boolean(current()&&router?.current==='/usage')});
 get('open-routine-wizard').addEventListener('click',()=>routineWizard.open(state.ai||{}));
 
@@ -131,7 +137,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
- void routeSheet.close({immediate:true});void usageSheet.close({immediate:true});get('route-header').querySelector('.detail-name')?.remove();usageCalendar.reset();intakeEditor.reset();routineWizard.reset();conclusion.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
+ void routeSheet.close({immediate:true});void usageSheet.close({immediate:true});void wellbeingSheet.close({immediate:true});wellbeing.reset();get('route-header').querySelector('.detail-name')?.remove();usageCalendar.reset();intakeEditor.reset();routineWizard.reset();conclusion.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
  routineChecks={active:null,latest:null,proposals:[]};recheckBusy=false;recheckStarting=false;get('recheck-content').replaceChildren();recheckAbort?.abort();recheckWatcher=null;void recheckSheet.close({immediate:true});
  groupDrag=null;get('profile-form').hidden=true;get('connection-editor').open=false;
  appReady=false;collectionEpoch++;uploadQueueExpanded=false;localizationAttempts.clear();localizationSending=false;
@@ -419,7 +425,7 @@ function render(){
  get('diagnostics-link').hidden=!current();renderAccount();renderDiagnostics();
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
- get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');usageCalendar.languageChanged();conclusion.languageChanged();get('conclusion-home').hidden=!current()||!state.supplements.some(s=>state.groups.some(g=>g.id===s.group_id));renderHome();renderRoutineCheck();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
+ get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');usageCalendar.languageChanged();wellbeing.languageChanged();conclusion.languageChanged();get('conclusion-home').hidden=!current()||!state.supplements.some(s=>state.groups.some(g=>g.id===s.group_id));renderHome();renderRoutineCheck();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');if(get('group-dialog').open)renderGroupIconOptions();
  renderUploadQueue();
 }
@@ -650,18 +656,20 @@ function showRoute(path){
  const sheet=['/detail','/diagnostics'].includes(path);
  if(path!=='/account')passwordVisibility.reset();
  if(path==='/detail')detailReturnRoute=get('usage-dialog').open?'/usage':baseRoute;
- if(path==='/usage')baseRoute='/account';else if(!sheet)baseRoute=path;document.documentElement.dataset.tab=baseRoute;
+ if(path==='/usage'||path==='/wellbeing')baseRoute='/account';else if(!sheet)baseRoute=path;document.documentElement.dataset.tab=baseRoute;
  for(const section of document.querySelectorAll('main [data-screen]'))section.hidden=section.dataset.screen!==baseRoute;
  if(sheet)for(const section of get('route-dialog').querySelectorAll('[data-screen]'))section.hidden=section.dataset.screen!==path;
- for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===((path==='/usage'||baseRoute==='/usage')?'/account':path==='/account'?'/account':baseRoute))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
+ for(const link of document.querySelectorAll('[data-route]')){if(link.dataset.route===((path==='/usage'||path==='/wellbeing'||baseRoute==='/usage')?'/account':path==='/account'?'/account':baseRoute))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}
  if(path==='/diagnostics')get('route-header').querySelector('.detail-name')?.remove();
  if(sheet){get('route-title').textContent=path==='/diagnostics'?i18n.t('appDiagnostics'):'';get('route-dialog').classList.toggle('product-sheet',path==='/detail');get('route-dialog').setAttribute('aria-labelledby',path==='/detail'?'product-detail-title':'route-title');}
  get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();
+ if(path==='/wellbeing'){const fresh=!get('wellbeing-dialog').open;wellbeingSheet.open();if(fresh)wellbeing.open();}else void wellbeingSheet.close();
  if(path==='/usage'){const fresh=!get('usage-dialog').open;usageSheet.open();usageCalendar.open({resetScroll:fresh});}
  else if(!(path==='/detail'&&detailReturnRoute==='/usage'))void usageSheet.close();if(path==='/detail')renderDetail();if(path==='/diagnostics')renderDiagnostics();
- if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open){get('supplement-detail').replaceChildren();get('route-header').querySelector('.detail-name')?.remove();}});if(path!=='/usage'){if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}}
+ if(sheet)routeSheet.open();else {void routeSheet.close().then(()=>{if(!get('route-dialog').open){get('supplement-detail').replaceChildren();get('route-header').querySelector('.detail-name')?.remove();}});if(path!=='/usage'&&path!=='/wellbeing'){if(!document.querySelector('main').dataset.tab||document.querySelector('main').dataset.tab!==path)document.querySelector('main').scrollTop=0;document.querySelector('main').dataset.tab=path;}}
 }
-router=createRouter({routes:Object.fromEntries(['/', '/groups','/account','/usage','/detail','/diagnostics'].map(path=>[path,()=>showRoute(path)])),onNotFound:()=>{location.hash=current()?'/':'/account';}});
+let journalLeaving=false;
+router=createRouter({beforeNavigate:(next,from)=>{if(current()&&from==='/wellbeing'&&(wellbeing.dirty||wellbeing.saving)){if(!journalLeaving&&!wellbeing.saving){journalLeaving=true;void wellbeing.allowLeave().then(ok=>{if(ok){wellbeing.discard();router.navigate(next);}}).finally(()=>journalLeaving=false);}return false;}return true;},routes:Object.fromEntries(['/', '/groups','/account','/usage','/wellbeing','/detail','/diagnostics'].map(path=>[path,()=>showRoute(path)])),onNotFound:()=>{location.hash=current()?'/':'/account';}});
 // The generic router ignores query-only changes; details must follow the item ID.
 window.addEventListener('hashchange',()=>{if(router.current==='/detail')renderDetail();});
 auth.state.subscribe(async({user})=>{
@@ -672,7 +680,7 @@ auth.state.subscribe(async({user})=>{
  catch(error){if(current()===session)failure(error);}
 },true);
 function refreshDay(){
- usageCalendar.refreshDay();
+ usageCalendar.refreshDay();void wellbeing.refresh();
  // Native photo pickers fire focus/visibility events even on cancel. The open
  // composer owns that interaction; real upload jobs keep their separate polling.
  if(state.day!==localDay()){state.day=localDay();state.supplements=state.supplements.map(item=>({...item,completed:false,occurrences:item.occurrences?.map(s=>({...s,completed:false}))}));renderHome();}
@@ -682,7 +690,7 @@ function scheduleMidnight(){clearTimeout(midnightTimer);const next=new Date();ne
 scheduleMidnight();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshDay();scheduleMidnight();}});
 window.addEventListener('focus',()=>{if(restoringSession&&!current())void auth.restore().catch(failure);else refreshDay();});
 let applyUpdate;
-pwa=await setupPwa({autoUpdate:true,startupTimeout:4000,canReload:()=>!intakeEditor.dirty&&!intakeEditor.busy&&!conclusion.busy&&!routineWizard.dirty&&!routineWizard.saving&&!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
+pwa=await setupPwa({autoUpdate:true,startupTimeout:4000,canReload:()=>!wellbeing.dirty&&!wellbeing.saving&&!intakeEditor.dirty&&!intakeEditor.busy&&!conclusion.busy&&!routineWizard.dirty&&!routineWizard.saving&&!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
  // The module owns automatic activation. Calling apply here would count as a
  // manual action and could reload after the launch screen has already closed.
  onUpdate:({apply})=>{applyUpdate=apply;get('update-button').hidden=false;},onError:()=>{}});

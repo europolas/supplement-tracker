@@ -778,3 +778,63 @@ test('intake native controls fit narrow phones and translate in dark mode',async
  const form=page.locator('[data-intake-form]');await expect(form).toContainText('Vartojimo grafikas');await form.locator('[name=mode]').selectOption('interval');await form.locator('[name=count]').selectOption('3');await form.locator('[name=tracking]').check();
  for(const width of [320,402,768]){await page.setViewportSize({width,height:874});expect(await form.evaluate(n=>n.scrollWidth>n.clientWidth)).toBe(false);for(const c of await form.locator('input:not([type=checkbox]),select').all()){if(await c.isVisible()){const fits=await c.evaluate(n=>{const r=n.getBoundingClientRect(),p=n.closest('form').getBoundingClientRect();return r.width>0&&r.height===46&&r.left>=p.left-1&&r.right<=p.right+1;});expect(fits).toBe(true);}}await form.locator('h3').first().scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/intake-dark-lt-'+width+'.png',animations:'disabled'});}
 });
+
+async function journalMock(page,{seeded=false,failRead=false}={}){
+ const entries=new Map(),writes=[],reads=[];let conflict=false,saveError=false,saveGate=null,readGate=null;
+ const entry={mood:4,sleep:4,energy:3,digestion:4,observations:['more_energy','better_sleep'],notes:'',revision:1,updatedAt:'2026-10-18T12:00:00Z'};
+ if(seeded)entries.set('2026-10-18',entry);
+ await page.clock.setFixedTime(new Date('2026-10-18T12:00:00Z'));
+ await page.route('https://perimove.com/supplement-api/v1/wellbeing**',async route=>{
+  const url=new URL(route.request().url());
+  if(route.request().method()==='PUT'){
+   const day=url.pathname.split('/').at(-1),body=route.request().postDataJSON();writes.push({day,...body});if(saveGate)await saveGate;
+   if(saveError){await route.fulfill({status:503,json:{error:'REQUEST_FAILED'}});return;}
+   if(conflict||body.revision!==(entries.get(day)?.revision||0)){conflict=false;await route.fulfill({status:409,json:{error:'WELLBEING_CHANGED'}});return;}
+   const entry={...body.entry,revision:body.revision+1,updatedAt:'2026-10-18T12:30:00Z'};entries.set(day,entry);await route.fulfill({json:{day,entry}});return;
+  }
+  const from=url.searchParams.get('from'),to=url.searchParams.get('to');reads.push({from,to});if(readGate)await readGate;
+  if(failRead){failRead=false;await route.fulfill({status:503,json:{error:'REQUEST_FAILED'}});return;}
+  const days=[];for(let day=from;day<=to;day=new Date(Date.parse(day+'T12:00:00Z')+86400000).toISOString().slice(0,10))days.push({day,entry:entries.get(day)||null,taken:day>'2026-10-18'?0:12,total:day>'2026-10-18'?0:16,future:day>'2026-10-18'});
+  await route.fulfill({json:{from,to,today:'2026-10-18',days}});
+ });
+ return {entries,writes,reads,conflict(){conflict=true;},failSave(value=true){saveError=value;},delaySave(){let release;saveGate=new Promise(r=>release=r);return()=>{saveGate=null;release();};},delayRead(){let release;readGate=new Promise(r=>release=r);return()=>{readGate=null;release();};}};
+}
+async function openJournal(page){await page.locator('.account-link').click();await page.locator('#wellbeing-link').click();await expect(page.locator('[data-wellbeing-form]')).toBeVisible();}
+
+test('wellbeing journal matches selected composition, saves all controls and restores the chosen day',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await mock(page,{preloaded:true});const fake=await journalMock(page);await login(page);await openJournal(page);const sheet=page.locator('#wellbeing-dialog');
+ await expect(sheet.locator('[data-field=mood] [role=radio]')).toHaveCount(5);await sheet.locator('[data-field=mood] [data-rating="4"]').click();for(const[f,v]of[['sleep',4],['energy',3],['digestion',4]])await sheet.locator(`[data-field=${f}] [data-rating="${v}"]`).click();
+ await sheet.locator('[data-observation=more_energy]').click();await sheet.locator('[data-observation=better_sleep]').click();await sheet.locator('textarea').fill('<b>My own note</b>');expect(fake.writes).toHaveLength(0);
+ await sheet.getByRole('button',{name:'Save',exact:true}).click();await expect(sheet.getByRole('status')).toContainText('saved');expect(fake.writes).toHaveLength(1);expect(fake.writes[0].entry).toEqual({mood:4,sleep:4,energy:3,digestion:4,observations:['more_energy','better_sleep'],notes:'<b>My own note</b>'});
+ await sheet.locator('[data-sheet-close]').click();await expect(sheet).toBeHidden();await page.locator('#wellbeing-link').click();await expect(sheet.locator('textarea')).toHaveValue('<b>My own note</b>');await expect(sheet.locator('textarea b')).toHaveCount(0);
+ await sheet.locator('[data-day="2026-10-17"]').click();await expect(sheet.locator('textarea')).toHaveValue('');await sheet.locator('[data-field=mood] [data-rating="2"]').click();await sheet.getByRole('button',{name:'Save',exact:true}).click();await expect(sheet.getByRole('status')).toContainText('saved');await sheet.locator('[data-day="2026-10-18"]').click();await expect(sheet.locator('[data-field=mood] [data-rating="4"]')).toHaveAttribute('aria-checked','true');await expect(sheet.locator('.wellbeing-intake-summary')).toContainText('12 of 16');expect(errors).toEqual([]);
+});
+test('journal draft guards dates, X and browser back; cancel preserves all values',async({page})=>{
+ await mock(page,{preloaded:true});const fake=await journalMock(page);await login(page);await openJournal(page);const sheet=page.locator('#wellbeing-dialog'),confirmation=page.locator('dialog[aria-labelledby^="dialog-"]');await sheet.locator('textarea').fill('Unsaved private draft');
+ await sheet.locator('[data-day="2026-10-17"]').click();await expect(confirmation).toContainText('Discard');await confirmation.getByRole('button',{name:'Cancel',exact:true}).click();await expect(confirmation).toHaveCount(0);await expect(sheet.locator('[data-day="2026-10-18"]')).toHaveAttribute('aria-pressed','true');await expect(sheet.locator('textarea')).toHaveValue('Unsaved private draft');
+ await sheet.locator('[data-sheet-close]').click();await expect(confirmation).toBeVisible();await confirmation.getByRole('button',{name:'Cancel',exact:true}).click();await expect(confirmation).toHaveCount(0);await expect(sheet).toBeVisible();await expect(page).toHaveURL(/#\/wellbeing$/);
+ await page.goBack();await expect(confirmation).toBeVisible();await confirmation.getByRole('button',{name:'Confirm',exact:true}).click();await expect(sheet).toBeHidden();expect(fake.writes).toHaveLength(0);await page.locator('#wellbeing-link').click();await expect(sheet.locator('textarea')).toHaveValue('');
+});
+test('journal retry/conflict keeps the draft and reload requires explicit discard',async({page})=>{
+ await mock(page,{preloaded:true});const fake=await journalMock(page,{seeded:true,failRead:true});await login(page);await page.locator('.account-link').click();await page.locator('#wellbeing-link').click();const sheet=page.locator('#wellbeing-dialog');await expect(sheet.getByRole('alert')).toBeVisible();await sheet.getByRole('button',{name:'Try again',exact:true}).click();await expect(sheet.locator('[data-wellbeing-form]')).toBeVisible();
+ await sheet.locator('textarea').fill('Keep on conflict');fake.conflict();await sheet.getByRole('button',{name:'Save',exact:true}).click();await expect(sheet.getByRole('alert')).toContainText('changed');await expect(sheet.locator('textarea')).toHaveValue('Keep on conflict');await sheet.getByRole('button',{name:'Reload saved entry',exact:true}).click();const confirmation=page.locator('dialog[aria-labelledby^="dialog-"]');await confirmation.getByRole('button',{name:'Cancel',exact:true}).click();await expect(confirmation).toHaveCount(0);await expect(sheet.locator('textarea')).toHaveValue('Keep on conflict');
+ await sheet.getByRole('button',{name:'Reload saved entry',exact:true}).click();await confirmation.getByRole('button',{name:'Confirm',exact:true}).click();await expect(sheet.locator('textarea')).toHaveValue('');
+ fake.failSave();await sheet.locator('textarea').fill('Network draft');await sheet.getByRole('button',{name:'Save',exact:true}).click();await expect(sheet.getByRole('alert')).toBeVisible();await expect(sheet.locator('textarea')).toHaveValue('Network draft');fake.failSave(false);await sheet.getByRole('button',{name:'Save',exact:true}).click();await expect(sheet.getByRole('status')).toContainText('saved');
+});
+test('journal ratings support clear and keyboard selection, dates cannot enter the future',async({page})=>{
+ await mock(page,{preloaded:true});await journalMock(page);await login(page);await openJournal(page);const sheet=page.locator('#wellbeing-dialog'),energy=sheet.locator('[data-field=energy]');await energy.locator('[data-rating="3"]').click();await energy.locator('[data-rating="3"]').click();await expect(energy.locator('[aria-checked=true]')).toHaveCount(0);await energy.locator('[data-rating="1"]').focus();await page.keyboard.press('ArrowRight');await expect(energy.locator('[data-rating="2"]')).toHaveAttribute('aria-checked','true');await page.keyboard.press('End');await expect(energy.locator('[data-rating="5"]')).toHaveAttribute('aria-checked','true');await expect(sheet.getByRole('button',{name:'Next day',exact:true})).toBeDisabled();
+ await sheet.getByRole('button',{name:'Save',exact:true}).click();await expect(sheet.getByRole('status')).toContainText('saved');await sheet.getByRole('button',{name:'Previous day',exact:true}).click();await expect(sheet.locator('[data-day="2026-10-18"]')).toHaveAttribute('aria-pressed','false');
+});
+test('wellbeing reference remains balanced in Lithuanian light/dark, narrow and keyboard viewports',async({page})=>{
+ await mock(page,{preloaded:true});await journalMock(page,{seeded:true});await login(page);await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#wellbeing-link').click();const sheet=page.locator('#wellbeing-dialog');await expect(sheet.locator('h2')).toHaveText('Savijautos dienoraštis');await expect(sheet.locator('[data-wellbeing-form]')).toBeVisible();
+ for(const theme of ['light','dark'])for(const [width,height]of[[402,874],[320,740],[768,1000],[402,480]]){
+  await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);await page.setViewportSize({width,height});
+  await expect.poll(()=>sheet.evaluate(n=>Math.abs(n.getBoundingClientRect().bottom-innerHeight))).toBeLessThan(1);
+  const layout=await sheet.evaluate(n=>{const r=n.getBoundingClientRect(),title=n.querySelector('h2').getBoundingClientRect(),close=n.querySelector('[data-sheet-close]').getBoundingClientRect();return {overflow:n.scrollWidth>n.clientWidth,left:r.left,right:r.right,bottom:r.bottom,titleX:title.x+title.width/2,closeY:close.y+close.height/2,titleY:title.y+title.height/2,width:innerWidth,height:innerHeight,savePosition:getComputedStyle(n.querySelector('.wellbeing-save')).position};});
+  expect(layout.overflow).toBe(false);expect(layout.left).toBeGreaterThanOrEqual(0);expect(layout.right).toBeLessThanOrEqual(width);expect(layout.bottom).toBeCloseTo(height,0);expect(layout.titleX).toBeCloseTo(width/2,0);expect(Math.abs(layout.titleY-layout.closeY)).toBeLessThan(1);expect(layout.savePosition).toBe('static');
+  await sheet.evaluate(n=>n.scrollTop=0);await page.screenshot({path:`.runtime/journal-${theme}-${width}-${height}-top.png`,animations:'disabled'});await sheet.locator('.wellbeing-save').scrollIntoViewIfNeeded();await expect(sheet.locator('.wellbeing-save')).toBeInViewport();await page.screenshot({path:`.runtime/journal-${theme}-${width}-${height}-bottom.png`,animations:'disabled'});
+ }
+});
+test('late journal reads after logout cannot show private notes in another session',async({page})=>{
+ await mock(page,{preloaded:true});const fake=await journalMock(page,{seeded:true}),release=fake.delayRead();await login(page);await page.locator('.account-link').click();await page.locator('#wellbeing-link').click();await expect(page.locator('.wellbeing-loading')).toBeVisible();await page.locator('#wellbeing-dialog [data-sheet-close]').click();await page.locator('#logout-button').click();release();await expect(page.locator('#wellbeing-dialog')).toBeHidden();await expect(page.locator('#wellbeing-content')).toBeEmpty();
+});

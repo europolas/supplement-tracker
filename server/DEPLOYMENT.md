@@ -107,3 +107,13 @@ For frontend publication, build to a staging directory, move the previous docs
 directory aside intact, move staging to docs, recreate web, and only then remove
 the previous directory. This keeps an existing Docker bind mount readable during
 replacement. Never use production accounts for inventory/schedule write tests.
+
+### 0.30.0 wellbeing journal
+
+Build api/web/migrate images and apply migration 016_wellbeing_journal before the
+new API is exposed. This additive table is separate from supplements and survives
+Clear all supplements; account deletion cascades it. No new credentials/providers.
+Take a private DB backup, briefly stop writes for migration, then recreate API.
+Build frontend into staging and preserve the old docs inode until web is recreated.
+Use only the disposable integration DB for entry save/conflict tests. Live checks
+may open/cancel a draft but must not write fake personal journal records.

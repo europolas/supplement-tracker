@@ -180,3 +180,6 @@ aiškus veiksmas, kuriam vis dar taikomas `canReload`.
 Recurring intake plans and inventory arithmetic (1.13.0): see
 [INTAKE-PLAN.md](docs/INTAKE-PLAN.md). Pure functions work in browser and server;
 consumer applications own durable history, transactions and presentation.
+
+Nullable accessible ratings (1.14.0): [RATING-GROUP.md](docs/RATING-GROUP.md).
+Use host translations and artwork; no domain data is built into the component.

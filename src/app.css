@@ -637,3 +637,47 @@ html .intake-actions button{width:100%;min-width:0;min-height:46px;margin:0;padd
 .rest-day-supplements{margin-top:16px;padding:16px}.rest-day-supplements>summary{font-size:14px;color:var(--muted)}
 html .rest-day-open{display:block;width:100%;margin:12px 0 0;padding:8px 0;text-align:left;background:transparent;color:var(--ink);font-size:14px}
 .intake-form [hidden]{display:none!important}
+/* Selected wellbeing reference: full-width sheet, centred header, one natural
+   scrolling surface and in-flow Save. All dimensions shrink without clipping. */
+html .bottom-sheet.wellbeing-dialog{width:100%;max-width:520px;height:calc(var(--app-height,100dvh) - env(safe-area-inset-top) - 38px);max-height:calc(var(--app-height,100dvh) - env(safe-area-inset-top) - 24px);padding:12px 18px calc(env(safe-area-inset-bottom) + 18px);border-radius:28px 28px 0 0}
+html .wellbeing-dialog [data-sheet-handle]{height:12px}
+html .wellbeing-dialog .wellbeing-header{display:grid;grid-template-columns:36px minmax(0,1fr) 36px;gap:6px;min-height:44px;margin:0 0 4px;padding:0;top:-12px}
+.wellbeing-header::before{content:'';width:36px}
+html .wellbeing-dialog .wellbeing-header h2{grid-column:2;min-width:0;text-align:center;font-size:20px;font-weight:650;line-height:1.25;letter-spacing:-.5px}
+html .wellbeing-dialog .wellbeing-header>.icon-button{grid-column:3;width:36px;min-height:44px}
+.wellbeing-date-nav{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:8px;margin:0 auto 10px;max-width:320px}
+.wellbeing-date-nav strong{min-width:0;font-size:15px;line-height:1.35;font-weight:500;text-align:center}
+html .wellbeing-date-arrow{display:grid;place-items:center;width:40px;height:40px;min-height:40px;margin:0;padding:0;border:0;border-radius:50%;background:var(--soft);color:var(--ink)}
+.wellbeing-date-arrow .icon{width:19px;height:19px}
+.wellbeing-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:14px}
+html .wellbeing-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;height:52px;min-height:52px;margin:0;padding:6px 2px;border:1px solid var(--line);border-radius:12px;background:transparent;color:var(--ink)}
+.wellbeing-day span{font-size:11px;color:var(--muted);font-weight:400;line-height:1}.wellbeing-day strong{font-size:16px;font-weight:500;line-height:1}
+html .wellbeing-day[aria-pressed=true]{background:var(--green);color:var(--on-green);border-color:var(--green)}.wellbeing-day[aria-pressed=true] span{color:inherit}
+.wellbeing-form{display:flex;flex-direction:column;gap:0;margin:0;min-width:0}
+.wellbeing-card{border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.wellbeing-mood{padding:16px 16px 13px;margin-bottom:12px}
+.wellbeing-form h3{margin:0;font-size:19px;line-height:1.35;font-weight:650;letter-spacing:-.35px;color:var(--ink)}
+.wellbeing-face-rating{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:13px 0 6px}
+html .wellbeing-rating button{display:grid;place-items:center;flex:none;margin:0;padding:0;border:0;background:transparent;color:var(--ink)}
+html .wellbeing-face-rating button{width:48px;height:48px;min-height:48px;border-radius:50%}.wellbeing-face-rating svg{width:34px;height:34px}
+html .wellbeing-face-rating button[aria-checked=true]{background:var(--soft)}
+.wellbeing-extremes{display:flex;justify-content:space-between;font-size:12px;line-height:1.4;color:var(--muted)}
+.wellbeing-metrics{padding:0 16px;margin-bottom:20px}
+.wellbeing-metric{display:grid;grid-template-columns:minmax(0,1fr) 158px;align-items:center;gap:6px;min-height:51px;border-bottom:1px solid var(--line)}.wellbeing-metric:last-child{border-bottom:0}
+.wellbeing-metric-label{display:flex;align-items:center;gap:10px;min-width:0;font-size:14px;line-height:1.3}.wellbeing-metric-label .icon{width:23px;height:23px;flex:none}
+.wellbeing-dot-rating{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center}
+html .wellbeing-dot-rating button{width:100%;min-width:0;height:44px;min-height:44px;border-radius:8px}
+.wellbeing-dot{display:block;width:17px;height:17px;border:1px solid var(--line);border-radius:50%;background:transparent}
+.wellbeing-dot-rating button[aria-checked=true] .wellbeing-dot{background:var(--green);border-color:var(--green)}
+.wellbeing-observations{margin-bottom:14px}.wellbeing-tags{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}
+html .wellbeing-tag{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:0;max-width:100%;min-height:32px;margin:0;padding:7px 9px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:12px;line-height:1.25}
+html .wellbeing-tag[aria-pressed=true]{background:var(--soft);color:var(--ink);border-color:var(--soft)}.wellbeing-tag .icon{width:13px;height:13px;flex:none}
+html textarea.wellbeing-notes{display:block;box-sizing:border-box;width:100%;min-width:0;height:90px;min-height:90px;max-height:220px;margin:0;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:transparent;color:var(--ink);font:400 16px/1.5 var(--font-ui);resize:none}
+.wellbeing-notes::placeholder{color:var(--muted);opacity:.85}
+.wellbeing-intake-summary{display:flex;align-items:center;gap:10px;margin:14px 0;font-size:13px;line-height:1.45;color:var(--muted)}
+.wellbeing-intake-summary>.icon{flex:none;width:19px;height:19px;padding:4px;border-radius:50%;background:var(--green);color:var(--on-green);stroke-width:2.3}
+html .wellbeing-save{display:block;width:100%;min-height:44px;margin:0;padding:12px 16px;border-radius:12px;background:var(--green);color:var(--on-green);font-size:15px;line-height:1.3}
+.wellbeing-status{margin:0 0 10px;font-size:12px;color:var(--green);text-align:center}.wellbeing-status:empty{display:none}
+.wellbeing-error{padding:12px;margin:0 0 16px;border:1px solid var(--line);border-radius:12px}.wellbeing-error p{font-size:13px;color:#b65b50;margin:0 0 8px}.wellbeing-error button{width:100%}.wellbeing-loading{padding:16px;text-align:center;font-size:13px;color:var(--muted)}
+.wellbeing-rating button:focus-visible,.wellbeing-day:focus-visible,.wellbeing-tag:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+@media(max-width:360px){html .wellbeing-dialog .wellbeing-header h2{font-size:18px}.wellbeing-week{gap:4px}.wellbeing-mood{padding:14px 12px}.wellbeing-metrics{padding:0 12px}.wellbeing-metric{grid-template-columns:minmax(0,1fr) 140px;gap:4px}.wellbeing-metric-label{font-size:12px;gap:6px}.wellbeing-metric-label .icon{width:20px;height:20px}html .wellbeing-face-rating button{width:44px;height:44px;min-height:44px}.wellbeing-face-rating svg{width:32px;height:32px}.wellbeing-form h3{font-size:18px}}
