@@ -1,3 +1,13 @@
+## 0.33.4 — remove bottom inset from Account sections
+
+Tools, Preferences and Security have padding-bottom:0. The last row keeps its
+own 14-unit padding and 64px minimum, matching the preceding rows. Other cards,
+row centering and navigation are unchanged.
+
+Validation: 42 unit checks and both affected browser flows pass. Screenshots
+inspected at 402px; live light/dark checks confirm zero bottom padding on all
+three sections, preserved row heights/centering, no overflow or page errors.
+
 ## 0.33.3 — Account section row spacing
 
 Tools, Preferences, Security and Clear all rows share 14 scaled units of vertical

@@ -716,3 +716,4 @@ html .wellbeing-save{display:block;width:100%;min-height:44px;margin:0;padding:1
 #account-screen .account-setting-card .setting-row>[data-icon]{align-self:center;justify-self:center}
 #account-screen .account-setting-card h2{padding-bottom:calc(14 * var(--page-u))}
 #account-screen .account-setting-card{padding-bottom:calc(13 * var(--page-u))}
+#account-screen :is(#account-tools,#preferences,#account-security){padding-bottom:0}
