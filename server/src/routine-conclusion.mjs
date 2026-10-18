@@ -35,6 +35,16 @@ export class RoutineConclusions{
   const report=reports[0]?parse(reports[0].report):null,stale=Boolean(report&&report.fingerprint!==conclusionFingerprint(snapshot,t.now()));
   return {ready:routineComplete(snapshot.routine),hasSupplements:snapshot.rows.length>0,active:jobs[0]?.status==='running'?jobs[0]:null,error:jobs[0]?.status==='failed'?jobs[0].error_code:null,report:report?{id:report.id,createdAt:report.createdAt,language:report.language,sections:Object.fromEntries(Object.entries(report.sections).filter(([key])=>sections.includes(key)).map(([key,text])=>[key,conclusionDisplayText(text)])),stale,usedPersonal:report.usedPersonal,proposals:(report.proposals||[]).filter(p=>p.status==='pending').map(({id,supplementId,name,manufacturer,from,to,reason})=>({id,supplementId,name,manufacturer,from,to,reason:conclusionDisplayText(reason)}))}:null};
  }
+ // History is read-only and returns only allowlisted prose/aggregate counts.
+ // Stable keyset pagination avoids skips when another device generates a report.
+ archive(report){return {id:report.id,createdAt:report.createdAt,language:report.language,sections:Object.fromEntries(Object.entries(report.sections).filter(([key])=>sections.includes(key)).map(([key,text])=>[key,conclusionDisplayText(text)])),...(report.inventory?{inventory:report.inventory}:{})};}
+ async history(owner,query){
+  const before=query.get('before');let boundary='';const values=[owner];
+  if(before){if(!/^[a-f0-9-]{36}$/.test(before))throw new ApiError(400,'INVALID_INPUT');const [cursor]=await this.t.pool.execute('SELECT created_at,id FROM routine_conclusion_history WHERE user_id=? AND id=?',[owner,before]);if(!cursor.length)throw new ApiError(404,'NOT_FOUND');boundary=' AND (created_at<? OR (created_at=? AND id<?))';values.push(cursor[0].created_at,cursor[0].created_at,before);}
+  const [rows]=await this.t.pool.execute('SELECT id,report FROM routine_conclusion_history WHERE user_id=?'+boundary+' ORDER BY created_at DESC,id DESC LIMIT 21',values),items=rows.slice(0,20).map(row=>{const r=this.archive(parse(row.report));return {id:r.id,createdAt:r.createdAt,language:r.language,preview:(r.sections.overview||'').slice(0,180),inventory:r.inventory||null};});
+  return {items,next:rows.length>20?items.at(-1).id:null};
+ }
+ async historical(owner,id){const [rows]=await this.t.pool.execute('SELECT report FROM routine_conclusion_history WHERE user_id=? AND id=?',[owner,id]);if(!rows.length)throw new ApiError(404,'NOT_FOUND');return {report:this.archive(parse(rows[0].report))};}
  async start(owner,body,authorization){
   const t=this.t;if(!t.recheck||!t.conclusionResearch)throw new ApiError(503,'AI_PROVIDER_FAILED');if(typeof body.requestId!=='string'||!/^[a-f0-9-]{36}$/.test(body.requestId))throw new ApiError(400,'INVALID_INPUT');
   const sealed=await t.checkKey(owner),settings=await t.settings(owner),language=body.language==='lt'?'lt':'en';let snapshot,job;
@@ -63,12 +73,14 @@ export class RoutineConclusions{
     const [users]=await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);if(!users.length)throw new ApiError(401,'SESSION_EXPIRED');const [jobs]=await db.execute('SELECT id FROM analysis_jobs WHERE id=? AND user_id=? FOR UPDATE',[job.id,owner]);if(!jobs.length)throw new ApiError(409,'COLLECTION_CHANGED');
     // Store the original hash even if inputs changed in flight: read marks it stale.
     const report={id:job.id,createdAt:t.now().toISOString(),language,fingerprint,researchSources:research.sources,usedPersonal:Boolean(routineForAI(snapshot.routine,now)?.personal),sections:Object.fromEntries(sections.map(k=>[k,response.result[k]])),proposals:response.result.assignments.flatMap(a=>{const row=snapshot.rows.find(r=>r.id===a.supplementId);if(!a.groupId||a.groupId===row.group_id||pausedOn(row,now))return [];return [{id:randomUUID(),supplementId:row.id,name:row.name,manufacturer:readAnalysis(row).manufacturer||'',from:{id:row.group_id,name:snapshot.groups.find(g=>g.id===row.group_id)?.name||null},to:{id:a.groupId,name:snapshot.groups.find(g=>g.id===a.groupId).name},reason:a.reason,status:'pending',routineRevision:snapshot.revision,productFingerprint:productFingerprint(row),groupsFingerprint:groupFingerprint(snapshot.groups)}];})};
+    report.inventory={totalProducts:snapshot.rows.length,activeProducts:snapshot.rows.filter(row=>!pausedOn(row,now)).length,groupCount:snapshot.groups.length};
     const [previous]=await db.execute('SELECT report FROM routine_conclusions WHERE user_id=? FOR UPDATE',[owner]);
     // Keep unresolved, still-applicable proposals across regeneration. A fresh
     // recommendation for the same supplement updates that suggestion in place.
     const pending=(previous[0]?parse(previous[0].report).proposals||[]:[]).filter(p=>p.status==='pending'&&p.routineRevision===snapshot.revision&&p.groupsFingerprint===groupFingerprint(snapshot.groups)&&snapshot.rows.some(row=>row.id===p.supplementId&&!pausedOn(row,now)&&productFingerprint(row)===p.productFingerprint));
     for(const p of report.proposals){const old=pending.find(old=>old.supplementId===p.supplementId);if(old)p.id=old.id;}
     report.proposals.push(...pending.filter(p=>!report.proposals.some(fresh=>fresh.supplementId===p.supplementId)));
+    await db.execute('INSERT INTO routine_conclusion_history(id,user_id,created_at,report) VALUES (?,?,?,?)',[report.id,owner,new Date(report.createdAt),JSON.stringify(this.archive(report))]);
     await db.execute('INSERT INTO routine_conclusions(user_id,report) VALUES (?,?) ON DUPLICATE KEY UPDATE report=VALUES(report)',[owner,JSON.stringify(report)]);await db.execute("UPDATE analysis_jobs SET status='complete',phase='done',finished_at=UTC_TIMESTAMP(3),processed_count=total_count WHERE id=? AND user_id=?",[job.id,owner]);
    });
   });}catch(error){const code=error instanceof ProviderError?error.code:error instanceof ApiError&&/^[A-Z_]+$/.test(error.message)?error.message:'REQUEST_FAILED';await t.pool.execute("UPDATE analysis_jobs SET status='failed',phase='done',error_code=?,finished_at=UTC_TIMESTAMP(3) WHERE id=? AND user_id=?",[code,job.id,owner]);}finally{t.activeJobs.delete(job.id);}})().catch(()=>t.activeJobs.delete(job.id));return {id:job.id,status:'running'};

@@ -108,6 +108,7 @@ const routineWizard=createRoutineWizard({dialog:get('routine-wizard-dialog'),edi
 }});
 const conclusion=createRoutineConclusion({dialog:get('conclusion-dialog'),root:get('conclusion-content'),i18n,request:(path,options)=>api.request(path,options),configured:()=>Boolean(state.ai?.configured),onRoutine:()=>routineWizard.open({...state.ai,firstIncomplete:true}),onAccepted:()=>load(false),onError:error=>err(error)});
 get('open-conclusion').addEventListener('click',()=>void conclusion.open());
+get('conclusion-history-link').addEventListener('click',()=>void conclusion.openHistory());
 const intakeEditor=createIntakeEditor({i18n,icon,today:()=>state.day||localDay(),save:async(id,body)=>{
  const session=current();writes++;renderRoutineLoading();
  try{const response=await api.request('/v1/supplements/'+id+'/intake',{method:'PUT',body});if(session!==current())throw new Error('REQUEST_FAILED');await load(false);if(session!==current())throw new Error('REQUEST_FAILED');return {response,item:state.supplements.find(s=>s.id===id)};}

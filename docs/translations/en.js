@@ -382,5 +382,14 @@ export default Object.freeze({
   "appJournalReload": "Reload saved entry",
   "INVALID_WELLBEING_ENTRY": "Check the ratings and note. Ratings must be from 1 to 5 and notes at most 1,000 characters.",
   "INVALID_JOURNAL_DAY": "Choose today or an earlier date.",
-  "WELLBEING_CHANGED": "This entry changed on another device. Your draft is kept. Reload the saved entry or keep your note and try again after reopening."
+  "WELLBEING_CHANGED": "This entry changed on another device. Your draft is kept. Reload the saved entry or keep your note and try again after reopening.",
+  "appConclusionViews": "Conclusion views",
+  "appConclusionCurrent": "Current conclusion",
+  "appConclusionHistory": "History",
+  "appConclusionAllHistory": "All conclusions",
+  "appConclusionArchivedNotice": "This is a saved conclusion from that date. Group changes can only be accepted from the current conclusion.",
+  "appConclusionHistoryCount": "{count} supplements at the time of analysis",
+  "appConclusionHistoryEmpty": "No saved conclusions yet. Generate a conclusion to start your history.",
+  "appConclusionLoadMore": "Load more",
+  "appConclusionHistoryTitle": "AI conclusion history"
 });

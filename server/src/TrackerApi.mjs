@@ -93,7 +93,7 @@ export class TrackerApi {
    // results without touching groups, credentials, preferences or other accounts.
    await this.auth.transaction(async db=>{
     await db.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[owner]);
-    await db.execute('DELETE FROM analysis_jobs WHERE user_id=?',[owner]);await db.execute('DELETE FROM routine_conclusions WHERE user_id=?',[owner]);
+    await db.execute('DELETE FROM analysis_jobs WHERE user_id=?',[owner]);await db.execute('DELETE FROM routine_conclusions WHERE user_id=?',[owner]);await db.execute('DELETE FROM routine_conclusion_history WHERE user_id=?',[owner]);
     await db.execute('DELETE FROM supplements WHERE user_id=?',[owner]);
    });return [200,{ok:true}];
   }
@@ -109,6 +109,9 @@ export class TrackerApi {
     })];
    }
   }
+  if(path==='/conclusions/history'&&method==='GET')return [200,await this.conclusions.history(owner,query)];
+  const historicReport=/^\/conclusions\/history\/([a-f0-9-]{36})$/.exec(path);
+  if(historicReport&&method==='GET')return [200,await this.conclusions.historical(owner,historicReport[1])];
   if(path==='/conclusions'){
    if(method==='GET')return [200,await this.conclusions.read(owner)];
    if(method==='POST')return [202,await this.conclusions.start(owner,body,authorization)];

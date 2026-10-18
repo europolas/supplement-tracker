@@ -1,3 +1,51 @@
+## 0.31.0 — earlier AI conclusions and export design samples
+
+Account → Tools → AI conclusion history opens the existing conclusion bottom sheet
+on its History view. Home Conclusion opens Current. History lists date, a short
+plain-text preview and the original product count where known. Keyset pagination
+loads 20 at a time; selecting a record reads the full immutable five-section text.
+Archived text has no actionable group proposals or generation action. Current
+report decisions keep the existing guarded per-product acceptance behavior.
+Validation: 42 unit checks, 85 browser flows and 120 isolated server checks pass
+(two opt-in paid provider tests skipped). Final targeted history/current flows pass.
+Read-only live LT review covers 320/393/768px in both themes, legacy backfill and
+full-text opening; both public PDF downloads return valid application/pdf.
+Actual Chromium screenshots reviewed; physical iPhone Safari not tested here.
+
+Native sheet close, themes, EN default/LT explicit, narrow widths and account
+cleanup reuse the established app components. Reads never call a provider.
+
+Migration 017_conclusion_history creates owner-cascaded immutable report archives
+and backfills the one currently stored report per account. Every successful future
+analysis inserts the archive in the same transaction as latest-report/job completion.
+Failed analyses add no record and retain the latest report. Later routine/product
+or proposal changes cannot rewrite the archive. Reports overwritten before this
+migration are unrecoverable. Aggregate product/group counts are saved for new
+reports; unavailable legacy counts are omitted rather than inferred from today.
+No raw profile, credential, prompt, research evidence or actionable proposal is
+copied to history. Existing report prose may contain the personal context the
+user previously allowed. Clear all supplements also clears reports/history, as it
+already cleared the latest conclusion; account deletion cascades owner data.
+
+GET /v1/conclusions/history?before=<report UUID> returns {items,next}; each item is
+{id,createdAt,language,preview,inventory|null}. Cursor lookup is owner-scoped.
+GET /v1/conclusions/history/:id returns {report:{id,createdAt,language,sections,
+optional inventory}}. Foreign/missing records return 404, malformed cursor 400.
+No archived mutation endpoint. Browser keeps history in session memory only;
+serial/owner guards reject late selection/logout reads. Live generation, not
+history reads, remains the sole paid action.
+
+Before API startup, back up the DB and apply migration 017 with the privileged
+migration CLI. Stop API writes for the brief backfill to preserve the latest text.
+Do not synchronize schema/data into the canonical toolkit or other apps.
+
+scripts/preview-data-export.mjs generates deterministic synthetic Lithuanian PDF
+samples in design/exports: A is a three-page visual report; B a two-page compact
+print view. HTML sources, PDF files and page previews are review artifacts only.
+The public build exposes PDFs/cover previews under exports/, outside worker cache.
+Static servers declare application/pdf. No private-data export endpoint, paid
+analysis, export settings or automatic personal-data publication is implemented.
+
 ## 0.30.3 — compact Schedule and stock control
 
 Reset inherited details top padding on the intake disclosure. Its summary and

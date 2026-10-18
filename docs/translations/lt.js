@@ -381,5 +381,14 @@ export default Object.freeze({
   "appJournalReload": "Įkelti išsaugotą įrašą",
   "INVALID_WELLBEING_ENTRY": "Patikrink įvertinimus ir pastabą. Įvertinimai turi būti nuo 1 iki 5, pastaba – iki 1 000 simbolių.",
   "INVALID_JOURNAL_DAY": "Pasirink šiandienos arba ankstesnę datą.",
-  "WELLBEING_CHANGED": "Šis įrašas pakeistas kitame įrenginyje. Tavo pakeitimai palikti. Įkelk išsaugotą įrašą arba pasilik pastabą ir bandyk atidaręs dieną iš naujo."
+  "WELLBEING_CHANGED": "Šis įrašas pakeistas kitame įrenginyje. Tavo pakeitimai palikti. Įkelk išsaugotą įrašą arba pasilik pastabą ir bandyk atidaręs dieną iš naujo.",
+  "appConclusionViews": "Išvadų peržiūra",
+  "appConclusionCurrent": "Dabartinė išvada",
+  "appConclusionHistory": "Istorija",
+  "appConclusionAllHistory": "Visos išvados",
+  "appConclusionArchivedNotice": "Tai išsaugota tos dienos išvada. Grupių keitimus galima priimti tik iš dabartinės išvados.",
+  "appConclusionHistoryCount": "Analizės metu: {count} papildų",
+  "appConclusionHistoryEmpty": "Išsaugotų išvadų dar nėra. Sugeneruok išvadą ir ji atsiras istorijoje.",
+  "appConclusionLoadMore": "Rodyti daugiau",
+  "appConclusionHistoryTitle": "AI išvadų istorija"
 });

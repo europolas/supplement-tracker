@@ -692,3 +692,10 @@ html .wellbeing-save{display:block;width:100%;min-height:44px;margin:0;padding:1
 .wellbeing-error{padding:12px;margin:0 0 16px;border:1px solid var(--line);border-radius:12px}.wellbeing-error p{font-size:13px;color:#b65b50;margin:0 0 8px}.wellbeing-error button{width:100%}.wellbeing-loading{padding:16px;text-align:center;font-size:13px;color:var(--muted)}
 .wellbeing-rating button:focus-visible,.wellbeing-day:focus-visible,.wellbeing-tag:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 @media(max-width:360px){html .wellbeing-dialog .wellbeing-header h2{font-size:18px}.wellbeing-week{gap:4px}.wellbeing-mood{padding:14px 12px}.wellbeing-metrics{padding:0 12px}.wellbeing-metric{grid-template-columns:minmax(0,1fr) 140px;gap:4px}.wellbeing-metric-label{font-size:12px;gap:6px}.wellbeing-metric-label .icon{width:20px;height:20px}html .wellbeing-face-rating button{width:44px;height:44px;min-height:44px}.wellbeing-face-rating svg{width:32px;height:32px}.wellbeing-form h3{font-size:18px}}
+/* Archived conclusions reuse current report cards, without actionable proposals. */
+.conclusion-tabs{display:flex;gap:6px;padding:4px;background:var(--soft);border-radius:14px;margin-bottom:12px}
+.conclusion-tabs>button{flex:1;min-width:0;min-height:44px;padding:10px 8px;border-radius:11px;font-size:13px;line-height:1.4;background:transparent;color:var(--muted)}
+.conclusion-tabs>button[aria-pressed=true]{background:var(--green);color:var(--on-green)}
+.conclusion-history-list{display:grid;gap:12px}.conclusion-history-item{display:flex;flex-direction:column;gap:7px;width:100%;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);text-align:left;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.conclusion-history-item strong{font-size:15px;font-weight:600}.conclusion-history-item small{font-size:11px;color:var(--muted)}.conclusion-history-item>span{color:var(--muted)}
+.conclusion-history-back{align-self:flex-start;margin:0}

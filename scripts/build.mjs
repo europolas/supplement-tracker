@@ -31,6 +31,8 @@ export async function buildStarter({ source = path.join(root, 'src'), output = p
   await writeFile(path.join(output, 'sw.js'), `import { installWorker } from './modules/worker.js';\ninstallWorker(${JSON.stringify({ id: config.id, name: config.name, version, assets: ['./', ...files.map(name => './' + name)] })});\n`);
   // Design previews are shared review artifacts, not runtime/offline app assets.
   for (const name of ['routine-wizard-a.png','routine-wizard-b.png','intake-history-a.png','intake-history-b.png']) { try { await access(path.join(root, 'design', name)); await mkdir(path.join(output, 'previews'), { recursive: true }); await cp(path.join(root, 'design', name), path.join(output, 'previews', name)); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
+  // Public design samples contain synthetic data only and stay outside offline cache.
+  for (const name of ['duomenu-eksportas-a.pdf','duomenu-eksportas-b.pdf','duomenu-eksportas-a-1.png','duomenu-eksportas-b-1.png']) { await mkdir(path.join(output,'exports'),{recursive:true}); await cp(path.join(root,'design','exports',name),path.join(output,'exports',name)); }
   await writeFile(path.join(output, '.starter-build'), version + '\n');
   return { output, version, assets: files, config };
 }
