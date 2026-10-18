@@ -15,7 +15,7 @@ body::before,html[data-theme="light"] body::before { background:transparent; }
 /* Keep all scrolling cards/table paint in one lower stacking context. WebKit
    otherwise lets composited rows compete with the fixed glass navigation. */
 main { position:relative;z-index:0;isolation:isolate;padding-bottom:calc(env(safe-area-inset-bottom) + 112px); }
-.app-nav { position:fixed;z-index:15;left:50%;top:calc(var(--app-height,100dvh) - env(safe-area-inset-bottom) - 84px);bottom:auto;transform:translate3d(-50%,0,0);isolation:isolate;display:flex;width:clamp(280px,70vw,400px);height:66px;gap:2px;margin:0;padding:4px;border:1px solid #25312b22;border-radius:999px;background:transparent;box-shadow:0 3px 16px #25312b08,inset 0 1px 2px #fff;backdrop-filter:none;-webkit-backdrop-filter:none; }
+.app-nav { position:fixed;z-index:15;left:50%;right:auto;max-width:none;max-height:none;overflow:visible;top:calc(var(--app-height,100dvh) - env(safe-area-inset-bottom) - 84px);bottom:auto;transform:translate3d(-50%,0,0);isolation:isolate;display:flex;width:clamp(280px,70vw,400px);height:66px;gap:2px;margin:0;padding:4px;border:1px solid #25312b22;border-radius:999px;background:transparent;box-shadow:0 3px 16px #25312b08,inset 0 1px 2px #fff;backdrop-filter:none;-webkit-backdrop-filter:none; }
 /* Blur only the glass surface, not the interactive icon/text layer. The
    translated outer shell owns a stable compositor layer during iPhone scroll. */
 .app-nav::before { content:'';position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;background:linear-gradient(160deg,#ffffffeb,#fffffff5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px); }
@@ -26,6 +26,10 @@ html[data-theme="dark"] .app-nav { border-color:#edf1e728;background:transparent
 html[data-theme="dark"] .app-nav::before { background:linear-gradient(160deg,#2b352fef,#202a24f5); }
 html[data-theme="dark"] .app-nav a[aria-current="page"] { background:#3a473d; }
 html[data-keyboard="true"] .app-nav { visibility:hidden;pointer-events:none; }
+/* Nonmodal top-layer nav has no full-screen surface or input interception. */
+.app-nav::backdrop { background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;pointer-events:none; }
+.app-nav[hidden] { display:none!important; }
+.app-nav[popover]:not(:popover-open) { display:none; }
 .app-nav a:focus-visible { outline:2px solid var(--green);outline-offset:-3px; }
 .app-toast { bottom:calc(env(safe-area-inset-bottom) + 96px); }
 .eyebrow { color:var(--muted);font-size:10px;letter-spacing:1.4px;font-weight:600;line-height:1.6;text-transform:uppercase; }

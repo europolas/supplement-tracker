@@ -1,3 +1,31 @@
+## 0.31.1 — persistent nonmodal navigation layer
+
+The same iPhone partial-navigation overpaint was reported again after 0.30.1.
+Stacking/isolation alone did not eliminate the intermittent physical-device paint
+problem. On engines supporting the Popover API, the existing nav now uses one
+manual nonmodal top-layer surface, independent of the document's asynchronous
+scroll/backdrop/mask painting. Its links, pill shape, translucency, positions,
+size, safe-area clearance and graduated body edge masks are preserved. Reset
+popover UA right/max-size constraints so phone/tablet geometry stays identical.
+There is no fullscreen backdrop, light-dismiss or focus trap.
+
+renderNavigation opens only after authenticated startup is revealed, and closes
+on logout. Repeated dashboard/locale/Taken updates do not set the attribute again
+or promote an already open nav, so subsequently opened native dialogs remain
+above it. Keyboard visibility stays CSS-driven. Unsupported engines retain the
+original fixed navigation. No shared library, API or database change.
+
+Regression covers top-layer state, high-z masked body edge, all tabs/scroll
+positions, refresh/Take, Escape, modal ordering through background refresh,
+logout, startup, fallback and unchanged 320/402/768px geometry. Desktop Chromium
+cannot certify the intermittent physical-iPhone compositor behavior. Local WebKit
+cannot launch because the host lacks its GTK/GStreamer dependencies.
+Validation: 42 unit tests pass; 86 full-suite browser cases pass and the final
+2 focused lifecycle/fallback cases pass after correcting their mock fixture.
+Read-only live review passes all three tabs, both themes, three scroll offsets,
+modal ordering and logout. Actual screenshots inspected with safe-area emulation.
+Reference: https://webkit.org/blog/14445/webkit-features-in-safari-17-0/#popover
+
 ## 0.31.0 — earlier AI conclusions and export design samples
 
 Account → Tools → AI conclusion history opens the existing conclusion bottom sheet

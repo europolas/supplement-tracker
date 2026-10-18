@@ -418,6 +418,18 @@ function finishStartup(){
  document.documentElement.dataset.starting='false';get('startup-screen').hidden=true;
  const route=current()?'/':'/account';router.navigate(route);showRoute(route);
 }
+// A manual, nonmodal top-layer navigation cannot be clipped/overpainted by
+// iPhone asynchronous scroll/backdrop layers. Open once per authenticated launch:
+// repeatedly promoting it during polling would put it above an existing dialog.
+// Older engines keep the original fixed navigation; no focus trap or backdrop.
+function renderNavigation(visible){
+ const nav=get('app-nav');
+ if(typeof nav.showPopover==='function'){
+  if(nav.getAttribute('popover')!=='manual')nav.setAttribute('popover','manual');
+  if(visible){nav.hidden=false;if(!nav.matches(':popover-open'))nav.showPopover();}
+  else{if(nav.matches(':popover-open'))nav.hidePopover();nav.hidden=true;}
+ }else nav.hidden=!visible;
+}
 function render(){
  get('startup-progress').setAttribute('aria-label',i18n.t('appLoading'));
  get('startup-progress').setAttribute('aria-valuenow',String(appReady?80:current()?55:30));
@@ -426,7 +438,7 @@ function render(){
  get('diagnostics-link').hidden=!current();renderAccount();renderDiagnostics();
  i18n.render(document);get('app-version').textContent=i18n.t('version',{version:config.version});
  get('network-status').textContent=network.state.get().online?'':i18n.t('appOffline');
- get('app-nav').hidden=!current();get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');usageCalendar.languageChanged();wellbeing.languageChanged();conclusion.languageChanged();get('conclusion-home').hidden=!current()||!state.supplements.some(s=>state.groups.some(g=>g.id===s.group_id));renderHome();renderRoutineCheck();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
+ renderNavigation(Boolean(current())&&!booting&&document.documentElement.dataset.starting!=='true');get('route-dialog').querySelector('[data-sheet-close]').hidden=!current();get('route-title').textContent=router?.current==='/detail'?'':i18n.t(router?.current==='/diagnostics'?'appDiagnostics':'appAccount');usageCalendar.languageChanged();wellbeing.languageChanged();conclusion.languageChanged();get('conclusion-home').hidden=!current()||!state.supplements.some(s=>state.groups.some(g=>g.id===s.group_id));renderHome();renderRoutineCheck();renderGroups();if(router?.current==='/detail')renderDetail();renderAi();
  get('group-form-title').textContent=i18n.t(get('group-form').elements.id.value?'appEditGroup':'appNewGroup');if(get('group-dialog').open)renderGroupIconOptions();
  renderUploadQueue();
 }
