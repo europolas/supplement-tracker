@@ -1,3 +1,4 @@
+import {intakeSlots} from '../modules/src/intake-plan.js';
 /** UI contract checks use fake accounts/provider results; never touch production DB. */
 import {test,expect,chromium} from '@playwright/test';
 import {mkdtemp,rm} from 'node:fs/promises';
@@ -5,8 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 const group='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222';
 const user={id:'33333333-3333-4333-8333-333333333333',email:'test@example.test',name:'Test',role:'user'};
-async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false,compatibilityMode='',partialDiagnostics=false,localization=false,detailFailed=false,design=false,compactReport=false,routine=false,routineProfile=null}={}){
- let paused=false,resumeOn=null;
+async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,progressive=false,queue=false,fallback=false,unknownDose=false,preloaded=false,labelProduct=false,conflict=false,basic=false,groupReview=false,hybrid=false,gemini=false,compatibilityMode='',partialDiagnostics=false,localization=false,detailFailed=false,design=false,compactReport=false,routine=false,routineProfile=null,intake=false}={}){
+ let paused=false,resumeOn=null,intakePlan=null,intakeRevision=0,stockRemaining=null,stockThreshold=7;const intakeDone=new Map();
  let savedRoutine=structuredClone(routineProfile),routineRevision=0,routineSaveFails=false;
  let localeReady=false,completed=false,added=preloaded,started=hybrid||gemini,configured=true,release,terminalJob=null,researchRequested=false,reviewApplied=false,released=false,detailsReady=!progressive;
  let routineStarted=false,routineReady=false;const routineDecisions=new Map(),routineGroups=new Map(),routineJob='99999999-9999-4999-8999-999999999999',routineIds=['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'];
@@ -15,6 +16,8 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
   const request=route.request(),path=new URL(request.url()).pathname.replace('/supplement-api','');requests.push({path,method:request.method()});
   let result={ok:true},httpStatus=200;
   const ai={configured,routine:savedRoutine,routineRevision,model:gemini?'gemini-3.8-flash':'grok-4.7',models:[gemini?'gemini-3.8-flash':'grok-4.7']};
+  if(intake&&path.endsWith('/intake')){const body=request.postDataJSON();if(body.revision!==intakeRevision){await route.fulfill({status:409,json:{error:'INTAKE_CHANGED'}});return;}intakePlan=body.plan;stockRemaining=body.stock.remaining;stockThreshold=body.stock.lowThreshold;intakeRevision++;await route.fulfill({json:{ok:true,revision:intakeRevision,scheduleChanged:true,effectiveDay:new Date().toLocaleDateString('sv-SE')}});return;}
+  if(intake&&path.endsWith('/completion')){const body=request.postDataJSON(),slot=body.slot||'daily';if(body.completed&&!intakeDone.has(slot)){const debit=stockRemaining===null?0:Math.min(stockRemaining,intakePlan?.quantity||1);if(stockRemaining!==null)stockRemaining-=debit;intakeDone.set(slot,debit);intakeRevision++;}else if(!body.completed&&intakeDone.has(slot)){if(stockRemaining!==null)stockRemaining+=intakeDone.get(slot);intakeDone.delete(slot);intakeRevision++;}await route.fulfill({json:{ok:true}});return;}
   if(path==='/v1/settings/routine'){if(request.method()==='PUT'){const body=request.postDataJSON();if(routineSaveFails){routineSaveFails=false;await route.fulfill({status:500,json:{error:'REQUEST_FAILED'}});return;}if(body.revision!==routineRevision){await route.fulfill({status:409,json:{error:'COLLECTION_CHANGED'}});return;}savedRoutine=body.routine;routineRevision++;}await route.fulfill({json:{routine:savedRoutine,revision:routineRevision}});return;}
   if(routine&&path==='/v1/rechecks'&&request.method()==='POST'){routineStarted=true;routineReady=false;await route.fulfill({json:{id:routineJob,status:'running'}});return;}
   if(routine&&path==='/v1/rechecks'){const proposals=routineReady?routineIds.filter(id=>!routineDecisions.has(id)).map((proposalId,i)=>({jobId:routineJob,id:proposalId,supplementId:i?'77777777-7777-4777-8777-777777777777':id,name:i?'Second supplement':'Example supplement',manufacturer:i?'Other brand':'Example',from:{id:group,name:'With a meal'},to:{id:'44444444-4444-4444-8444-444444444444',name:'With fats'},reason:'With food.'})):[];const latest=routineStarted?{id:routineJob,status:routineReady?'complete':'running',phase:'enriching',total_count:3,proposedCount:2}:null;await route.fulfill({json:{active:routineStarted&&!routineReady?latest:null,latest,proposals}});return;}
@@ -67,6 +70,7 @@ async function mock(page,{waitAnalysis=false,failAnalysis=false,batch=false,prog
   if(compactReport&&result.job?.status==='complete'){result.job.total_count=3;result.job.result={groupChangesTracked:true,items:[{id,name:'Ready product',status:'added',research:'complete',groupChange:{from:{id:group,name:'With a meal'},to:{id:'44444444-4444-4444-8444-444444444444',name:'With fats'}}},{id:'11111111-4444-4444-8444-444444444444',name:'Failed product',status:'added',research:'failed'},{id:'22222222-4444-4444-8444-444444444444',name:'Pending product',status:'added',research:'researching'}],skipped:[]};}
   if(routine&&path==='/v1/dashboard'&&added){const original=result.supplements[0];result.groups.push({id:'44444444-4444-4444-8444-444444444444',name:'With fats',description:'With fat-containing food'});result.supplements=[{...original,name:'Example supplement'},...['Second supplement','Unchanged supplement'].map((name,i)=>({...original,id:i?'88888888-8888-4888-8888-888888888888':'77777777-7777-4777-8777-777777777777',name,analysis:{...original.analysis,manufacturer:i?'Third brand':'Other brand'}}))].map(p=>({...p,group_id:routineGroups.get(p.id)||p.group_id}));}
   if(path==='/v1/dashboard')result.supplements=result.supplements.map(s=>({...s,paused,resume_on:resumeOn}));
+  if(intake&&path==='/v1/dashboard'&&added){const item=result.supplements[0],occurrences=intakeSlots(intakePlan,result.day).map(s=>({...s,completed:intakeDone.has(s.slot)}));Object.assign(item,{intake_plan:intakePlan,intake_revision:intakeRevision,stock_remaining:stockRemaining,stock_threshold:stockThreshold,occurrences,scheduledToday:occurrences.length>0,completed:occurrences.length>0&&occurrences.every(s=>s.completed)});}
   if(path==='/v1/dashboard'&&groupOrder.length)result.groups.sort((a,b)=>groupOrder.indexOf(a.id)-groupOrder.indexOf(b.id));
   await route.fulfill({status:httpStatus,json:result});
  });
@@ -744,4 +748,33 @@ test('blocked worker registration releases launch screen within bounded startup 
  await expect(page.locator('#startup-screen')).toBeVisible();
  await expect(page.locator('#startup-screen')).toBeHidden({timeout:6500});
  await expect(page.locator('#login-form')).toBeVisible();
+});
+
+test('product schedule and inventory save, separate occurrences debit and undo actual stock',async({page})=>{
+ const fake=await mock(page,{preloaded:true,intake:true});await login(page);await page.locator('.supplement-open').click();
+ await page.locator('.intake-settings>summary').click();const form=page.locator('[data-intake-form]');
+ await form.locator('[name=count]').selectOption('2');await form.locator('[name=time0]').fill('08:00');await form.locator('[name=time1]').fill('20:00');await form.locator('[name=quantity]').selectOption('2');
+ await form.locator('[name=tracking]').check();await form.locator('[name=remaining]').fill('3');await form.locator('[name=threshold]').fill('1');
+ await form.getByRole('button',{name:'Save',exact:true}).click();await expect(form.getByRole('status')).toContainText('saved');
+ await page.screenshot({path:'.runtime/intake-settings-light.png',animations:'disabled'});
+ await page.locator('#route-dialog [data-sheet-close]').click();await expect(page.locator('.supplement-row')).toHaveCount(2);await expect(page.locator('#progress-count')).toHaveText('0 / 2');
+ await page.locator('.supplement-row[data-slot="08:00"] .check-button').click();await expect(page.locator('#progress-count')).toHaveText('1 / 2');await expect(page.locator('.stock-badge').first()).toContainText('1 remaining');
+ await page.locator('.supplement-row[data-slot="20:00"] .check-button').click();await expect(page.locator('#progress-count')).toHaveText('2 / 2');await expect(page.locator('.stock-badge').first()).toContainText('0 remaining');
+ await page.locator('.supplement-row[data-slot="20:00"] .check-button').click();await expect(page.locator('#progress-count')).toHaveText('1 / 2');await expect(page.locator('.stock-badge').first()).toContainText('1 remaining');
+ expect(fake.requests.filter(r=>r.path.endsWith('/research')||r.path==='/v1/supplements/jobs'&&r.method==='POST')).toEqual([]);
+});
+test('off days remain reachable without counting as due and edits survive refresh with conflict recovery',async({page})=>{
+ await mock(page,{preloaded:true,intake:true});await login(page);await page.locator('.supplement-open').click();await page.locator('.intake-settings>summary').click();let form=page.locator('[data-intake-form]');
+ await form.locator('[name=mode]').selectOption('weekdays');const today=(new Date().getDay()||7),other=today===7?1:today+1;
+ for(const b of await form.locator('[data-weekday]').all())if(await b.getAttribute('aria-pressed')==='true')await b.click();await form.locator(`[data-weekday="${other}"]`).click();
+ await form.getByRole('button',{name:'Save',exact:true}).click();await expect(form.getByRole('status')).toContainText('saved');await page.locator('#route-dialog [data-sheet-close]').click();
+ await expect(page.locator('.supplement-row')).toHaveCount(0);await expect(page.locator('#progress-count')).toHaveText('0 / 0');await page.locator('.rest-day-supplements>summary').click();await page.locator('.rest-day-open').click();await page.locator('.intake-settings>summary').click();form=page.locator('[data-intake-form]');
+ await form.locator('[name=mode]').selectOption('interval');await form.locator('[name=intervalDays]').selectOption('3');await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(form.locator('[name=intervalDays]')).toHaveValue('3');
+ await page.route('**/supplements/*/intake',route=>route.fulfill({status:409,json:{error:'INTAKE_CHANGED'}}));await form.getByRole('button',{name:'Save',exact:true}).click();await expect(form.locator('.status-error')).toContainText('changed');await expect(form.locator('[name=intervalDays]')).toHaveValue('3');
+ await form.getByRole('button',{name:'Cancel',exact:true}).click();await expect(form.locator('[name=mode]')).toHaveValue('weekdays');
+});
+test('intake native controls fit narrow phones and translate in dark mode',async({page})=>{
+ await mock(page,{preloaded:true,intake:true});await login(page);await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#settings-form [name=theme]').selectOption('dark');await page.locator('#app-nav [data-route="/"]').click();await page.locator('.supplement-open').click();await page.locator('.intake-settings>summary').click();
+ const form=page.locator('[data-intake-form]');await expect(form).toContainText('Vartojimo grafikas');await form.locator('[name=mode]').selectOption('interval');await form.locator('[name=count]').selectOption('3');await form.locator('[name=tracking]').check();
+ for(const width of [320,402,768]){await page.setViewportSize({width,height:874});expect(await form.evaluate(n=>n.scrollWidth>n.clientWidth)).toBe(false);for(const c of await form.locator('input:not([type=checkbox]),select').all()){if(await c.isVisible()){const fits=await c.evaluate(n=>{const r=n.getBoundingClientRect(),p=n.closest('form').getBoundingClientRect();return r.width>0&&r.height===46&&r.left>=p.left-1&&r.right<=p.right+1;});expect(fits).toBe(true);}}await form.locator('h3').first().scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/intake-dark-lt-'+width+'.png',animations:'disabled'});}
 });

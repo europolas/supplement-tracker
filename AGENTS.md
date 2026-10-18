@@ -1,3 +1,41 @@
+## 0.29.0 — supplement inventory and recurring usage schedules
+
+The product detail sheet has a Schedule and stock disclosure styled like existing
+controls, with explicit Save/Cancel. Frequency supports daily, selected ISO weekdays
+or every 2–90 local-calendar days from a chosen date. Up to six distinct exact times
+and an explicit integer quantity/unit per occurrence. No AI dosage inference and no
+notifications. An untimed daily plan remains the backwards-compatible default.
+
+Inventory is optional, owner-scoped and configured on the same product page:
+remaining amount, low-stock threshold, and direct remaining-count adjustment after
+refill. Low stock appears on Home and in the editor. Completion and stock movement
+share an owner/product transaction. Unique (product, local day, slot) makes repeated
+or concurrent Taken requests idempotent. Undo credits only the actual debit; stock
+never becomes negative and zero stock does not block recording a real intake.
+Tracking epochs prevent pre-disable undo events from inventing new inventory.
+
+Home shows/checks each scheduled occurrence independently; the ring counts intakes.
+Rest-day products remain reachable in a Not scheduled today disclosure and do not
+count as pending/missed. Paused products retain existing pause behavior. Usage
+calendar projects immutable plan versions plus each completion's time, amount,
+unit and historical group snapshot. New schedules start today only with no recorded
+intakes; otherwise tomorrow. Subsequent edits cannot rewrite older days. Inventory
+changes apply immediately. Existing completion records migrate to the daily slot.
+
+Drafts survive polling/native picker focus; Save uses intake revision checks and
+conflicts retain the draft. Cancel loads the latest known state; closing/logout
+clears it and invalidates late saves. Unsaved/busy intake edits guard manual updates.
+Schedule context reaches private Recheck/Conclusion synthesis and invalidates old
+reports/proposals semantically; stock and Taken changes do not invalidate reports.
+Manufacturer facts/ingredient mg stay separate from the user's inventory units.
+
+Migration 015_intake_stock adds plan/inventory fields, immutable plan history and
+occurrence-level completion columns/key. Apply before starting the new API. User
+and product deletion cascade through the new history; existing data stays intact.
+No new secrets or paid provider calls. Shared pure intake-plan functions contributed
+to canonical pwa-toolkit/app-modules 1.13.0 and copied for the isolated API container.
+See modules/docs/INTAKE-PLAN.md for contracts and validation.
+
 ## 0.28.0 — app-modules 1.12.2 and launch-only automatic updates
 
 Upgraded the copied shared library from 1.11.1 to canonical pwa-toolkit 1.12.2

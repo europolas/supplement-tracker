@@ -1,3 +1,4 @@
+import {createIntakeEditor} from './intake-editor.js';
 import appEn from './translations/en.js';
 import appLt from './translations/lt.js';
 /** Cloud tracker composition. Reuses toolkit auth/forms/viewport/worker and never
@@ -103,6 +104,12 @@ const routineWizard=createRoutineWizard({dialog:get('routine-wizard-dialog'),edi
 }});
 const conclusion=createRoutineConclusion({dialog:get('conclusion-dialog'),root:get('conclusion-content'),i18n,request:(path,options)=>api.request(path,options),configured:()=>Boolean(state.ai?.configured),onRoutine:()=>routineWizard.open({...state.ai,firstIncomplete:true}),onAccepted:()=>load(false),onError:error=>err(error)});
 get('open-conclusion').addEventListener('click',()=>void conclusion.open());
+const intakeEditor=createIntakeEditor({i18n,icon,today:()=>state.day||localDay(),save:async(id,body)=>{
+ const session=current();writes++;renderRoutineLoading();
+ try{const response=await api.request('/v1/supplements/'+id+'/intake',{method:'PUT',body});if(session!==current())throw new Error('REQUEST_FAILED');await load(false);if(session!==current())throw new Error('REQUEST_FAILED');return {response,item:state.supplements.find(s=>s.id===id)};}
+ finally{writes--;renderRoutineLoading();}
+}});
+get('route-dialog').addEventListener('close',()=>intakeEditor.reset());
 const usageCalendar=createUsageCalendar({root:get('usage-content'),i18n,icon,groupIcon:renderGroupIcon,request:(path,options)=>api.get(path,options),onProduct:id=>router.navigate('/detail?id='+encodeURIComponent(id)),isActive:()=>Boolean(current()&&router?.current==='/usage')});
 get('open-routine-wizard').addEventListener('click',()=>routineWizard.open(state.ai||{}));
 
@@ -124,7 +131,7 @@ const notify=(message,error=false)=>toast.show(message,error);
 function failure(error){notify(err(error),true);}
 function status(id,text,error=false){get(id).textContent=text;get(id).dataset.error=String(error);}
 function resetSession(){
- void routeSheet.close({immediate:true});void usageSheet.close({immediate:true});get('route-header').querySelector('.detail-name')?.remove();usageCalendar.reset();routineWizard.reset();conclusion.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
+ void routeSheet.close({immediate:true});void usageSheet.close({immediate:true});get('route-header').querySelector('.detail-name')?.remove();usageCalendar.reset();intakeEditor.reset();routineWizard.reset();conclusion.reset();pauseTarget=null;pauseSaving=false;void pauseSheet.close({immediate:true});
  routineChecks={active:null,latest:null,proposals:[]};recheckBusy=false;recheckStarting=false;get('recheck-content').replaceChildren();recheckAbort?.abort();recheckWatcher=null;void recheckSheet.close({immediate:true});
  groupDrag=null;get('profile-form').hidden=true;get('connection-editor').open=false;
  appReady=false;collectionEpoch++;uploadQueueExpanded=false;localizationAttempts.clear();localizationSending=false;
@@ -165,7 +172,8 @@ async function ensureLanguage(){
  catch(error){if(session===current())failure(error);}finally{if(session===current())localizationSending=false;}
 }
 // Effective pause comes from the server, including automatic return in its saved zone.
-const activeSupplements=()=>state.supplements.filter(item=>!item.paused);
+const activeSupplements=()=>state.supplements.filter(item=>!item.paused&&item.scheduledToday!==false);
+const todayOccurrences=item=>item.occurrences||[{slot:'daily',time:null,quantity:1,unit:'unit',completed:item.completed}];
 function pauseStatus(item){return i18n.t(item.resume_on?'appPausedUntil':'appPausedManual',item.resume_on?{date:new Intl.DateTimeFormat(i18n.language,{dateStyle:'medium'}).format(new Date(item.resume_on+'T12:00:00'))}:{});}
 function openPause(item){
  if(pauseSaving)return;
@@ -187,7 +195,7 @@ function renderHome(){
  const active=activeSupplements();
  get('routine-note').hidden=!active.some(s=>s.analysis.schemaVersion==='draft-1');
  get('today-date').textContent=new Intl.DateTimeFormat(i18n.language,{weekday:'short',month:'short',day:'numeric'}).format(new Date());
- const done=active.filter(s=>s.completed).length,total=active.length;
+ const occurrences=active.flatMap(todayOccurrences),done=occurrences.filter(s=>s.completed).length,total=occurrences.length;
  get('today-progress').textContent=i18n.t('trackerProgress',{done,total});
  get('progress-count').textContent=done+' / '+total;get('progress-ring').setAttribute('aria-label',get('today-progress').textContent);
  get('progress-arc').setAttribute('stroke-dasharray',(total?100*done/total:0)+' 100');
@@ -207,22 +215,25 @@ function renderHome(){
   head.append(labels);if(group.id){const edit=button('',()=>openGroup(group),'group-edit');edit.setAttribute('aria-label',i18n.t('appEdit')+': '+group.name);edit.append(icon('chevron'));head.append(edit);}section.append(head);
   const list=element('table',{className:'supplement-table',attributes:{'aria-label':group.name}}),body=element('tbody');list.append(body);
   if(!rows.length){const emptyRow=element('tr');emptyRow.append(element('td',{text:i18n.t('appGroupEmpty'),className:'group-empty',attributes:{colspan:'2'}}));body.append(emptyRow);}
-  for(const item of rows){
+  for(const product of rows)for(const occurrence of todayOccurrences(product)){
+   const item={...product,completed:occurrence.completed};
    const isResearching=item.analysis.localizationNeeded||['queued','researching'].includes(item.analysis.enrichment?.status);
-   const row=element('tr',{className:'supplement-row'+(item.completed?' is-done':'')+(isResearching?' is-researching':''),attributes:{'aria-busy':String(isResearching)}});row.dataset.id=item.id;
+   const row=element('tr',{className:'supplement-row'+(item.completed?' is-done':'')+(isResearching?' is-researching':''),attributes:{'aria-busy':String(isResearching)}});row.dataset.id=item.id;row.dataset.slot=occurrence.slot;
    const open=button('',()=>router.navigate('/detail?id='+encodeURIComponent(item.id)),'supplement-open');
    const label=productLabel({name:item.name,manufacturer:item.analysis.manufacturer,variant:item.analysis.variant});
-   open.append(element('strong',{text:label.name,className:'product-title'}));
+   open.append(element('strong',{text:label.name+(occurrence.time?' · '+occurrence.time:''),className:'product-title'}));
    const summary=item.analysis.benefitTags?.length?item.analysis.benefitTags.slice(0,3).map(b=>b[i18n.language]||b.en).join(', '):compactText(item.analysis.benefitSummary||item.analysis.benefits?.[0]||item.analysis.whenToUse);
    const meta=element('span',{className:'summary'});if(label.manufacturer)meta.append(element('b',{text:label.manufacturer,className:'product-manufacturer'}));if(summary)meta.append(document.createTextNode((label.manufacturer?' · ':'')+summary));if(meta.textContent)open.append(meta);
    if(item.analysis.localizationNeeded)open.append(element('span',{text:i18n.t('appTranslationOriginalShort'),className:'research-badge'}));
    else if(item.analysis.enrichment&&item.analysis.enrichment.status!=='complete')open.append(element('span',{text:i18n.t('appInfo_'+item.analysis.enrichment.status),className:'research-badge'}));
 
-   const check=button('',async()=>{if(check.disabled)return;check.disabled=true;await mutate(()=>api.request('/v1/supplements/'+item.id+'/completion',{method:'PUT',body:{completed:!(state.day===localDay()&&item.completed),timezone:zone()}}));check.disabled=false;},'check-button');
+   if(item.stock_remaining!==null&&item.stock_remaining!==undefined&&item.stock_remaining<=item.stock_threshold)open.append(element('span',{text:i18n.t('appIntakeLowStock',{count:item.stock_remaining}),className:'stock-badge'}));
+   const check=button('',async()=>{if(check.disabled)return;check.disabled=true;await mutate(()=>api.request('/v1/supplements/'+item.id+'/completion',{method:'PUT',body:{completed:!(state.day===localDay()&&item.completed),slot:occurrence.slot,timezone:zone()}}));check.disabled=false;},'check-button');
    check.setAttribute('aria-label',i18n.t(item.completed?'appUntake':'appTake',{name:item.name}));check.setAttribute('aria-pressed',String(item.completed));
    check.append(element('span',{text:'✓',className:'check-ring',attributes:{'aria-hidden':'true'}}));const checkCell=element('td'),nameCell=element('td');checkCell.append(check);nameCell.append(open);row.append(checkCell,nameCell);body.append(row);
   }section.append(list);container.append(section);
  });
+ const resting=state.supplements.filter(s=>!s.paused&&s.scheduledToday===false);if(resting.length){const box=element('details',{className:'surface rest-day-supplements'});box.append(element('summary',{text:i18n.t('appIntakeNotTodayCount',{count:resting.length})}));for(const item of resting){const open=button(item.name,()=>router.navigate('/detail?id='+encodeURIComponent(item.id)),'rest-day-open');box.append(open);}container.append(box);}
 }
 // Icons are decoration only; group assignment remains the server's decision.
 function renderGroupIcon(group){try{return parseCustomIcon(group?.icon)||icon(groupSymbol(group?.name||''));}catch{return icon(groupSymbol(group?.name||''));}}
@@ -300,6 +311,8 @@ get('profile-form').addEventListener('app:saved',()=>{get('profile-form').hidden
 function renderDetail(){
  const id=new URLSearchParams(location.hash.split('?')[1]||'').get('id');
  const item=state.supplements.find(s=>s.id===id),container=get('supplement-detail');
+ if(item)intakeEditor.refresh(item);
+ if(intakeEditor.isEditing(id))return;
  const previous=container.querySelector('details[data-supplement-id]'),expanded=previous?.dataset.supplementId===id&&previous.open;
  container.replaceChildren();
  if(!item){container.append(element('p',{text:i18n.t('appDetailMissing')}));return;}
@@ -377,7 +390,7 @@ function renderDetail(){
  }
  const pause=button(i18n.t(item.paused?'appResumeSupplement':'appPauseSupplement'),async()=>{if(item.paused){pause.disabled=true;await resumeSupplement(item);}else openPause(item);},'secondary pause-supplement');
  const actions=element('div',{className:'detail-actions'});actions.append(pause,refresh,remove);
- card.append(groupControls,actions);
+ card.append(intakeEditor.mount(item),groupControls,actions);
  if(pending||basic&&analysis.enrichment?.status==='failed')card.append(element('p',{text:i18n.t('appInfo_'+analysis.enrichment.status),className:'research-badge',attributes:{role:'status'}}));
  container.append(card);
 }
@@ -662,14 +675,14 @@ function refreshDay(){
  usageCalendar.refreshDay();
  // Native photo pickers fire focus/visibility events even on cancel. The open
  // composer owns that interaction; real upload jobs keep their separate polling.
- if(state.day!==localDay()){state.day=localDay();state.supplements=state.supplements.map(item=>({...item,completed:false}));renderHome();}
+ if(state.day!==localDay()){state.day=localDay();state.supplements=state.supplements.map(item=>({...item,completed:false,occurrences:item.occurrences?.map(s=>({...s,completed:false}))}));renderHome();}
  if(current()&&document.visibilityState==='visible'&&!get('add-dialog').open)load();
 }
 function scheduleMidnight(){clearTimeout(midnightTimer);const next=new Date();next.setHours(24,0,0,50);midnightTimer=setTimeout(()=>{refreshDay();scheduleMidnight();},Math.max(50,next-Date.now()));}
 scheduleMidnight();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshDay();scheduleMidnight();}});
 window.addEventListener('focus',()=>{if(restoringSession&&!current())void auth.restore().catch(failure);else refreshDay();});
 let applyUpdate;
-pwa=await setupPwa({autoUpdate:true,startupTimeout:4000,canReload:()=>!conclusion.busy&&!routineWizard.dirty&&!routineWizard.saving&&!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
+pwa=await setupPwa({autoUpdate:true,startupTimeout:4000,canReload:()=>!intakeEditor.dirty&&!intakeEditor.busy&&!conclusion.busy&&!routineWizard.dirty&&!routineWizard.saving&&!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
  // The module owns automatic activation. Calling apply here would count as a
  // manual action and could reload after the launch screen has already closed.
  onUpdate:({apply})=>{applyUpdate=apply;get('update-button').hidden=false;},onError:()=>{}});

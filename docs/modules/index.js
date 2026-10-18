@@ -52,3 +52,4 @@ export * from './proposal-review.js';
 export * from './activity-calendar.js';
 export * from './report-view.js';
 export * from './pause-editor.js';
+export * from './intake-plan.js';

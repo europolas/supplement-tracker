@@ -1,3 +1,13 @@
+## 1.13.0 — recurring intake plans and stock arithmetic
+
+Added dependency-free intake-plan primitives for browser/server use: daily,
+selected ISO weekdays and every-N-local-calendar-days plans, up to six distinct
+wall-clock times, explicit quantities/units and stock debit/undo capped at actual
+remaining/debited quantities. Null retains one legacy daily occurrence. The host
+owns transactions, unique occurrence keys, immutable plan history and inventory
+epochs. No AI/medical dosage inference, database, notifications or timers.
+See docs/INTAKE-PLAN.md for validation and persistence contracts.
+
 # App Modules pakeitimai
 
 Bendros bibliotekos įnašai iš „Supplement Tracker“. Šis failas platinamas kartu su

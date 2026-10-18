@@ -121,3 +121,9 @@ the final update policy. setupPwa now exposes waitForStartup() and finishStartup
 automatic activation is permitted only during startup loading. Call finishStartup
 before interactive content, and keep canReload guards for manual apply().
 Generated apps carry their own starter CHANGELOG.md plus modules/CHANGELOG.md.
+
+## Recurring intake and stock
+
+[intake-plan](../src/intake-plan.js) exports normalizeIntakePlan, intakeSlots,
+and stockChange. See [intake and inventory](INTAKE-PLAN.md) for day/slot identity,
+transaction, historical version and undo requirements. No medical dose policy.

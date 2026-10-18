@@ -176,3 +176,7 @@ Prieš rodant interaktyvų turinį būtina uždaryti langą su `finishStartup()`
 Naudojama programėlė automatiškai nepersikrauna dėl laisvos būsenos, grįžimo
 iš fono, ryšio atsiradimo ar kito lango atnaujinimo. Rankinis `apply()` lieka
 aiškus veiksmas, kuriam vis dar taikomas `canReload`.
+
+Recurring intake plans and inventory arithmetic (1.13.0): see
+[INTAKE-PLAN.md](docs/INTAKE-PLAN.md). Pure functions work in browser and server;
+consumer applications own durable history, transactions and presentation.

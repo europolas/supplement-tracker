@@ -27,3 +27,9 @@ test('historical group labels survive later moves, rename, deletion and same-day
  const current=usageCalendar({...base,groupHistory}).days.find(d=>d.day==='2026-10-16');assert.equal(current.groups[0].id,null);assert.equal(current.groups[0].unknown,false);
  const unknown=usageCalendar({...base,groupHistory:groupHistory.slice(1)}).days.find(d=>d.day==='2026-10-14');assert.equal(unknown.groups[0].unknown,true);assert.equal(unknown.items[0].groupId,null);
 });
+test('recurring schedules count individual slots and never rewrite earlier plans',()=>{
+ const plan={version:1,mode:'weekdays',weekdays:[1,3,5],times:['08:00','20:00'],quantity:2,unit:'capsule'};
+ const intakeHistory=[{id:1,supplement_id:'one',effective_day:'2026-10-12',plan},{id:2,supplement_id:'one',effective_day:'2026-10-16',plan:{...plan,mode:'daily',times:[]}}];
+ const days=usageCalendar({...base,intakeHistory,completions:[{supplement_id:'one',local_day:'2026-10-14',slot:'08:00',quantity:2,unit:'capsule',completed_at:'2026-10-14T05:10:00Z'}]}).days;
+ assert.equal(days.find(d=>d.day==='2026-10-13').total,0);assert.equal(days.find(d=>d.day==='2026-10-14').total,2);assert.equal(days.find(d=>d.day==='2026-10-14').counts.taken,1);assert.equal(days.find(d=>d.day==='2026-10-14').counts.missed,1);assert.equal(days.find(d=>d.day==='2026-10-16').total,1);
+});

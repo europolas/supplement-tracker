@@ -94,3 +94,16 @@ IDs still belong to that job's owner, derives duration from original timestamps,
 then repairs batch status only. It retains original per-item failures, original
 created/finished times, and a recovery audit. It never calls AI or changes products.
 The callback-clock fix is regression-tested with real pipeline timing metadata.
+
+### 0.29.0 intake and inventory
+
+Build api/web/migrate images, apply migration 015_intake_stock, then recreate the
+API before exposing frontend 0.29.0. Existing data gets daily-slot defaults; no
+completion quantity is inferred from historical manufacturer dosage. Migration is
+additive except the completion primary key becomes (supplement_id,local_day,slot).
+New owner-scoped intake history has cascade cleanup. No new secrets/providers.
+Run server/scripts/test-isolated.sh against its disposable DB before migration.
+For frontend publication, build to a staging directory, move the previous docs
+directory aside intact, move staging to docs, recreate web, and only then remove
+the previous directory. This keeps an existing Docker bind mount readable during
+replacement. Never use production accounts for inventory/schedule write tests.
