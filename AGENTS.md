@@ -1,3 +1,10 @@
+## 0.30.3 — compact Schedule and stock control
+
+Reset inherited details top padding on the intake disclosure. Its summary and
+border now total the same 50px height as the surrounding group/action controls,
+with matching 13px text and 12px section gap. Expanded form stays in normal flow.
+App-only CSS correction; no shared library, API or data changes.
+
 ## 0.30.2 — aligned supplement detail cards
 
 Composition, Usage, Benefits and additional detail sections use one flex header
