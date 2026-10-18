@@ -904,3 +904,34 @@ test('closing an export cancels late downloads and a server failure keeps the se
  await login(page);await page.locator('.account-link').click();await page.locator('#data-export-link').click();const sheet=page.locator('#data-export-dialog');await sheet.getByRole('button',{name:'Download PDF',exact:true}).click();await expect(sheet.getByRole('progressbar')).toBeVisible();await expect(sheet.locator('[name=from]')).toBeDisabled();await sheet.locator('[data-sheet-close]').click();release();await expect(sheet).toBeHidden();await expect(page.locator('#data-export-content')).toBeEmpty();expect(downloads).toHaveLength(0);
  hold=false;fail=true;await page.locator('#data-export-link').click();const from=await sheet.locator('[name=from]').inputValue();await sheet.getByRole('button',{name:'Download PDF',exact:true}).click();await expect(sheet.getByRole('alert')).toContainText('Another PDF');await expect(sheet.locator('[name=from]')).toHaveValue(from);await expect(sheet.getByRole('button',{name:'Download PDF',exact:true})).toBeEnabled();await sheet.locator('[data-sheet-close]').click();await page.locator('#logout-button').click();await expect(page.locator('#data-export-content')).toBeEmpty();expect(calls).toBe(2);
 });
+
+test('navigation fits the visible iPhone viewport when screen height is taller',async({page})=>{
+ // Installed iOS can report screen.height larger than the visible app viewport.
+ // Keep the verified full-height scroller, but all three tab hit targets must fit.
+ await page.addInitScript(()=>{
+  Object.defineProperty(navigator,'standalone',{configurable:true,get:()=>true});
+  Object.defineProperty(navigator,'userAgent',{configurable:true,get:()=> 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'});
+  Object.defineProperty(screen,'height',{configurable:true,get:()=>956});
+  Object.defineProperty(screen,'width',{configurable:true,get:()=>402});
+ });
+ await mock(page,{design:true,preloaded:true});await login(page);const nav=page.locator('#app-nav');
+ expect(await page.evaluate(()=>document.documentElement.style.getPropertyValue('--app-height'))).toBe('956px');
+ for(const height of [874,792,874]){
+  await page.setViewportSize({width:402,height});
+  for(const route of ['/','/groups','/account']){
+   await nav.locator(`[data-route="${route}"]`).click({force:true});
+   for(const fraction of [0,1]){
+    await page.locator('main').evaluate((n,f)=>n.scrollTop=(n.scrollHeight-n.clientHeight)*f,fraction);
+    await expect.poll(()=>nav.evaluate(n=>{const r=n.getBoundingClientRect();return r.bottom<=visualViewport.height+visualViewport.offsetTop&&r.top>=visualViewport.offsetTop;})).toBe(true);
+    expect(await nav.evaluate(n=>[...n.querySelectorAll('a')].every(a=>{const r=a.getBoundingClientRect();return a.contains(document.elementFromPoint(r.x+r.width/2,r.bottom-4));}))).toBe(true);
+   }
+  }
+  await page.screenshot({path:'.runtime/nav-visible-viewport-'+height+'.png',animations:'disabled'});
+ }
+ // Safari can change only VisualViewport after keyboard/chrome restoration.
+ await page.evaluate(()=>{window.navTestVisible=450;Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>window.navTestVisible});const input=document.createElement('input');input.id='nav-test-editor';document.body.append(input);input.focus();visualViewport.dispatchEvent(new Event('resize'));});
+ await expect(nav).toBeHidden();
+ await page.evaluate(()=>{document.querySelector('#nav-test-editor').remove();window.navTestVisible=720;visualViewport.dispatchEvent(new Event('resize'));window.dispatchEvent(new Event('pageshow'));});
+ await expect(nav).toBeVisible();
+ await expect.poll(()=>nav.evaluate(n=>n.getBoundingClientRect().bottom<=720)).toBe(true);
+});

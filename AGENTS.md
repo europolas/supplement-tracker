@@ -1,3 +1,33 @@
+## 0.33.1 — navigation bounded by the visible iPhone viewport
+
+Repeated partial navigation was previously treated as scroll-layer overpaint
+(0.30.1 isolation/glass split; 0.31.1 manual popover). Those changes cannot repair
+coordinates below the visible viewport. Navigation still used --app-height,
+which setupViewport deliberately sets to full screen.height in installed iPhone
+mode. screen.height and the currently visible browser viewport can differ after
+restoration, browser chrome changes or keyboard dismissal.
+
+src/navigation-viewport.js measures min(innerHeight, visualViewport.height plus
+nonnegative offsetTop), updates --nav-viewport-bottom once per animation frame on
+resize, orientation, visual viewport resize/scroll, pageshow and visibilitychange,
+and offers cleanup. Navigation uses that bound, preserving its existing dimensions,
+safe-area clearance, top-layer lifecycle, modal order and active tab appearance.
+The verified shared full-height main scroller and graduated edge masks are unchanged.
+No toolkit, server or database change. scripts/build includes the new local module.
+
+Regression first failed on the old code with an off-screen tab target when the
+installed screen is taller than its visible viewport. It now covers all tabs,
+scroll ends, 874→792→874px resizing, visual-only keyboard resize and pageshow restore.
+Desktop emulation does not certify every physical iPhone/WebKit rendering state.
+
+Validation: 42 unit and all 91 Chromium browser checks pass. The viewport
+regression also passes in WebKit 27.2 in an isolated disposable container with
+local static assets and mocked API responses on the same origin (no production
+write/provider call). Live read-only review passes all three tabs, both themes,
+three scroll positions and modal/logout ordering with a shortened visual viewport,
+no browser errors; actual Account-at-bottom screenshot inspected. Earlier cross-origin WebKit attempts failed at CORS
+preflight before login; the same-origin harness isolates the layout behavior.
+
 ## 0.33.0 — private period PDF export, selected B layout
 
 Account → Tools → Data export opens the standard bottom sheet, with 7/30/90-day

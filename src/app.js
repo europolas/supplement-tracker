@@ -1,3 +1,4 @@
+import {setupNavigationViewport} from './navigation-viewport.js';
 import {createDataExport} from './data-export.js';
 import {createWellbeingJournal} from './wellbeing-journal.js';
 import {createIntakeEditor} from './intake-editor.js';
@@ -77,7 +78,7 @@ const get=id=>document.getElementById(id),storage=createStorage(config.id);
 const settings=createSettings(storage,{language:config.language,theme:config.theme},{language:v=>['en','lt'].includes(v),theme:v=>['light','dark','system'].includes(v)});
 const theme=createTheme({storage}),i18n=createI18n({en:{...dictionaries.en,...appEn},lt:{...dictionaries.lt,...appLt}},settings.state.get().language),toast=createToast(get('toast')),network=watchNetwork();
 theme.set(settings.state.get().theme);
-setupViewport();setupGestures(config.interaction);
+setupViewport();setupNavigationViewport();setupGestures(config.interaction);
 // This is a trusted bundled template; user and AI content always use textContent.
 get('account-forms').append(document.createRange().createContextualFragment(await(await fetch('./account.html')).text()));
 for(const node of get('account-forms').querySelectorAll('[data-icon]'))node.append(icon(node.dataset.icon));
