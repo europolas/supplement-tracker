@@ -1,3 +1,51 @@
+## 0.32.0 — scored conclusions, period-focused PDF designs and retained usage
+
+Conclusion synthesis now returns a strict score {value:integer 0..100,explanation}
+using one stable rubric: supplement selection/known overlap 30, group/timing fit
+30, complete routine/goals fit 40. This assesses plan coherence, not health,
+proven benefit, safety or unprovided adherence/wellbeing. More products/higher doses
+never earn points by themselves. No new provider stage or automatic generation.
+Validation rejects missing/malformed/out-of-range scores on new responses. Current
+and archived reports retain/show the returned value and explanation; history rows
+show a short score label. Legacy reports are explicitly unscored, not fabricated
+or regenerated. Score 0 is preserved. Existing profile consent stays unchanged;
+private journal observations are still absent from AI requests.
+
+Migration 018 adds deleted_at and lifetime first_taken_at, backfilled from real
+completions. A privileged AFTER INSERT trigger retains first_taken_at after Undo.
+Single removal uses owner/product locks shared with Taken/AI commits: never-used
+products are deleted; products ever marked Taken are hidden and retained. Bulk
+Clear all removes active records with the same rule and preserves usage, while its
+existing job/latest/archived-conclusion clearing behavior remains. Account deletion
+still cascades all owned data. Updated clear helper explains retained usage/groups.
+
+Dashboard, recognition matching/deduplication, research/localization, Recheck,
+Conclusion snapshots and mutation lookups exclude deleted_at rows. Background
+writes cannot revive them. A newly submitted matching name/photo gets a fresh UUID,
+default plan/stock and no inherited completion. Replaying the exact old request ID
+remains idempotent rather than a new submission. Group deletion still unassigns
+all retained rows before the group FK cascade; completion/group snapshots survive.
+
+Usage reads include retained products, original names/brands, per-day plans and
+group snapshots. Recorded occurrences remain on their real day; unrecorded slots
+stop at removal, so no future pending/missed entries appear. A removed product's
+history row is readable and labelled, without a link to a missing live detail.
+A later matching product is an independent history item. Former hard-deleted data
+and old Taken-then-Undo events without any surviving evidence cannot be recovered.
+
+Both synthetic PDF design variants now have four A4 pages: period intake graph and
+summary plus wellbeing graph/summary; full three-section routine and groups; all
+16 supplements on one readable table page; latest AI conclusion/score with only
+dates/scores for earlier conclusions. Missing diary days remain gaps and are
+excluded from averages. Today pending is separate from past unmarked occurrences.
+The generator checks page/footer overflow and all 16 table rows before printing.
+Samples contain no private data, real AI analysis or inferred causal health claims.
+Actual private data export remains a separate feature, not implied by sample PDFs.
+
+Deploy migration 018 before starting the API; the startup query now requires its
+column. Use a private backup and brief write pause. Do not apply to the toolkit or
+other projects. Existing nav top layer and launch-only auto-update remain intact.
+
 ## 0.31.1 — persistent nonmodal navigation layer
 
 The same iPhone partial-navigation overpaint was reported again after 0.30.1.

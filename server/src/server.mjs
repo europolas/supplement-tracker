@@ -39,7 +39,7 @@ const tracker = new TrackerApi(pool, api, {vault:createCredentialVault(Buffer.fr
 await pool.query("UPDATE analysis_jobs SET result=JSON_SET(result,'$.review.status','failed') WHERE status='running' AND JSON_UNQUOTE(JSON_EXTRACT(result,'$.review.status'))='checking'");
 await pool.query("UPDATE analysis_jobs SET result=JSON_SET(COALESCE(result,'{}'),'$.failedPhase',phase),status='failed',error_code='AI_JOB_INTERRUPTED',phase='done',finished_at=UTC_TIMESTAMP(3) WHERE status='running'");
 // Keep recognized products after restart; mark interrupted enrichment retryable.
-await pool.query("UPDATE supplements SET analysis=JSON_SET(analysis,'$.enrichment.status','failed','$.enrichment.error','AI_JOB_INTERRUPTED') WHERE JSON_UNQUOTE(JSON_EXTRACT(analysis,'$.enrichment.status')) IN ('queued','researching')");
+await pool.query("UPDATE supplements SET analysis=JSON_SET(analysis,'$.enrichment.status','failed','$.enrichment.error','AI_JOB_INTERRUPTED') WHERE deleted_at IS NULL AND JSON_UNQUOTE(JSON_EXTRACT(analysis,'$.enrichment.status')) IN ('queued','researching')");
 const transport = process.env.SMTP_HOST && process.env.SMTP_FROM ? nodemailer.createTransport({
   host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587),
   secure: process.env.SMTP_PORT === '465', requireTLS: true,

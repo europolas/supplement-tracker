@@ -33,3 +33,8 @@ test('recurring schedules count individual slots and never rewrite earlier plans
  const days=usageCalendar({...base,intakeHistory,completions:[{supplement_id:'one',local_day:'2026-10-14',slot:'08:00',quantity:2,unit:'capsule',completed_at:'2026-10-14T05:10:00Z'}]}).days;
  assert.equal(days.find(d=>d.day==='2026-10-13').total,0);assert.equal(days.find(d=>d.day==='2026-10-14').total,2);assert.equal(days.find(d=>d.day==='2026-10-14').counts.taken,1);assert.equal(days.find(d=>d.day==='2026-10-14').counts.missed,1);assert.equal(days.find(d=>d.day==='2026-10-16').total,1);
 });
+test('removed products keep real intakes but never create later planned/missed slots',()=>{
+ const deleted={...product,deleted_at:'2026-10-14T10:00:00Z'},completions=[{supplement_id:'one',local_day:'2026-10-14',completed_at:'2026-10-14T05:10:00Z'}];
+ const result=usageCalendar({...base,products:[deleted,{...product,id:'new',created_at:'2026-10-16T08:00:00Z'}],completions});
+ assert.equal(result.days.find(d=>d.day==='2026-10-13').counts.missed,1);const old=result.days.find(d=>d.day==='2026-10-14').items[0];assert.equal(old.status,'taken');assert.equal(old.deleted,true);assert.equal(result.days.find(d=>d.day==='2026-10-15').items.length,0);const today=result.days.find(d=>d.day==='2026-10-16');assert.equal(today.items.length,1);assert.equal(today.items[0].id,'new');assert.equal(today.counts.taken,0);
+});

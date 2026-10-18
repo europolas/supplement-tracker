@@ -29,6 +29,8 @@ export function usageCalendar({from,to,zone,now,products,groups,completions,paus
    for(const c of done)if(!slots.some(s=>s.slot===(c.slot||'daily')))slots.push({slot:c.slot||'daily',time:c.slot&&c.slot!=='daily'?c.slot:null,quantity:c.quantity||1,unit:c.unit||'unit'});
    for(const occurrence of slots){
    const completion=done.find(c=>(c.slot||'daily')===occurrence.slot);
+   // Retain real intakes, but stop planning unrecorded slots after removal.
+   if(!completion&&product.deleted_at&&new Date(product.deleted_at)<=cutoff)continue;
    const pause=(periods.get(product.id)||[]).find(p=>new Date(p.started_at)<=cutoff&&(!p.resumed_at||new Date(p.resumed_at)>cutoff)&&(!p.resume_on||dayInZone(cutoff,p.timezone)<dateOnly(p.resume_on)));
    const analysis=typeof product.analysis==='string'?JSON.parse(product.analysis):product.analysis;
    const captured=completion?.group_snapshot?(typeof completion.group_snapshot==='string'?JSON.parse(completion.group_snapshot):completion.group_snapshot):null;
@@ -36,7 +38,7 @@ export function usageCalendar({from,to,zone,now,products,groups,completions,paus
    const snapshot=captured||assignment&&{groupId:assignment.group_id,name:assignment.group_name,icon:assignment.group_icon,position:assignment.group_position},known=Boolean(snapshot);
    const groupKey=known?createHash('sha256').update(JSON.stringify([snapshot.groupId,snapshot.name,snapshot.icon,snapshot.position])).digest('hex'):'unknown';
    if(!dayGroups.has(groupKey))dayGroups.set(groupKey,{key:groupKey,id:snapshot?.groupId||null,name:snapshot?.name||null,icon:snapshot?.icon||'',position:snapshot?.position??2147483647,unknown:!known});
-   items.push({id:product.id,slot:occurrence.slot,time:occurrence.time,quantity:completion?.quantity||occurrence.quantity,unit:completion?.unit||occurrence.unit,name:product.name,manufacturer:analysis.manufacturer||'',groupId:snapshot?.groupId||null,groupKey,status:completion?'taken':pause?'paused':day===today?'pending':'missed',completedAt:completion?new Date(completion.completed_at).toISOString():null,resumeOn:pause?dateOnly(pause.resume_on):null});
+   items.push({id:product.id,deleted:Boolean(product.deleted_at),slot:occurrence.slot,time:occurrence.time,quantity:completion?.quantity||occurrence.quantity,unit:completion?.unit||occurrence.unit,name:product.name,manufacturer:analysis.manufacturer||'',groupId:snapshot?.groupId||null,groupKey,status:completion?'taken':pause?'paused':day===today?'pending':'missed',completedAt:completion?new Date(completion.completed_at).toISOString():null,resumeOn:pause?dateOnly(pause.resume_on):null});
    }
   }
   const counts=Object.fromEntries(['taken','missed','pending','paused'].map(s=>[s,items.filter(i=>i.status===s).length]));days.push({day,future,items,groups:[...dayGroups.values()].sort((a,b)=>a.position-b.position),counts,total:items.length-counts.paused});

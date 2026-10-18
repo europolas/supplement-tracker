@@ -26,10 +26,10 @@ export function createUsageCalendar({root,i18n,icon,groupIcon,request,onProduct,
  }
  function stateGlyph(status){const glyph=element('span',{className:'usage-state usage-state-'+status,attributes:{'aria-hidden':'true'}});if(status==='taken')glyph.append(icon('check'));else if(status==='paused')glyph.append(icon('pause'));else if(status==='missed')glyph.append(text('span','−'));else glyph.append(icon('clock'));return glyph;}
  function productRow(item,paused=false){
-  const row=button('',()=>onProduct(item.id),'usage-product'),label=productLabel({name:item.name,manufacturer:item.manufacturer});
+  const row=item.deleted?element('div',{className:'usage-product usage-product-archived'}):button('',()=>onProduct(item.id),'usage-product'),label=productLabel({name:item.name,manufacturer:item.manufacturer});
   if(!paused)row.append(stateGlyph(item.status));const copy=element('span',{className:'usage-product-copy'});copy.append(text('strong',label.name+(item.time?' · '+item.time:'')));
   if(paused){const returning=item.resumeOn?t('appUsageReturns',{date:titleDay(item.resumeOn)}):t('appPausedManual'),historical=(data.days.find(d=>d.day===selected)?.groups||[]).find(g=>g.key===item.groupKey),name=historical?(historical.unknown?t('appUsageUnknownGroup'):historical.name||t('appUnassigned')):'';copy.append(text('small',(name?name+' · ':'')+returning));}else if(label.manufacturer)copy.append(text('small',label.manufacturer));
-  row.append(copy);if(!paused){const value=item.status==='taken'?new Intl.DateTimeFormat(i18n.language,{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:data.timezone}).format(new Date(item.completedAt)):t('appUsageStatus_'+item.status);row.append(text('span',value,'usage-product-time'));}return row;
+  if(item.deleted)copy.append(text('small',t('appUsageDeleted')));row.append(copy);if(!paused){const value=item.status==='taken'?new Intl.DateTimeFormat(i18n.language,{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:data.timezone}).format(new Date(item.completedAt)):t('appUsageStatus_'+item.status);row.append(text('span',value,'usage-product-time'));}return row;
  }
  function render(){
   language=i18n.language;root.replaceChildren();const wrap=element('div',{className:'usage-calendar',attributes:{'aria-busy':String(loading)}});

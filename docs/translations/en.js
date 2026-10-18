@@ -110,7 +110,7 @@ export default Object.freeze({
   "appSecurity": "Security",
   "appTools": "Tools",
   "appDiagnosticsShort": "Diagnostics and system status",
-  "appGroupsKept": "Your groups are kept",
+  "appGroupsKept": "Your groups and recorded usage are kept",
   "appAdminToolsHelp": "View, block or unblock users",
   "appConnected": "Connected",
   "appNotConnected": "Not connected",
@@ -391,5 +391,13 @@ export default Object.freeze({
   "appConclusionHistoryCount": "{count} supplements at the time of analysis",
   "appConclusionHistoryEmpty": "No saved conclusions yet. Generate a conclusion to start your history.",
   "appConclusionLoadMore": "Load more",
-  "appConclusionHistoryTitle": "AI conclusion history"
+  "appConclusionHistoryTitle": "AI conclusion history",
+  "appConclusionScoreTitle": "Routine and supplement plan score",
+  "appConclusionScoreHelp": "AI assessment of plan coherence. This is not a health score or a guarantee of safety.",
+  "appConclusionScoreMissing": "This conclusion was generated before scoring was added.",
+  "appConclusionScoreShort": "Score: {score} / 100",
+  "appUsageDeleted": "Removed from routine",
+  "appDeleteSupplementConfirm": "Remove this supplement from your routine? Recorded usage will be kept.",
+  "appClearSupplementsConfirm": "Remove all supplements from your active routine and clear AI requests and conclusions? Recorded usage, groups and your saved AI key will remain. This cannot be undone.",
+  "appClearSupplementsDone": "Active supplements and AI requests cleared. Recorded usage and groups kept."
 });

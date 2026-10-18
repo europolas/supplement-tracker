@@ -110,7 +110,7 @@ export default Object.freeze({
   "appSecurity": "Saugumas",
   "appTools": "Įrankiai",
   "appDiagnosticsShort": "Diagnostika ir sistemos būsena",
-  "appGroupsKept": "Tavo grupės išsaugomos",
+  "appGroupsKept": "Grupės ir užfiksuotas vartojimas išsaugomi",
   "appAdminToolsHelp": "Peržiūrėti, blokuoti arba atblokuoti vartotojus",
   "appConnected": "Prijungta",
   "appNotConnected": "Neprijungta",
@@ -390,5 +390,13 @@ export default Object.freeze({
   "appConclusionHistoryCount": "Analizės metu: {count} papildų",
   "appConclusionHistoryEmpty": "Išsaugotų išvadų dar nėra. Sugeneruok išvadą ir ji atsiras istorijoje.",
   "appConclusionLoadMore": "Rodyti daugiau",
-  "appConclusionHistoryTitle": "AI išvadų istorija"
+  "appConclusionHistoryTitle": "AI išvadų istorija",
+  "appConclusionScoreTitle": "Rutinos ir papildų plano įvertinimas",
+  "appConclusionScoreHelp": "AI vertina plano suderinamumą. Tai nėra sveikatos rodiklis ar saugumo garantija.",
+  "appConclusionScoreMissing": "Ši išvada sugeneruota prieš įvedant balus.",
+  "appConclusionScoreShort": "Įvertinimas: {score} / 100",
+  "appUsageDeleted": "Pašalintas iš rutinos",
+  "appDeleteSupplementConfirm": "Pašalinti šį papildą iš rutinos? Užfiksuotas vartojimas bus išsaugotas.",
+  "appClearSupplementsConfirm": "Pašalinti visus papildus iš aktyvios rutinos ir išvalyti AI užklausas bei išvadas? Užfiksuotas vartojimas, grupės ir išsaugotas AI raktas liks. Šio veiksmo atšaukti negalima.",
+  "appClearSupplementsDone": "Aktyvūs papildai ir AI užklausos išvalyti. Užfiksuotas vartojimas ir grupės išsaugoti."
 });
