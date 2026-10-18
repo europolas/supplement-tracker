@@ -81,3 +81,43 @@ const viewer = createImageViewer({labels: () => ({
 previewButton.onclick = () => viewer.open(preparedImage, {alt:'Product label'});
 // On logout: viewer.close(); on final teardown: viewer.destroy();
 ```
+
+Server example: [Gemini structured transport](../examples/gemini-structured.mjs), single-request extraction or opt-in grounding; see [AI.md](AI.md).
+
+Browser example: [custom icon input](../examples/custom-icon.js), static allowlisted SVG or a Bootstrap Icons class element. See [CUSTOM-ICONS.md](CUSTOM-ICONS.md).
+
+Server example: [supplement research evidence](../examples/supplement-research-evidence.mjs), source-ID binding, identity preservation and exact NIH label verification; see [RESEARCH-EVIDENCE.md](RESEARCH-EVIDENCE.md).
+
+Browser example: [password visibility](../examples/password-visibility.js), opt-in
+accessible show/hide controls around existing password inputs. See [PASSWORD-VISIBILITY.md](PASSWORD-VISIBILITY.md).
+
+Server example: [cached analysis localization](../examples/analysis-localization.mjs),
+whitelisted descriptive text, fingerprinted variants and numeric-token validation.
+See [ANALYSIS-LOCALIZATION.md](ANALYSIS-LOCALIZATION.md).
+
+## Mobile workflow components (1.12.0)
+
+| Module | Public surface | Guide |
+| --- | --- | --- |
+| mobile-ui | createSheet / createMobileNavigation / createProgress / createLoadingScreen | [Mobile workflows](MOBILE-WORKFLOWS.md) |
+| wizard | createWizard | [Mobile workflows](MOBILE-WORKFLOWS.md) |
+| selection-sheet | createSelectionSheet | [Mobile workflows](MOBILE-WORKFLOWS.md) |
+| job-monitor | createJobMonitor | [Mobile workflows](MOBILE-WORKFLOWS.md) |
+| proposal-review | createProposalReview | [Mobile workflows](MOBILE-WORKFLOWS.md) |
+| activity-calendar | createActivityCalendar | [Mobile workflows](MOBILE-WORKFLOWS.md) |
+| pause-editor | createPauseEditor | [Mobile workflows](MOBILE-WORKFLOWS.md) |
+| report-view | createReportView | [Mobile workflows](MOBILE-WORKFLOWS.md) |
+| server/workflow-store | createSqlWorkflowStore / createJobService / createProposalService / createReportService / workflowFingerprint / allowedProfile | [Server workflows](WORKFLOWS.md) |
+| server/activity-history | buildActivityHistory / createPause / pauseActive / localMidnight / calendarDay / shiftDay | [Server workflows](WORKFLOWS.md) |
+
+Example: [resilient localization provider](../examples/localization-provider.mjs).
+The starter gallery provides live local examples; no AI keys or paid work required.
+The starter now shows startup loading/retry and enables guarded automatic updates.
+
+## Change history and launch contract
+
+[CHANGELOG.md](../CHANGELOG.md) maps every 1.12 transfer to its file/API and records
+the final update policy. setupPwa now exposes waitForStartup() and finishStartup();
+automatic activation is permitted only during startup loading. Call finishStartup
+before interactive content, and keep canReload guards for manual apply().
+Generated apps carry their own starter CHANGELOG.md plus modules/CHANGELOG.md.

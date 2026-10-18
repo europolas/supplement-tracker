@@ -86,7 +86,7 @@ npm install git+ssh://git@github.com/europolas/app-modules.git#v1.2.0
 ```
 
 Tai būsimos atskiros repozitorijos pavyzdys; dabartinės bibliotekos npm registre
-nepublikavome. `iphoneTest` yra monorepo, jo šaknies Git URL nėra šio npm paketo URL.
+nepublikavome. `pwa-toolkit` yra kanoninis monorepo; jo šaknies Git URL nėra šio npm paketo URL.
 Monorepo viduje npm gali naudoti `file:./packages/app-modules`.
 
 ```js
@@ -150,8 +150,29 @@ svarbių duomenų pagrindinis šaltinis turi būti jūsų serveris arba atsargin
 
 `setupViewport`, `setupGestures`, `setupPwa`, `watchNetwork`, router ir kamerų
 objektai pateikia valymo funkcijas; išmontuodami ekranus ar programėlę jas kvieskite.
-`auth-screen` UI kalba šiuo metu lietuvių; kitų kalbų žodynus jam reikia pridėti.
+`auth-screen` palaiko anglų ir lietuvių kalbas; anglų yra numatytoji ir atsarginė.
 
 Optional AI examples: [photo preparation, encrypted credentials and structured provider requests](docs/AI.md).
 
 `server/task-queue` provides bounded prioritized background work; see [TASKS.md](docs/TASKS.md).
+
+## Mobile workflows
+
+Version 1.12 adds optional mobile UI/sheet primitives, draft wizard and choices,
+job progress, proposal decisions, activity calendar, pause editor and report view.
+The starter Modules page contains local interactive examples. Startup loading and
+guarded automatic updates are integrated in the starter. See
+[mobile workflows](docs/MOBILE-WORKFLOWS.md) and [durable server workflows](docs/WORKFLOWS.md).
+Server SQL is opt-in; generated API endpoints and production databases are not
+changed automatically. No app-specific grouping/medical prompts are included.
+
+## Pakeitimų istorija ir galiojanti atnaujinimo politika
+
+Visi 1.12 perkėlimai, atsakingi failai, API, ribos ir versijų pataisos aprašyti
+[CHANGELOG.md](CHANGELOG.md). Šis failas įtrauktas į bibliotekos ZIP ir TGZ.
+
+Nuo 1.12.1 automatinis atnaujinimas leidžiamas tik paleidimo įkėlimo ekrane.
+Prieš rodant interaktyvų turinį būtina uždaryti langą su `finishStartup()`.
+Naudojama programėlė automatiškai nepersikrauna dėl laisvos būsenos, grįžimo
+iš fono, ryšio atsiradimo ar kito lango atnaujinimo. Rankinis `apply()` lieka
+aiškus veiksmas, kuriam vis dar taikomas `canReload`.

@@ -233,7 +233,7 @@ The notes below describing progressive research document historical releases and
 must not be interpreted as current production behavior. No database migration.
 
 
-Independent PWA generated from europolas/pwa-toolkit starter and app-modules 1.10.1.
+Independent PWA generated from europolas/pwa-toolkit starter; shared app-modules currently 1.12.2 (upgraded from 1.11.1).
 Sources: src/; versioned shared library: modules/; public build: docs/; API: server/.
 Design A uses sage/off-white with persisted light, dark and system/auto themes.
 English is the first-use default; Lithuanian remains an explicit saved choice.
@@ -838,3 +838,25 @@ until translation is ready. Retry translation submits up to four owned product I
 to the localization endpoint only. No recognition/research/addition is triggered.
 Per-product saved/stale/failed outcomes remain explicit. A job existence/owner lock
 prevents late translations after clear-all. No schema migration required.
+
+## 0.28.0 — app-modules 1.12.2 and launch-only automatic updates
+
+Upgraded the copied shared library from 1.11.1 to canonical pwa-toolkit 1.12.2
+(fab694d). App-specific EN/LT strings now live in src/translations/ and merge over
+the unchanged upstream dictionaries; the build includes these overlays. The existing
+copied password-visibility browser adapter remains compatible. Confirmations use
+the new shared lifecycle with the app's existing header and two action columns.
+
+setupPwa owns one bounded four-second startup check, covering registration,
+installation and activation. The app awaits waitForStartup() and calls
+finishStartup() before hiding its existing themed loading screen. onUpdate only
+offers the explicit Update Application action; it never calls apply automatically.
+No background/foreground/idle auto-update checks or reloads. Late/other-tab worker
+activation cannot reload interactive UI. Dirty form, photo, password, pending write,
+report and wizard guards still apply to manual updates. A stalled worker cannot
+leave the loading screen stuck. Saved-session restoration still precedes reveal.
+
+Generic workflow server files are included as library source only. No app API
+classes, SQL schema, data or deployment are upgraded by this frontend release.
+Validate unit and browser suites, including startup, late update, other-tab
+activation and blocked registration; preserve existing iPhone appearance.

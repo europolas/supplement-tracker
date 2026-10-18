@@ -1,6 +1,6 @@
 {
   "name": "@europolas/app-modules",
-  "version": "1.11.1",
+  "version": "1.12.2",
   "type": "module",
   "description": "Reusable browser and Node modules for mobile PWA applications",
   "files": [
@@ -10,7 +10,9 @@
     "README.md",
     "PROVENANCE.md",
     "docs",
-    "AGENTS.md"
+    "AGENTS.md",
+    "examples",
+    "CHANGELOG.md"
   ],
   "exports": {
     ".": "./src/index.js",
@@ -22,7 +24,12 @@
     "./server/credential-vault": "./server/credential-vault.mjs",
     "./server/structured-chat": "./server/structured-chat.mjs",
     "./server/structured-research": "./server/structured-research.mjs",
-    "./server/task-queue": "./server/task-queue.mjs"
+    "./server/task-queue": "./server/task-queue.mjs",
+    "./server/workflow-store": "./server/workflow-store.mjs",
+    "./server/activity-history": "./server/activity-history.mjs",
+    "./examples/*": "./examples/*.mjs",
+    "./examples/custom-icon": "./examples/custom-icon.js",
+    "./examples/password-visibility": "./examples/password-visibility.js"
   },
   "engines": {
     "node": ">=22"

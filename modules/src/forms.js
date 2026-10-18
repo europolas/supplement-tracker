@@ -15,7 +15,7 @@ export function bindForm(form, task, { onError = () => {}, onBusy = () => {} } =
     buttons.forEach(button => { button.disabled = true; });
     form.setAttribute('aria-busy', 'true'); onBusy(true);
     try { await task(readForm(form), form); } catch (error) { onError(error); }
-    finally { busy = false; buttons.forEach((button, i) => { button.disabled = states[i]; }); form.removeAttribute('aria-busy'); onBusy(false); }
+    finally { busy = false; buttons.forEach((button, i) => { button.disabled = states[i]; }); form.removeAttribute('aria-busy'); onBusy(false); form.dispatchEvent(new Event('app:idle', { bubbles: true })); }
   };
   form.addEventListener('submit', handler);
   return () => form.removeEventListener('submit', handler);

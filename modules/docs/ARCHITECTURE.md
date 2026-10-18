@@ -33,7 +33,10 @@ insertion accepts the bundled account.html, not API or user-provided markup.
 Account inputs sit beside translation spans so language changes preserve values.
 
 A service worker caches public static assets only. A content hash changes the
-cache version; updates wait for activation and cannot reload dirty or busy forms.
+cache version. Automatic updates are limited to the startup loading screen;
+finishStartup() closes this window before interactive content appears. Late or
+other-tab activation never reloads a running app. Manual updates still guard all
+dirty or busy forms.
 API requests remain uncached. Offline local data lives in IndexedDB/storage;
 remote operations require the API and an explicit idempotency strategy.
 
@@ -57,3 +60,20 @@ for the same record ID before replacing its DOM. A new record or logout resets i
 no private expansion history needs browser persistence. All remote text still uses
 element/textContent. The screen owns detached nodes/listeners; no external observer
 or timer is needed. This is a composition of existing element, not a new module.
+
+## Shared mobile workflows and ownership
+
+The starter owns startup.js, the loading screen and the bounded update window.
+Its Modules gallery composes optional browser modules through local callbacks.
+Wizard/selection drafts and private rendered data remain in session memory;
+reset/destroy and abort guards isolate old owner/date/language responses.
+
+Server workflow-store persists owner-scoped jobs, proposal decisions and reports
+through explicit SQL transactions. activity-history projects immutable assignment
+snapshots and pause periods; it does not rewrite history from current categories.
+The optional SQL is not applied by the generator. Public research input is separate
+from private synthesis and consent-controlled profile fields. App endpoints and
+business/medical policy stay in the consumer.
+
+For API contracts and cleanup see [mobile workflows](MOBILE-WORKFLOWS.md),
+[server workflows](WORKFLOWS.md) and the [release history](../CHANGELOG.md).

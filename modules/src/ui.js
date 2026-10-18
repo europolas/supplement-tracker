@@ -29,7 +29,13 @@ export function confirmDialog(message, { title, presentation = 'dialog', i18n = 
     dialog.append(heading, element('p', { text: message }, doc), element('button', { text: i18n.t('Cancel'), on: { click: () => finish(false) } }, doc), element('button', { text: i18n.t('Confirm'), className: 'primary', on: { click: () => finish(true) } }, doc));
     dialog.addEventListener('cancel', event => { if (presentation !== 'sheet') { event.preventDefault(); finish(false); } });
     doc.body.append(dialog);
-    if (presentation === 'sheet') { heading.tabIndex = -1; heading.setAttribute('data-sheet-focus', ''); heading.setAttribute('autofocus', ''); sheet = createBottomSheet(dialog, { onDismiss: () => finish(false) }); sheet.open(); } else dialog.showModal();
+    if (presentation === 'sheet') {
+      dialog.classList.add('kit-sheet');
+      const header=element('div',{className:'kit-sheet-header',attributes:{'data-sheet-drag':''}},doc);
+      const close=element('button',{text:'×',className:'kit-close',attributes:{type:'button','data-sheet-close':'','aria-label':i18n.t('kitClose')}},doc);
+      const buttons=[...dialog.querySelectorAll('button')],row=element('div',{className:'kit-actions kit-actions-pair'},doc);
+      row.append(...buttons);header.append(heading,close);dialog.prepend(element('div',{attributes:{'data-sheet-handle':'','aria-hidden':'true'}},doc),header);dialog.append(row);
+      heading.tabIndex = -1; heading.setAttribute('data-sheet-focus', ''); heading.setAttribute('autofocus', ''); sheet = createBottomSheet(dialog, { onDismiss: () => finish(false) }); sheet.open(); } else dialog.showModal();
   });
 }
 export function setStatus(node, state, message) { node.dataset.state = state; node.textContent = message; node.setAttribute('aria-busy', String(state === 'loading')); }

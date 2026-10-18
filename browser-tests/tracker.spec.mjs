@@ -696,8 +696,52 @@ test('a failed language request leaves original quantities, benefits and details
 });
 
 for(const legacyDictionary of [false,true])test('research heading is Lithuanian '+(legacyDictionary?'with a cached older dictionary':'with current translations'),async({page})=>{
- if(legacyDictionary)await page.route('**/modules/translations/*.js',async route=>{const response=await route.fetch();await route.fulfill({response,body:(await response.text()).replace('"appConclusionSection_research":','"unusedResearchHeading":')});});
+ if(legacyDictionary)await page.route('**/translations/*.js',async route=>{const response=await route.fetch();await route.fulfill({response,body:(await response.text()).replace('"appConclusionSection_research":','"unusedResearchHeading":')});});
  await mock(page,{preloaded:true});
  await page.route('https://perimove.com/supplement-api/v1/conclusions',route=>route.fulfill({json:{ready:true,hasSupplements:true,active:null,error:null,report:{id:'readable-report',createdAt:'2026-10-16T20:00:00Z',language:'lt',stale:false,sections:{research:'Naujesni tyrimai rodo, kad nauda gali būti nedidelė [S1].'},researchSources:[{id:'S1',title:'Tyrimas',url:'https://pubmed.ncbi.nlm.nih.gov/12345/'}],proposals:[]}}}));
  await login(page);await page.locator('.account-link').click();await page.locator('#settings-form [name=language]').selectOption('lt');await page.locator('#app-nav [data-route="/"]').click();await page.locator('#open-conclusion').click();const sheet=page.locator('#conclusion-dialog');await expect(sheet.locator('.conclusion-section h3')).toHaveText(legacyDictionary?'Informacijos šaltiniai':'Ką rodo naujausi tyrimai');await expect(sheet).not.toContainText('appConclusionSection_');
+});
+
+// Exercise the consumer lifecycle, not just setupPwa's standalone contract.
+async function startupWorker(page,{installing=false,blocked=false}={}){
+ await page.addInitScript(({installing,blocked})=>{
+  const registration=Object.assign(new EventTarget(),{waiting:null,installing:installing?Object.assign(new EventTarget(),{state:'installing'}):null,update:async()=>{window.workerChecks++;}});
+  const worker=Object.assign(new EventTarget(),{controller:{},register:()=>blocked?new Promise(()=>{}):Promise.resolve(registration)});
+  Object.defineProperty(navigator,'serviceWorker',{value:worker,configurable:true});
+  window.workerChecks=0;window.activationRequests=[];window.mockWorker=worker;window.mockRegistration=registration;
+  sessionStorage.setItem('upgradeBoots',String(Number(sessionStorage.getItem('upgradeBoots')||0)+1));
+  window.offerUpdate=()=>{
+   registration.waiting={postMessage:()=>window.activationRequests.push({loading:!document.querySelector('#startup-screen').hidden})};
+   if(!registration.installing){registration.installing=Object.assign(new EventTarget(),{state:'installing'});registration.dispatchEvent(new Event('updatefound'));}
+   registration.installing.state='installed';registration.installing.dispatchEvent(new Event('statechange'));
+  };
+ },{installing,blocked});
+}
+test('startup update stays behind loading screen and late activation cannot reload',async({page})=>{
+ await mock(page);await startupWorker(page,{installing:true});await page.goto('/');
+ await expect(page.locator('#startup-screen')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>window.workerChecks)).toBe(1);
+ await page.evaluate(()=>window.offerUpdate());
+ expect(await page.evaluate(()=>window.activationRequests)).toEqual([{loading:true}]);
+ await expect(page.locator('#startup-screen')).toBeHidden({timeout:6500});
+ await page.evaluate(()=>{window.mockRegistration.waiting=null;window.mockRegistration.installing=null;window.mockWorker.dispatchEvent(new Event('controllerchange'));});
+ await expect(page.locator('#update-button')).toBeVisible();
+ expect(await page.evaluate(()=>sessionStorage.getItem('upgradeBoots'))).toBe('1');
+});
+test('late updates and foreground/idle events never automatically activate or recheck',async({page})=>{
+ await mock(page);await startupWorker(page);await login(page);
+ const checks=await page.evaluate(()=>window.workerChecks);
+ await page.evaluate(()=>{window.offerUpdate();document.dispatchEvent(new Event('app:idle'));document.dispatchEvent(new Event('app:saved'));document.dispatchEvent(new Event('visibilitychange'));window.dispatchEvent(new Event('online'));window.dispatchEvent(new Event('pageshow'));});
+ await expect(page.locator('#update-button')).toBeVisible();
+ expect(await page.evaluate(()=>window.activationRequests)).toEqual([]);
+ expect(await page.evaluate(()=>window.workerChecks)).toBe(checks);
+ expect(await page.evaluate(()=>sessionStorage.getItem('upgradeBoots'))).toBe('1');
+ await page.locator('#update-button').click();
+ expect(await page.evaluate(()=>window.activationRequests)).toEqual([{loading:false}]);
+});
+test('blocked worker registration releases launch screen within bounded startup budget',async({page})=>{
+ await mock(page);await startupWorker(page,{blocked:true});await page.goto('/');
+ await expect(page.locator('#startup-screen')).toBeVisible();
+ await expect(page.locator('#startup-screen')).toBeHidden({timeout:6500});
+ await expect(page.locator('#login-form')).toBeVisible();
 });

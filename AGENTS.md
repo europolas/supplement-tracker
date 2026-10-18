@@ -1,3 +1,25 @@
+## 0.28.0 — app-modules 1.12.2 and launch-only automatic updates
+
+Upgraded the copied shared library from 1.11.1 to canonical pwa-toolkit 1.12.2
+(fab694d). App-specific EN/LT strings now live in src/translations/ and merge over
+the unchanged upstream dictionaries; the build includes these overlays. The existing
+copied password-visibility browser adapter remains compatible. Confirmations use
+the new shared lifecycle with the app's existing header and two action columns.
+
+setupPwa owns one bounded four-second startup check, covering registration,
+installation and activation. The app awaits waitForStartup() and calls
+finishStartup() before hiding its existing themed loading screen. onUpdate only
+offers the explicit Update Application action; it never calls apply automatically.
+No background/foreground/idle auto-update checks or reloads. Late/other-tab worker
+activation cannot reload interactive UI. Dirty form, photo, password, pending write,
+report and wizard guards still apply to manual updates. A stalled worker cannot
+leave the loading screen stuck. Saved-session restoration still precedes reveal.
+
+Generic workflow server files are included as library source only. No app API
+classes, SQL schema, data or deployment are upgraded by this frontend release.
+Validate unit and browser suites, including startup, late update, other-tab
+activation and blocked registration; preserve existing iPhone appearance.
+
 ## 0.27.8 — conclusions without displayed sources
 
 Grounded research remains mandatory, but the synthesis prompt omits source IDs,
@@ -388,8 +410,8 @@ Read README.md, then modules/docs/ARCHITECTURE.md, MODULES.md and LOCALIZATION.m
 Edit src/ for app behavior; modules/ is the copied versioned library. docs/ is
 regenerated public output, not developer documentation. server/ is optional.
 
-English is the default, Lithuanian the explicit second language. Add every UI key
-to both modules/src/translations dictionaries. Preserve saved language choices,
+English is the default, Lithuanian the explicit second language. Add app UI keys to both src/translations dictionaries; shared toolkit keys stay
+in modules/src/translations. Preserve saved language choices,
 translation spans around form labels, and the iPhone fixes in modules/docs/IPHONE.md.
 
 Never commit .runtime or include it in builds/archives. Never use another project's

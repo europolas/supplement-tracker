@@ -1,8 +1,10 @@
+import appEn from './translations/en.js';
+import appLt from './translations/lt.js';
 /** Cloud tracker composition. Reuses toolkit auth/forms/viewport/worker and never
  * stores API keys, photos or account records in browser persistence. Session-scoped
  * in-memory state is cleared on logout, including open dialogs and pending requests.
  */
-import {createConfig,createStorage,createSettings,createTheme,createI18n,createRouter,createToast,
+import {createConfig,createStorage,createSettings,createTheme,createI18n,dictionaries,createRouter,createToast,
  bindForm,trackDirty,setupViewport,setupGestures,setupPwa,watchNetwork,createAuth,setupAccount,
  element,confirmDialog as nativeConfirmDialog,prepareImage,localDay,compactText,createBottomSheet,productLabel,createImageViewer} from './modules/index.js';
 import {setupPasswordVisibility} from './modules/password-visibility.js';
@@ -60,13 +62,14 @@ for(const node of document.querySelectorAll('[data-icon]'))node.append(icon(node
 // action owns dismissal/cleanup, so X also resolves false and preserves drafts.
 function confirmDialog(message,options){
  const result=nativeConfirmDialog(message,{...options,presentation:'sheet'}),dialog=[...document.querySelectorAll('dialog[aria-labelledby^="dialog-"]')].at(-1);
- const title=dialog.querySelector('h2'),cancel=dialog.querySelector('button:not(.primary)'),header=element('div',{className:'sheet-header',attributes:{'data-sheet-drag':''}}),close=element('button',{className:'icon-button',attributes:{type:'button','aria-label':i18n.t('appClose')}});
+ const title=dialog.querySelector('h2'),cancel=dialog.querySelector('.kit-actions button:not(.primary)'),header=element('div',{className:'sheet-header',attributes:{'data-sheet-drag':''}}),close=element('button',{className:'icon-button',attributes:{type:'button','aria-label':i18n.t('appClose')}});
+ dialog.classList.remove('kit-sheet');const actions=dialog.querySelector('.kit-actions');dialog.append(...actions.children);actions.remove();dialog.querySelector('.kit-sheet-header').remove();dialog.querySelector('[data-sheet-handle]').remove();
  close.append(icon('close'));close.addEventListener('click',()=>cancel.click());header.append(title,close);dialog.prepend(element('div',{attributes:{'data-sheet-handle':'','aria-hidden':'true'}}),header);title.focus({preventScroll:true});return result;
 }
 const config=createConfig(await(await fetch('./app.config.json')).json());
 const get=id=>document.getElementById(id),storage=createStorage(config.id);
 const settings=createSettings(storage,{language:config.language,theme:config.theme},{language:v=>['en','lt'].includes(v),theme:v=>['light','dark','system'].includes(v)});
-const theme=createTheme({storage}),i18n=createI18n(undefined,settings.state.get().language),toast=createToast(get('toast')),network=watchNetwork();
+const theme=createTheme({storage}),i18n=createI18n({en:{...dictionaries.en,...appEn},lt:{...dictionaries.lt,...appLt}},settings.state.get().language),toast=createToast(get('toast')),network=watchNetwork();
 theme.set(settings.state.get().theme);
 setupViewport();setupGestures(config.interaction);
 // This is a trusted bundled template; user and AI content always use textContent.
@@ -77,7 +80,7 @@ get('admin-tools').append(get('admin-panel'));get('logout-slot').append(get('log
 const auth=createAuth({id:config.id,baseUrl:config.apiUrl,persistence:'persistent',timeout:100000});
 // Hold the launch screen until saved-session validation and public updates finish.
 // Never persist private dashboard/profile data just to avoid a login flash.
-let starting=true,pwaReady=false,applyingStartupUpdate=false;
+let starting=true,pwaReady=false,pwa;
 let restoringSession=Boolean(auth.getToken())&&!new URLSearchParams(location.hash.slice(1)).has('reset'),restorePending;
 const restoreAuth=auth.restore;
 auth.restore=()=>restorePending||=(async()=>{try{return await restoreAuth();}finally{restorePending=null;restoringSession=Boolean(auth.getToken())&&!auth.state.get().user;if(router){render();if(current()){router.navigate('/');showRoute('/');}else if(restoringSession)showRoute('/');else router.navigate('/account');}}})();
@@ -388,14 +391,16 @@ function renderAi(){
  if(!editing){select.replaceChildren(...state.ai.models.map(model=>element('option',{text:model,attributes:{value:model}})));select.value=state.ai.model;}
 }
 function finishStartup(){
- if(!starting||!pwaReady||applyingStartupUpdate||restoringSession||(current()&&!appReady))return;
+ if(!starting||!pwaReady||restoringSession||(current()&&!appReady))return;
+ // Permanently close automatic activation BEFORE revealing interactive content.
+ pwa.finishStartup();
  starting=false;get('startup-progress').setAttribute('aria-valuenow','100');
  document.documentElement.dataset.starting='false';get('startup-screen').hidden=true;
  const route=current()?'/':'/account';router.navigate(route);showRoute(route);
 }
 function render(){
  get('startup-progress').setAttribute('aria-label',i18n.t('appLoading'));
- get('startup-progress').setAttribute('aria-valuenow',String(applyingStartupUpdate?90:appReady?80:current()?55:30));
+ get('startup-progress').setAttribute('aria-valuenow',String(appReady?80:current()?55:30));
  finishStartup();
  const booting=restoringSession||Boolean(current()&&!appReady);document.documentElement.dataset.sessionRestoring=String(booting);document.querySelector('main').setAttribute('aria-busy',String(booting));get('add-supplement').disabled=booting;
  get('diagnostics-link').hidden=!current();renderAccount();renderDiagnostics();
@@ -664,15 +669,13 @@ function scheduleMidnight(){clearTimeout(midnightTimer);const next=new Date();ne
 scheduleMidnight();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshDay();scheduleMidnight();}});
 window.addEventListener('focus',()=>{if(restoringSession&&!current())void auth.restore().catch(failure);else refreshDay();});
 let applyUpdate;
-const pwa=await setupPwa({canReload:()=>!conclusion.busy&&!routineWizard.dirty&&!routineWizard.saving&&!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
- onUpdate:({apply})=>{if(starting){applyingStartupUpdate=true;get('startup-progress').setAttribute('aria-valuenow','90');apply();}else{applyUpdate=apply;get('update-button').hidden=false;}},onError:()=>{}});
-// A bounded public-worker check keeps offline launches usable. Existing/found
-// updates activate behind the launch screen; later updates respect unsaved edits.
-if(pwa.registration)await Promise.race([(async()=>{
- try{await pwa.registration.update();}catch{return;}
- const worker=pwa.registration.installing;
- if(worker&&!['installed','redundant','activated'].includes(worker.state))await new Promise(resolve=>{const changed=()=>{if(['installed','redundant','activated'].includes(worker.state)){worker.removeEventListener('statechange',changed);resolve();}};worker.addEventListener('statechange',changed);changed();});
-})(),new Promise(resolve=>setTimeout(resolve,3500))]);
+pwa=await setupPwa({autoUpdate:true,startupTimeout:4000,canReload:()=>!conclusion.busy&&!routineWizard.dirty&&!routineWizard.saving&&!photo.length&&!sending&&writes===0&&(starting||!document.querySelector('dialog[open], form[aria-busy="true"]'))&&!dirty.some(({tracker})=>tracker.dirty)&&![...document.querySelectorAll('input[type="password"]')].some(node=>node.value),
+ // The module owns automatic activation. Calling apply here would count as a
+ // manual action and could reload after the launch screen has already closed.
+ onUpdate:({apply})=>{applyUpdate=apply;get('update-button').hidden=false;},onError:()=>{}});
+// One bounded startup check, including registration/installation/activation.
+// Offline or stalled workers release the splash; late updates stay manual.
+await pwa.waitForStartup();
 pwaReady=true;render();
 get('update-button').addEventListener('click',()=>{try{applyUpdate?.();}catch(error){failure(error);}});
 

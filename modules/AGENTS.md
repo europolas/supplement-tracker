@@ -33,3 +33,12 @@ and release rules. Adding an example does not automatically upgrade other apps.
 
 This is a standing user instruction, recorded on 2026-10-13 in JOURNAL.jsonl at
 the canonical repository root. Carry it into each generated application's AGENTS.md.
+
+## Startup-only automatic updates
+
+Automatic updates are allowed only while the launch loading screen is visible.
+Use setupPwa({autoUpdate:true}), await waitForStartup(), then call finishStartup()
+BEFORE revealing interactive content. Preserve the bounded default 4s budget and
+dirty/editor/task guards. Never add idle, foreground, online or periodic automatic
+reloads; another tab activating a worker must not reload a running app. Manual
+apply() remains explicit and guarded. See the mobile workflows guide and changelog.

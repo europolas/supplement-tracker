@@ -24,3 +24,8 @@ naršyklės testai nepakeičia iPhone leidimų ir klaviatūros patikrinimo.
 Canonical development repository: `europolas/pwa-toolkit`. Original provenance and
 example-v1 history remain in `europolas/iphoneTest`; this import includes its
 toolkit-v1.1.2 source plus isolated demo/preview namespaces and repository guides.
+
+2026-10-18: extracted generic mobile workflows from Supplement Tracker 0.27.8.
+Includes UI layout conventions, wizard/choices, durable progress and decisions,
+read-only historical categories, pauses, report state and resilient localization.
+Domain supplement/medical rules, private records and deployment secrets excluded.

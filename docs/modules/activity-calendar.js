@@ -1,0 +1,24 @@
+/** Generic read-only week/month activity history. Historical category labels come
+ * from each day snapshot, never from today's category list. Abort stale account,
+ * language/date requests. No private cache/storage and no implicit writes.
+ */
+import {element} from './ui.js';
+import {createI18n} from './i18n.js';
+const day=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+const shift=(value,n)=>{const date=new Date(value+'T12:00:00');date.setDate(date.getDate()+n);return day(date);};
+const monday=value=>shift(value,-((new Date(value+'T12:00:00').getDay()+6)%7));
+export function createActivityCalendar({root,read,i18n=createI18n(),onItem=()=>{},today=()=>day(new Date())}){
+ let selected=today(),mode='week',filter='all',data=null,epoch=0,controller,active=false,error='';
+ const make=(tag,text,cls)=>element(tag,{text,className:cls},root.ownerDocument);
+ const button=(label,click,pressed)=>{const b=element('button',{text:label,attributes:{type:'button',...(pressed!==undefined?{'aria-pressed':String(pressed)}:{})}},root.ownerDocument);b.addEventListener('click',click);return b;};
+ function range(){if(mode==='week'){const from=monday(selected);return {from,to:shift(from,6)};}const first=selected.slice(0,7)+'-01',d=new Date(first+'T12:00:00');d.setMonth(d.getMonth()+1);d.setDate(0);return {from:monday(first),to:shift(monday(day(d)),6)};}
+ function render(){root.replaceChildren();const controls=make('div',undefined,'kit-actions kit-actions-pair');for(const value of ['week','month'])controls.append(button(i18n.t('kit_'+value),()=>{mode=value;void refresh();},mode===value));root.append(controls);const nav=make('div',undefined,'kit-calendar-nav');nav.append(button('‹',()=>navigate(-1)),make('strong',new Intl.DateTimeFormat(i18n.language,{month:'long',year:'numeric'}).format(new Date(selected+'T12:00:00'))),button('›',()=>navigate(1)));nav.firstChild.setAttribute('aria-label',i18n.t('kitPrevious'));nav.lastChild.setAttribute('aria-label',i18n.t('kitNext'));root.append(nav);
+ if(error)root.append(element('p',{text:error,attributes:{role:'alert'}},root.ownerDocument));if(!data){root.append(make('p',i18n.t('kitLoading')));return;}
+ const grid=make('div',undefined,'kit-calendar-grid');for(const record of data.days){const b=button(String(+record.day.slice(-2)),()=>{selected=record.day;render();},selected===record.day);b.disabled=Boolean(record.future);b.setAttribute('aria-label',new Intl.DateTimeFormat(i18n.language,{dateStyle:'full'}).format(new Date(record.day+'T12:00:00')));if(record.total)b.append(make('small',`${record.counts.done||0}/${record.total}`));grid.append(b);}root.append(grid);
+ const record=data.days.find(d=>d.day===selected);if(!record)return;root.append(make('h3',new Intl.DateTimeFormat(i18n.language,{dateStyle:'long'}).format(new Date(selected+'T12:00:00'))));const filters=make('div',undefined,'kit-choices');for(const value of ['all','done','pending','missed','paused'])filters.append(button(i18n.t('kit_'+value),()=>{filter=value;render();},filter===value));root.append(filters);
+ const groups=new Map();for(const item of record.items.filter(i=>filter==='all'||i.status===filter)){const key=JSON.stringify(item.category);if(!groups.has(key))groups.set(key,{category:item.category,items:[]});groups.get(key).items.push(item);}for(const {category,items}of groups.values()){const group=make('section',undefined,'kit-calendar-group kit-card');group.append(make('h3',category?.name||i18n.t('kitUnknownCategory')));for(const item of items){const row=button('',()=>onItem(item));row.className='kit-history-row';const copy=make('span');copy.append(make('strong',item.name),make('small',item.subtitle||''));row.append(copy,make('span',i18n.t('kit_'+item.status)));group.append(row);}root.append(group);}if(!groups.size)root.append(make('p',i18n.t('kitNoRecords')));
+ }
+ function navigate(direction){if(mode==='week')selected=shift(selected,direction*7);else{const d=new Date(selected+'T12:00:00'),original=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+direction);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(original,last));selected=day(d);}filter='all';void refresh();}
+ async function refresh(){if(!active)return;const version=++epoch;controller?.abort();controller=new AbortController();error='';data=null;render();try{const result=await read({...range(),timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC',signal:controller.signal});if(version===epoch)data=result;}catch(e){if(version===epoch&&e.name!=='AbortError')error=i18n.message(e.message);}finally{if(version===epoch)render();}}
+ return {open(){active=true;return refresh();},refresh,reset(){epoch++;controller?.abort();data=null;active=false;selected=today();filter='all';root.replaceChildren();},destroy(){this.reset();}};
+}

@@ -125,3 +125,23 @@ consumer app's Fast/Expert labels. Benchmark the actual task rather than promisi
 a fixed latency. Keep detailed web research in the background and disclose its cost.
 See [Grok 4.3](https://docs.x.ai/developers/models/grok-4.3) and
 [reasoning](https://docs.x.ai/developers/model-capabilities/text/reasoning).
+
+## Gemini single-request example
+
+`../examples/gemini-structured.mjs` is an optional server-only adapter. It does not
+change the starter provider. Copy it beside the structured-chat/research modules
+and adjust the two imports. Pass `{key, model, messages, schema, validate}`; the
+key comes from a per-owner encrypted credential vault, never from browser bundles.
+The result contains validated JSON, model, usage and grounded citations. Images
+are inline JPEG/PNG data URLs. Requests use LOW thinking and HIGH media resolution.
+There are no retries. Abort deadlines and a 512 KiB response bound limit work.
+Provider schema length constraints are removed for compatibility; callers MUST
+enforce lengths, array counts and ownership in `validate`. Never trust model IDs
+or foreign group IDs supplied by model output.
+
+`requireSearch:false` makes exactly one HTTP request. Explicitly requested research
+can enable Google Search; it requires grounding metadata and may resolve only
+Google grounding proxy redirects without following their destinations. API errors
+are sanitized. No prompts/images/keys are stored and no cleanup hook is needed.
+This is a transport example, not a medical classifier or source-verification
+policy. Applications must validate citations and product evidence separately.

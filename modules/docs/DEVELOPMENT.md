@@ -24,3 +24,18 @@ push and verify Actions + live assets. Tag a new version without moving old tags
 The parent deployment exposes original demo, /starter/ and /downloads/. Consumers
 must deliberately upgrade their copied module version; existing app databases and
 secrets never move automatically between projects.
+
+## Documenting shared transfers
+
+Update the starter CHANGELOG.md/PROJECT-README.md and library CHANGELOG.md for
+user-visible transfers. Keep MODULES.md, ARCHITECTURE.md and feature guides aligned;
+carry persistent rules into canonical and generated AGENTS.md. JOURNAL.jsonl is
+the authoritative chronological record, not a replacement for these usage guides.
+
+Generated projects receive a root starter history and a versioned module history.
+Independent exports include both, and the npm files allowlist includes the module
+changelog. Verify archive contents after changing documentation packaging.
+Server workflow checks can run with bash scripts/test-workflows-isolated.sh in
+the parent toolkit; this creates temporary DB/container state and uses no production
+configuration. Documentation-only changes need assembly/generator verification,
+not production migrations or new paid AI calls.
